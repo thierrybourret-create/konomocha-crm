@@ -1272,7 +1272,7 @@
       <div class="page-head">
         <div><h1 class="page-title">Contacts</h1><div class="page-sub" id="contacts-meta">Loading…</div></div>
         <div class="page-actions">
-          <button class="btn btn-secondary" onclick="exportTable('contacts-tbody',['First Name','Last Name','Company','Country','Region','Phone','Email','Tags'],'contacts')">Export CSV</button>
+          <button class="btn btn-secondary" onclick="exportTable('contacts-tbody',['First Name','Last Name','Company','Country','Sales Region','Phone','Email','Tags'],'contacts')">Export CSV</button>
           <label class="btn btn-secondary" style="cursor:pointer;">Upload CSV<input type="file" id="contact-csv-upload" accept=".csv" style="display:none;" onchange="uploadContactCSV(this)"/></label>
           <button class="btn btn-primary" onclick="openNewContactModal('contact')">+ New Contact</button>
         </div>
@@ -1294,7 +1294,7 @@
               <th onclick="sortContacts('last_name')" style="cursor:pointer">Last Name <span id="sort-contact-last_name"></span></th>
               <th onclick="sortContacts('company')" style="cursor:pointer">Company <span id="sort-contact-company"></span></th>
               <th onclick="sortContacts('country')" style="cursor:pointer">Country <span id="sort-contact-country"></span></th>
-              <th onclick="sortContacts('region')" style="cursor:pointer">Region <span id="sort-contact-region"></span></th><th>Phone</th><th>Email</th><th onclick="sortContacts('tags')" style="cursor:pointer">Tags <span id="sort-contact-tags"></span></th>
+              <th onclick="sortContacts('region')" style="cursor:pointer">Sales Region <span id="sort-contact-region"></span></th><th>Phone</th><th>Email</th><th onclick="sortContacts('tags')" style="cursor:pointer">Tags <span id="sort-contact-tags"></span></th>
             </tr></thead>
             <tbody id="contacts-tbody"><tr><td colspan="8" style="text-align:center;padding:40px;color:var(--warm-grey);">Loading…</td></tr></tbody>
           </table>
@@ -1308,7 +1308,7 @@
       <div class="page-head">
         <div><h1 class="page-title">Companies</h1><div class="page-sub" id="companies-meta">Loading…</div></div>
         <div class="page-actions">
-          <button class="btn btn-secondary" onclick="exportTable('companies-tbody',['Company','Country','Region','Tags'],'companies')">Export CSV</button>
+          <button class="btn btn-secondary" onclick="exportTable('companies-tbody',['Company','Country','Sales Region','Tags'],'companies')">Export CSV</button>
           <button class="btn btn-primary" onclick="openNewContactModal('company')">+ New Company</button>
         </div>
       </div>
@@ -1327,7 +1327,7 @@
             <thead><tr>
               <th onclick="sortCompanies('company')" style="cursor:pointer">Company <span id="sort-company-company"></span></th>
               <th onclick="sortCompanies('country')" style="cursor:pointer">Country <span id="sort-company-country"></span></th>
-              <th onclick="sortCompanies('region')" style="cursor:pointer">Region <span id="sort-company-region"></span></th><th onclick="sortCompanies('tags')" style="cursor:pointer">Tags <span id="sort-company-tags"></span></th><th style="width:80px">Contacts</th>
+              <th onclick="sortCompanies('region')" style="cursor:pointer">Sales Region <span id="sort-company-region"></span></th><th onclick="sortCompanies('tags')" style="cursor:pointer">Tags <span id="sort-company-tags"></span></th><th style="width:80px">Contacts</th>
             </tr></thead>
             <tbody id="companies-tbody"><tr><td colspan="5" style="text-align:center;padding:40px;color:var(--warm-grey);">Loading…</td></tr></tbody>
           </table>

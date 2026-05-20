@@ -797,6 +797,18 @@
   .legend .lg-item { display: inline-flex; align-items: center; gap: 6px; }
   .legend .sw { width: 10px; height: 10px; border-radius: 50%; }
 
+  /* Sidebar collapsible */
+  .sb-section-toggle { cursor:pointer;user-select:none; }
+  .sb-section-toggle:hover { color:var(--navy); }
+  /* Quality report */
+  .fl { font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px; }
+  .q-tile { flex:1;padding:16px 20px;border-right:1px solid var(--line); }
+  .q-tile:last-child { border-right:none; }
+  .q-tile-num { font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:700;color:var(--navy);margin-bottom:4px; }
+  .q-tile-lbl { font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--warm-grey); }
+  .qf-pill { padding:5px 14px;border:1px solid var(--line);border-radius:20px;font:inherit;font-size:11px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer;background:#fff;color:var(--warm-grey); }
+  .qf-pill.qf-pill-active { background:var(--navy);color:#fff;border-color:var(--navy); }
+  .q-pill { display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;border:1px solid #FCA5A5;background:#FEF2F2;color:#B33A47;margin:1px; }
   /* Responsive */
   @media (max-width: 1180px) {
     .kpis { grid-template-columns: repeat(2, 1fr); }
@@ -854,8 +866,10 @@
       <div class="tag">CRM &middot; HK</div>
     </div>
 
-    <div class="sb-section">Navigation</div>
-    <nav class="sb-nav">
+    <div class="sb-section sb-section-toggle" onclick="toggleSbSection('nav')" id="sb-hdr-nav">
+      Navigation <span id="sb-chevron-nav" style="float:right;font-size:10px">▲</span>
+    </div>
+    <nav class="sb-nav" id="sb-body-nav">
       <button class="sb-item" data-view="dashboard">
         <svg class="sb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"></rect><rect x="14" y="3" width="7" height="5"></rect><rect x="14" y="12" width="7" height="9"></rect><rect x="3" y="16" width="7" height="5"></rect></svg>
         <span>Dashboard</span>
@@ -875,24 +889,25 @@
         <span>Pipeline</span>
         <span class="sb-count" id="sb-count-pipeline">—</span>
       </button>
-      <button class="sb-item" data-view="brands">
-        <svg class="sb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><circle cx="7" cy="7" r="1.5"></circle></svg>
-        <span>Brands</span>
-        <span class="sb-count" id="sb-count-brands">—</span>
-      </button>
       <button class="sb-item" data-view="orders">
         <svg class="sb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
         <span>Orders</span>
         <span class="sb-count" id="sb-count-orders">—</span>
       </button>
+    </nav>
+
+    <div class="sb-section sb-section-toggle" onclick="toggleSbSection('admin')" id="sb-hdr-admin" style="display:none">
+      Admin <span id="sb-chevron-admin" style="float:right;font-size:10px">▲</span>
+    </div>
+    <nav class="sb-nav" id="sb-body-admin" style="display:none">
       <button class="sb-item" data-view="email">
         <svg class="sb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
         <span>Email Log</span>
       </button>
-    </nav>
-
-        <div class="sb-section" id="admin-nav-section" style="display:none">Admin</div>
-    <nav class="sb-nav" id="admin-nav-items" style="display:none">
+      <button class="sb-item" data-view="reports">
+        <svg class="sb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+        <span>Reports</span>
+      </button>
       <button class="sb-item" data-view="admin">
         <svg class="sb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M20 21a8 8 0 1 0-16 0"></path></svg>
         <span>Admin</span>
@@ -925,17 +940,6 @@
         <span class="kbd">⌘K</span>
       </div>
       <div class="top-actions">
-        <button class="icon-btn" title="Inbox">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path></svg>
-          <span class="dot"></span>
-        </button>
-        <button class="icon-btn" title="Notifications">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-        </button>
-        <button class="btn btn-primary" onclick="openNewDealModal()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          New deal
-        </button>
       </div>
     </header>
 
@@ -1179,12 +1183,7 @@
           <div class="page-sub" id="pipeline-sub">Loading...</div>
         </div>
         <div class="page-actions">
-          <select id="board-group-by" onchange="if(boardViewActive)renderBoard()" style="display:none;padding:7px 10px;font:inherit;font-size:13px;color:var(--navy);border:1px solid var(--line);border-radius:8px;background:var(--white);"><option value="status">Group by Status</option><option value="brand">Group by Brand</option><option value="contact">Group by Company</option></select>
-          <button id="pipeline-board-btn" class="btn btn-secondary" onclick="toggleBoardView()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-            Board view
-          </button>
-          <button class="btn btn-secondary">
+          <button class="btn btn-secondary" onclick="exportPipeline()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
             Export CSV
           </button>
@@ -1206,14 +1205,10 @@
           <select id="filter-owner" class="filter" style="padding:7px 10px;font:inherit;font-size:13px;color:var(--navy);border:1px solid var(--line);border-radius:8px;background:var(--white);">
             <option value="">All owners</option>
           </select>
-          <select id="filter-status" class="filter" style="padding:7px 10px;font:inherit;font-size:13px;color:var(--navy);border:1px solid var(--line);border-radius:8px;background:var(--white);">
-            <option value="">All statuses</option>
-            <option>Awaiting Feedback</option><option>Awaiting Info</option><option>Awaiting Samples</option>
-            <option>Cancelled</option><option>Catalogue Sent</option><option>Closed / No Action</option>
-            <option>Deposit Paid</option><option>Form Completed</option><option>In Progress</option>
-            <option>On Hold</option><option>Order Placed</option><option>Price List Sent</option><option>Quotation Sent</option><option>Samples Delivered</option>
-            <option>Samples Requested</option><option>Samples Sent</option><option>Stalled</option>
-          </select>
+          <div id="status-filter-wrap" style="position:relative">
+            <button id="status-filter-btn" onclick="toggleStatusDropdown()" style="padding:7px 12px;font:inherit;font-size:13px;color:var(--navy);border:1px solid var(--line);border-radius:8px;background:var(--white);cursor:pointer;white-space:nowrap">All statuses ▾</button>
+            <div id="status-filter-panel" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--white);border:1px solid var(--line);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);z-index:200;min-width:220px;max-height:320px;overflow-y:auto;padding:6px 0"></div>
+          </div>
           <div class="filter-divider"></div>
           <button class="filter-clear" id="filter-clear">Clear filters</button>
           <div class="result-meta" id="pipeline-meta">Loading…</div>
@@ -1238,7 +1233,7 @@
             <tbody id="pipeline-tbody"><tr><td colspan="9" style="text-align:center;padding:40px;color:var(--warm-grey);">Loading…</td></tr></tbody>
           </table>
 
-          <div class="table-foot">
+          <div class="table-foot" id="pipeline-foot">
             <span>Showing <b style="color: var(--navy);">1–18</b> of <b style="color: var(--navy);">128</b> deals</span>
             <div class="pager">
               <button class="pg-btn">‹</button>
@@ -1253,7 +1248,6 @@
           </div>
         </div>
 
-        <div id="pipeline-board" style="display:none;overflow-x:auto;padding:8px 0 16px;flex-wrap:nowrap;align-items:flex-start"></div>
         <!-- Status legend -->
         <div class="legend">
           <span style="color: var(--navy); font-weight: 600;">Status legend:</span>
@@ -1284,7 +1278,7 @@
           <select id="contact-filter-region"  style="border:0;font:inherit;font-size:13px;background:transparent;color:var(--navy);cursor:pointer;" onchange="contactFilters.region=this.value;contactPage=1;loadContacts()"><option value="">All regions</option></select>
           <select id="contact-filter-tag"     style="border:0;font:inherit;font-size:13px;background:transparent;color:var(--navy);cursor:pointer;" onchange="contactFilters.tag=this.value;contactPage=1;loadContacts()"><option value="">All groups</option></select>
           <div class="filter-divider"></div>
-          <button class="filter-clear" onclick="contactFilters={country:'',region:'',tag:''};document.getElementById('contact-search').value='';contactPage=1;loadContacts()">Clear</button>
+          <button class="filter-clear" onclick="contactSearch='';contactFilters={country:'',region:'',tag:''};document.getElementById('contact-search').value='';contactPage=1;loadContacts()">Clear</button>
         </div>
         <div class="table-wrap">
           <table class="data">
@@ -1366,44 +1360,196 @@
       </div></div></div>
     </section>
 
+    <!-- ===== REPORTS ===== -->
+    <section class="view" id="view-reports" data-screen-label="Reports">
+      <div class="page-head" style="display:none"></div>
+      <div class="page-body" style="padding:0">
+
+        <!-- Report header -->
+        <div style="padding:24px 32px 0">
+          <div style="font-family:'Playfair Display',serif;font-size:26px;font-weight:700;color:var(--navy);letter-spacing:-0.3px">Konomocha</div>
+          <div id="q-report-subtitle" style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#76BCE0;margin-top:4px">LACRM REPORTS &bull; GENERATED: &mdash;</div>
+        </div>
+        <div style="height:1px;background:var(--line);margin:16px 0 0"></div>
+
+        <!-- Audit tab -->
+        <div style="padding:0 32px">
+          <div style="display:inline-block;padding:14px 4px 10px;border-bottom:2px solid #76BCE0;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--navy);margin-bottom:0">Audit</div>
+        </div>
+        <div style="height:1px;background:var(--line)"></div>
+
+        <!-- Filter bar -->
+        <div style="display:flex;align-items:center;gap:6px;padding:14px 32px;flex-wrap:wrap">
+          <button id="qf-all"             class="qf-pill qf-pill-active" onclick="setQFilter('all')">All</button>
+          <button id="qf-missing"         class="qf-pill"                onclick="setQFilter('missing')">Missing Fields</button>
+          <button id="qf-complete"        class="qf-pill"                onclick="setQFilter('complete')">Complete</button>
+          <button id="qf-invalid_country" class="qf-pill"                onclick="setQFilter('invalid_country')">Invalid Country</button>
+          <button id="qf-wrong_region"    class="qf-pill"                onclick="setQFilter('wrong_region')">Wrong Region</button>
+          <select id="q-owner" onchange="qCurrentPage=1;loadQualityReport()"
+            style="padding:6px 10px;font:inherit;font-size:12px;color:var(--navy);border:1px solid var(--line);border-radius:6px;background:var(--white);cursor:pointer;margin-left:4px">
+            <option value="">All owners</option>
+          </select>
+          <input id="q-search" placeholder="Search&hellip;"
+            style="border:1px solid var(--line);border-radius:6px;padding:6px 12px;font:inherit;font-size:13px;width:200px"
+            oninput="clearTimeout(window._qt);window._qt=setTimeout(loadQualityReport,400)"/>
+          <button onclick="downloadQualityCSV()"
+            style="padding:7px 18px;background:#76BCE0;color:#fff;border:none;border-radius:6px;font:inherit;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;margin-left:auto;white-space:nowrap">
+            Download CSV
+          </button>
+        </div>
+
+        <!-- Summary tiles -->
+        <div style="display:flex;border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+          <div class="q-tile" style="border-top:3px solid #76BCE0">
+            <div class="q-tile-num" id="qt-total">&mdash;</div>
+            <div class="q-tile-lbl">Total contacts</div>
+          </div>
+          <div class="q-tile" style="border-top:3px solid #E57373">
+            <div class="q-tile-num" id="qt-missing">&mdash;</div>
+            <div class="q-tile-lbl">Missing fields</div>
+          </div>
+          <div class="q-tile" style="border-top:3px solid #4CAF50">
+            <div class="q-tile-num" id="qt-complete">&mdash;</div>
+            <div class="q-tile-lbl">Fully complete</div>
+          </div>
+          <div class="q-tile" style="border-top:3px solid #E57373">
+            <div class="q-tile-num" id="qt-invalid-country">&mdash;</div>
+            <div class="q-tile-lbl">Invalid country</div>
+          </div>
+          <div class="q-tile" style="border-top:3px solid #F59E0B">
+            <div class="q-tile-num" id="qt-region">&mdash;</div>
+            <div class="q-tile-lbl">Wrong region</div>
+          </div>
+        </div>
+
+        <!-- Row count -->
+        <div style="padding:8px 32px;font-size:12px;color:var(--warm-grey)" id="q-row-count"></div>
+
+        <!-- Table -->
+        <table class="data" id="q-table">
+          <thead style="background:#EBF5FB">
+            <tr>
+              <th style="padding-left:32px">Contact</th>
+              <th style="width:160px">Score</th>
+              <th>Missing Fields</th>
+              <th>Country / Warnings</th>
+              <th>Owner</th>
+              <th style="width:130px">Status</th>
+            </tr>
+          </thead>
+          <tbody id="q-tbody"><tr><td colspan="6" style="text-align:center;padding:40px;color:var(--warm-grey)">Loading&hellip;</td></tr></tbody>
+        </table>
+
+        <!-- Pagination -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 32px;border-top:1px solid var(--line)">
+          <button class="btn btn-secondary" id="q-prev" onclick="qPage(-1)" style="font-size:12px;padding:5px 12px">&larr; Previous</button>
+          <span id="q-page-info" style="font-size:12px;color:var(--warm-grey)"></span>
+          <button class="btn btn-secondary" id="q-next" onclick="qPage(1)"  style="font-size:12px;padding:5px 12px">Next &rarr;</button>
+        </div>
+
+        <!-- Activity Report — admin only -->
+        <div class="card" id="reports-activity-card" style="margin:16px 32px 24px;display:none">
+          <div class="card-head">
+            <div><div class="card-title">Activity Report</div><div class="card-sub">Items created and emails logged in the selected period</div></div>
+            <select id="reports-period" onchange="loadActivityReport()" style="padding:7px 12px;font:inherit;font-size:13px;color:var(--navy);border:1px solid var(--line);border-radius:8px;background:var(--white);">
+              <option value="1d">Today</option>
+              <option value="7d">Last 7 days</option>
+              <option value="30d" selected>Last 30 days</option>
+              <option value="90d">Last 90 days</option>
+              <option value="365d">Last 12 months</option>
+            </select>
+          </div>
+          <div class="card-body">
+            <div id="reports-activity-body" style="padding:20px;color:var(--warm-grey);text-align:center">Loading&hellip;</div>
+          </div>
+        </div>
+
+        <!-- Task Report -->
+        <div class="card" id="reports-tasks-card" style="margin:0 32px 24px">
+          <div class="card-head">
+            <div><div class="card-title">Task Report</div><div class="card-sub">All tasks across contacts</div></div>
+            <select id="task-report-filter" onchange="loadTaskReport()" style="padding:7px 12px;font:inherit;font-size:13px;color:var(--navy);border:1px solid var(--line);border-radius:8px;background:var(--white)">
+              <option value="open">Open</option>
+              <option value="overdue">Overdue</option>
+              <option value="all">All</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+          <div class="card-body">
+            <table class="data" style="margin:0">
+              <thead style="background:#EBF5FB"><tr><th>Contact</th><th>Task</th><th>Assigned To</th><th>Due Date</th><th>Status</th></tr></thead>
+              <tbody id="task-report-body"><tr><td colspan="5" style="text-align:center;padding:40px;color:var(--warm-grey)">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
     <!-- ===== ADMIN ===== -->
     <section class="view" id="view-admin" data-screen-label="Admin">
       <div class="page-head"><div><h1 class="page-title">Administration</h1><div class="page-sub">Users, brands, regions, tags and countries</div></div></div>
       <div class="page-body">
 
-        <!-- Users — admin only -->
-        <div class="card" id="admin-users-card" style="margin-bottom:16px;display:none">
-          <div class="card-head" style="cursor:pointer" onclick="toggleSection('admin-users-body')">
-            <div><div class="card-title">Users</div><div class="card-sub" id="admin-meta">Manage CRM access and roles</div></div>
-            <div class="right">
-              <button class="btn btn-primary" onclick="event.stopPropagation();openNewUserModal()">+ New User</button>
-              <span id="admin-users-chevron" style="color:var(--warm-grey);margin-left:8px">▶</span>
-            </div>
-          </div>
-          <div id="admin-users-body" style="display:none">
-          <div class="card-body" style="padding:0">
-            <table class="data"><thead><tr>
-              <th>Name</th><th>Email</th><th>Role</th><th style="width:140px"></th>
-            </tr></thead>
-            <tbody id="admin-users-tbody"><tr><td colspan="4" style="text-align:center;padding:30px;color:var(--warm-grey);">Loading…</td></tr></tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Brands — all users -->
+        <!-- Brands -->
         <div class="card" style="margin-bottom:16px;">
           <div class="card-head" style="cursor:pointer" onclick="toggleSection('admin-brands-body')">
             <div><div class="card-title">Brands</div><div class="card-sub">Add or deactivate brands</div></div>
-            <div class="right">
-              <button class="btn btn-primary" onclick="event.stopPropagation();openNewBrandModal()">+ New Brand</button>
-              <span id="admin-brands-chevron" style="color:var(--warm-grey);margin-left:8px">▶</span>
-            </div>
+            <span id="admin-brands-chevron" style="color:var(--warm-grey)">▶</span>
           </div>
           <div id="admin-brands-body" style="display:none">
-          <div class="card-body" style="padding:0">
-            <table class="data"><thead><tr><th>Brand Name</th><th>Status</th><th>Notes</th><th style="width:80px"></th></tr></thead>
-            <tbody id="admin-brands-tbody"><tr><td colspan="4" style="text-align:center;padding:30px;color:var(--warm-grey);">Loading…</td></tr></tbody>
-            </table>
+            <div class="card-body" style="padding:0">
+              <table class="data"><thead><tr><th>Brand Name</th><th>Status</th><th>Notes</th><th style="width:80px"></th></tr></thead>
+              <tbody id="admin-brands-tbody"><tr><td colspan="4" style="text-align:center;padding:30px;color:var(--warm-grey);">Loading…</td></tr></tbody>
+              </table>
+            </div>
+            <div class="card-foot" style="gap:8px;justify-content:flex-end">
+              <button class="btn btn-primary" onclick="openNewBrandModal()">+ New Brand</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Contact Tags -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-head" style="cursor:pointer" onclick="toggleSection('admin-tags-body')">
+            <div><div class="card-title">Contact Tags</div><div class="card-sub">Manage available contact tags</div></div>
+            <span id="admin-tags-chevron" style="color:var(--warm-grey)">▶</span>
+          </div>
+          <div id="admin-tags-body" style="display:none">
+            <div style="padding:0 20px" id="admin-tags-list"></div>
+            <div class="card-foot" style="gap:8px;">
+              <input id="new-tag-input" placeholder="New tag…" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;flex:1;"/>
+              <button class="btn btn-primary" style="padding:6px 12px" onclick="addRefItem('tag')">Add</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Countries -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-head" style="cursor:pointer" onclick="toggleSection('admin-countries-body')">
+            <div><div class="card-title">Countries</div><div class="card-sub">Manage available countries</div></div>
+            <span id="admin-countries-chevron" style="color:var(--warm-grey)">▶</span>
+          </div>
+          <div id="admin-countries-body" style="display:none">
+            <div style="padding:8px 20px;max-height:300px;overflow-y:auto" id="admin-countries-list"></div>
+            <div class="card-foot" style="gap:8px;">
+              <input id="new-country-input" placeholder="New country…" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;flex:1;"/>
+              <button class="btn btn-primary" style="padding:6px 12px" onclick="addRefItem('country')">Add</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Order Statuses -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-head" style="cursor:pointer" onclick="toggleSection('admin-order-statuses-body')">
+            <div><div class="card-title">Order Statuses</div><div class="card-sub">Manage available order statuses</div></div>
+            <span id="admin-order-statuses-chevron" style="color:var(--warm-grey)">▶</span>
+          </div>
+          <div id="admin-order-statuses-body" style="display:none">
+            <div style="padding:0 20px" id="admin-order-statuses-list"></div>
+            <div class="card-foot" style="gap:8px;">
+              <input id="new-order-status-input" placeholder="New order status…" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;flex:1;"/>
+              <button class="btn btn-primary" style="padding:6px 12px" onclick="addRefItem('order_status')">Add</button>
+            </div>
           </div>
         </div>
 
@@ -1415,53 +1561,48 @@
           </div>
           <div id="admin-statuses-body" style="display:none">
             <div style="padding:0 20px" id="admin-statuses-list"></div>
-          </div>
-          <div class="card-foot" style="gap:8px;">
-            <input id="new-status-input" placeholder="New status…" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;flex:1;"/>
-            <button class="btn btn-primary" style="padding:6px 12px" onclick="addRefItem('status')">Add</button>
+            <div class="card-foot" style="gap:8px;">
+              <input id="new-status-input" placeholder="New status…" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;flex:1;"/>
+              <button class="btn btn-primary" style="padding:6px 12px" onclick="addRefItem('status')">Add</button>
+            </div>
           </div>
         </div>
 
-        <!-- Reference data — 3 columns -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
-
-          <div class="card">
-            <div class="card-head" style="cursor:pointer" onclick="toggleSection('admin-regions-body')">
-              <div><div class="card-title">Sales Regions</div></div>
-              <span id="admin-regions-chevron" style="color:var(--warm-grey)">▶</span>
-            </div>
-            <div id="admin-regions-body" style="display:none"><div style="padding:0 20px" id="admin-regions-list"></div></div>
+        <!-- Sales Regions -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-head" style="cursor:pointer" onclick="toggleSection('admin-regions-body')">
+            <div><div class="card-title">Sales Regions</div><div class="card-sub">Manage available sales regions</div></div>
+            <span id="admin-regions-chevron" style="color:var(--warm-grey)">▶</span>
+          </div>
+          <div id="admin-regions-body" style="display:none">
+            <div style="padding:0 20px" id="admin-regions-list"></div>
             <div class="card-foot" style="gap:8px;">
               <input id="new-region-input" placeholder="New region…" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;flex:1;"/>
               <button class="btn btn-primary" style="padding:6px 12px" onclick="addRefItem('region')">Add</button>
             </div>
           </div>
-
-          <div class="card">
-            <div class="card-head" style="cursor:pointer" onclick="toggleSection('admin-tags-body')">
-              <div><div class="card-title">Contact Tags</div></div>
-              <span id="admin-tags-chevron" style="color:var(--warm-grey)">▶</span>
-            </div>
-            <div id="admin-tags-body" style="display:none"><div style="padding:0 20px" id="admin-tags-list"></div></div>
-            <div class="card-foot" style="gap:8px;">
-              <input id="new-tag-input" placeholder="New tag…" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;flex:1;"/>
-              <button class="btn btn-primary" style="padding:6px 12px" onclick="addRefItem('tag')">Add</button>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-head" style="cursor:pointer" onclick="toggleSection('admin-countries-body')">
-              <div><div class="card-title">Countries</div></div>
-              <span id="admin-countries-chevron" style="color:var(--warm-grey)">▶</span>
-            </div>
-            <div id="admin-countries-body" style="display:none"><div style="padding:8px 20px;max-height:260px;overflow-y:auto" id="admin-countries-list"></div></div>
-            <div class="card-foot" style="gap:8px;">
-              <input id="new-country-input" placeholder="New country…" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;flex:1;"/>
-              <button class="btn btn-primary" style="padding:6px 12px" onclick="addRefItem('country')">Add</button>
-            </div>
-          </div>
-
         </div>
+
+        <!-- Users — admin only -->
+        <div class="card" id="admin-users-card" style="margin-bottom:16px;display:none">
+          <div class="card-head" style="cursor:pointer" onclick="toggleSection('admin-users-body')">
+            <div><div class="card-title">Users</div><div class="card-sub" id="admin-meta">Manage CRM access and roles</div></div>
+            <span id="admin-users-chevron" style="color:var(--warm-grey)">▶</span>
+          </div>
+          <div id="admin-users-body" style="display:none">
+            <div class="card-body" style="padding:0">
+              <table class="data"><thead><tr>
+                <th>Name</th><th>Email</th><th>Role</th><th style="width:140px"></th>
+              </tr></thead>
+              <tbody id="admin-users-tbody"><tr><td colspan="4" style="text-align:center;padding:30px;color:var(--warm-grey);">Loading…</td></tr></tbody>
+              </table>
+            </div>
+            <div class="card-foot" style="gap:8px;justify-content:flex-end">
+              <button class="btn btn-primary" onclick="openNewUserModal()">+ New User</button>
+            </div>
+          </div>
+        </div>
+
       </div>
     </section>
 
@@ -1478,10 +1619,19 @@ let TOKEN = localStorage.getItem('crm_token');
 let CURRENT_USER = JSON.parse(localStorage.getItem('crm_user') || 'null');
 
 // ---- Reference data (localStorage) ----
-const DEF_REGIONS   = ['Africa','Asia','Eastern Europe','Europe','India','Middle East','North America','Oceania','South America'];
+const DEF_REGIONS   = ['Africa','Asia','Balkans','Eastern Europe','Europe','India','Middle East','North America','Oceania','South America'];
 const DEF_PIPELINE_STATUSES = ['Awaiting Feedback','Awaiting Info','Awaiting Samples','Catalogue Sent','Closed / No Action','Deposit Paid','Form Completed','In Progress','On Hold','Order Placed','Price List Sent','Quotation Sent','Samples Delivered','Samples Requested','Samples Sent','Stalled'];
+const DEF_ORDER_STATUSES = ['PO Received','PI Confirmed','Deposit Paid','Shipped','Payment Received','Cancelled'];
 const DEF_TAGS      = ['Agent','CloseOut','DND','Distributor','Manufacturer','Network','Principal','Retailer','Stationery'];
-const DEF_COUNTRIES = ['Afghanistan','Albania','Algeria','Argentina','Australia','Austria','Bahrain','Bangladesh','Belgium','Brazil','Bulgaria','Cambodia','Canada','Chile','China','Colombia','Croatia','Cyprus','Czech Republic','Denmark','Ecuador','Egypt','Estonia','Finland','France','Georgia','Germany','Ghana','Greece','Hong Kong','Hungary','India','Indonesia','Iran','Iraq','Ireland','Israel','Italy','Japan','Jordan','Kazakhstan','Kenya','Kuwait','Latvia','Lebanon','Lithuania','Luxembourg','Malaysia','Malta','Mexico','Morocco','Netherlands','New Zealand','Nigeria','Norway','Oman','Pakistan','Philippines','Poland','Portugal','Qatar','Romania','Russia','Saudi Arabia','Singapore','Slovakia','Slovenia','South Africa','South Korea','Spain','Sri Lanka','Sweden','Switzerland','Taiwan','Thailand','Turkey','Ukraine','United Arab Emirates','United Kingdom','United States of America','Vietnam'];
+const DEF_COUNTRIES = ['Afghanistan','Albania','Algeria','Angola','Argentina','Armenia','Australia','Austria','Azerbaijan','Bahrain','Bangladesh','Belarus','Belgium','Bosnia','Botswana','Brazil','Bulgaria','Cambodia','Canada','Chile','China','Colombia','Costa Rica','Croatia','Cyprus','Czech Republic','Denmark','Dominican Republic','Ecuador','Egypt','El Salvador','Estonia','Fiji','Finland','France','Georgia','Germany','Ghana','Gibraltar','Greece','Hong Kong','Hungary','Iceland','India','Indonesia','Iran','Iraq','Ireland','Israel','Italy','Jamaica','Japan','Jordan','Kazakhstan','Kenya','Korea','Kuwait','Latvia','Lebanon','Liechtenstein','Lithuania','Luxembourg','Macedonia','Madagascar','Malaysia','Malta','Mauritius','Mexico','Moldova','Mongolia','Morocco','Myanmar','Namibia','Netherlands','New Zealand','Nigeria','Norway','Oman','Pakistan','Palestine','Panama','Paraguay','Peru','Philippines','Poland','Portugal','Puerto Rico','Qatar','Romania','Russia','Saudi Arabia','Senegal','Serbia','Singapore','Slovakia','Slovenia','South Africa','South Korea','Spain','Sri Lanka','Sweden','Switzerland','Taiwan','Thailand','Trinidad and Tobago','Tunisia','Turkey','Ukraine','United Arab Emirates','United Kingdom','United States of America','Uruguay','Venezuela','Vietnam','Zimbabwe'];
+// Reset countries if the list version changed
+(function(){
+  var stored = localStorage.getItem('crm_countries');
+  if (stored && stored.indexOf('Serbia') === -1) {
+    localStorage.removeItem('crm_countries');
+  }
+})();
+
 
 function getRegions()   { return JSON.parse(localStorage.getItem('crm_regions')   || JSON.stringify(DEF_REGIONS)); }
 function getTags()      { return JSON.parse(localStorage.getItem('crm_tags')      || JSON.stringify(DEF_TAGS)); }
@@ -1491,6 +1641,8 @@ function saveTags(v)      { localStorage.setItem('crm_tags',      JSON.stringify
 function saveCountries(v) { localStorage.setItem('crm_countries', JSON.stringify(v)); }
 function getPipelineStatuses() { return JSON.parse(localStorage.getItem('crm_pipeline_statuses') || JSON.stringify(DEF_PIPELINE_STATUSES)); }
 function savePipelineStatuses(v) { localStorage.setItem('crm_pipeline_statuses', JSON.stringify(v)); }
+function getOrderStatuses() { return JSON.parse(localStorage.getItem('crm_order_statuses') || JSON.stringify(DEF_ORDER_STATUSES)); }
+function saveOrderStatuses(v) { localStorage.setItem('crm_order_statuses', JSON.stringify(v)); }
 
 // ---- Auth ----
 async function login(email, password) {
@@ -1536,8 +1688,8 @@ function showApp() {
   document.getElementById('user-role').textContent   = CURRENT_USER.role === 'admin' ? 'Administrator' : 'Agent';
   // Admin nav
   if (CURRENT_USER.role === 'admin') {
-    document.getElementById('admin-nav-section').style.display = '';
-    document.getElementById('admin-nav-items').style.display = '';
+    document.getElementById('sb-hdr-admin').style.display = '';
+    document.getElementById('sb-body-admin').style.display = '';
   }
   // Orders — admin only
   if (CURRENT_USER.role !== 'admin') {
@@ -1546,7 +1698,7 @@ function showApp() {
 }
 
 // ---- Navigation ----
-const TITLES = { dashboard:'Dashboard', contacts:'Contacts', companies:'Companies', pipeline:'Pipeline', brands:'Brands', orders:'Orders', email:'Email Log', admin:'Admin' };
+const TITLES = { dashboard:'Dashboard', contacts:'Contacts', companies:'Companies', pipeline:'Pipeline', brands:'Brands', orders:'Orders', email:'Email Log', reports:'Reports', admin:'Admin' };
 function activate(view) {
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-'+view));
   document.querySelectorAll('.sb-item[data-view]').forEach(n => n.classList.toggle('active', n.dataset.view === view));
@@ -1561,7 +1713,7 @@ document.querySelectorAll('.sb-item[data-view]').forEach(n => n.addEventListener
 const STATUS_CLASS = { 'Deposit Paid':'green','Order Placed':'green','On Hold':'amber','Stalled':'amber','Closed / No Action':'grey','Cancelled':'grey' };
 function statusClass(s) { return STATUS_CLASS[s] || 'blue'; }
 
-function fmtNum(n) { return Number(n||0).toLocaleString(); }
+function fmtNum(n) { return Number(n||0).toLocaleString('en-GB'); }
 function fmtShort(n) {
   n = Number(n)||0;
   if (n>=1000000) return (n/1000000).toFixed(1)+'M';
@@ -1707,7 +1859,7 @@ async function loadContacts() {
   if (contactFilters.tag)    rows = rows.filter(c => getTagGroup(c.tags) === contactFilters.tag);
 
   document.getElementById('contacts-meta').textContent = fmtNum(d.total) + ' contacts';
-  const sc = document.getElementById('sb-count-contacts'); if(sc) sc.textContent = d.total;
+  const sc = document.getElementById('sb-count-contacts'); if(sc) sc.textContent = fmtNum(d.total);
   document.getElementById('contacts-foot').innerHTML = `Showing ${rows.length} of ${d.total}`;
 
   // Sort icons
@@ -1756,7 +1908,7 @@ async function loadCompanies() {
   if (companyFilters.tag)    rows = rows.filter(c => getTagGroup(c.tags) === companyFilters.tag);
 
   document.getElementById('companies-meta').textContent = fmtNum(d.total) + ' companies';
-  const sc = document.getElementById('sb-count-companies'); if(sc) sc.textContent = d.total;
+  const sc = document.getElementById('sb-count-companies'); if(sc) sc.textContent = fmtNum(d.total);
   document.getElementById('companies-foot').innerHTML = `Showing ${rows.length} of ${d.total}`;
 
   ['company','country','region','tags'].forEach(k => {
@@ -1788,32 +1940,170 @@ function sortCompanies(col) {
 async function openContactDetail(id) {
   const c = await apiFetch('/contacts/'+id);
   if (!c) return;
-  const [pipe, emails] = await Promise.all([
-    apiFetch('/pipeline?per_page=20&contact_id='+id),
-    apiFetch('/emails?contact_id='+id)
-  ]);
-  const deals = pipe ? pipe.results.filter(e=>e.contact_id===id) : [];
-  document.getElementById('modal-title').innerHTML = `<div>${c.first_name||''} ${c.last_name||''}</div><div style="font-size:13px;font-weight:400;color:var(--warm-grey)">${c.company||''} ${c.country?'· '+c.country:''}</div>`;
-  document.getElementById('modal-body').innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
-      <div><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);margin-bottom:4px">Email</div>${c.email||'—'}</div>
-      <div><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);margin-bottom:4px">Phone</div>${c.phone||'—'}</div>
-      <div><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);margin-bottom:4px">Country</div>${c.country||'—'}</div>
-      <div><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);margin-bottom:4px">Sales Region</div>${getRegionFromTags(c.tags)||'—'}</div>
-      <div><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);margin-bottom:4px">Group</div>${getTagGroup(c.tags)||'—'}</div>
-      ${c.address?`<div style="grid-column:span 2"><div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);margin-bottom:4px">Address</div>${c.address}</div>`:''}
-    </div>
-    ${c.notes?`<div style="margin-bottom:20px;padding:12px;background:var(--off-white);border-radius:8px;font-size:13px;white-space:pre-wrap">${c.notes}</div>`:''}
-    ${deals.length?`<div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:8px">Pipeline (${deals.length})</div>
-    ${deals.map(d=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;font-size:13px">
-      <div><span class="pill ${statusClass(d.status)}">${d.status}</span> <span style="margin-left:8px;font-weight:500">${d.brand_name||''}</span></div>
-      <div style="color:var(--warm-grey);font-size:12px">${d.next_action||''}</div></div>`).join('')}`:''}
-    ${emails&&emails.results&&emails.results.length?`<div style="font-size:13px;font-weight:600;color:var(--navy);margin:16px 0 8px">Email Log (${emails.results.length})</div>
-    ${emails.results.map(e=>`<div style="padding:8px 12px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;font-size:13px">
-      <div style="display:flex;gap:8px;align-items:center"><span class="em-dir ${e.direction==='inbound'?'in':'out'}">${e.direction==='inbound'?'In':'Out'}</span><span style="font-weight:500">${e.subject||'(no subject)'}</span></div>
-      <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">${e.sent_at?new Date(e.sent_at).toLocaleDateString('en-GB'):''}</div>
-    </div>`).join('')}`:''}`;
+  const countries  = getCountries();
+  const regions    = getRegions();
+  const tagGroups  = getTags();
+  const curRegion  = regions.find(r => (c.tags||'').includes(r)) || '';
+  const curTag     = tagGroups.find(t => (c.tags||'').includes(t)) || '';
+  document.getElementById('modal-title').innerHTML =
+    `<div>${escHtml(c.first_name||'')} ${escHtml(c.last_name||c.name||'')}</div>`+
+    `<div style="font-size:13px;font-weight:400;color:var(--warm-grey)">`+
+      `${escHtml(c.company||'')}${c.country?' · '+escHtml(c.country):''}</div>`;
+  document.getElementById('modal-body').innerHTML =
+    `<form id="edit-contact-form" onsubmit="saveContactEdit(event,${id})">`+
+    `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">`+
+      `<div><label class="fl">First Name</label>`+
+        `<input name="first_name" value="${escHtml(c.first_name||'')}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>`+
+      `<div><label class="fl">Last Name</label>`+
+        `<input name="last_name" value="${escHtml(c.last_name||c.name||'')}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>`+
+    `</div>`+
+    `<div style="margin-bottom:12px"><label class="fl">Company</label>`+
+      `<input name="company" value="${escHtml(c.company||'')}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>`+
+    `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">`+
+      `<div><label class="fl">Email</label>`+
+        `<input name="email" type="email" value="${escHtml(c.email||'')}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>`+
+      `<div><label class="fl">Phone</label>`+
+        `<input name="phone" value="${escHtml(c.phone||'')}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>`+
+    `</div>`+
+    `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">`+
+      `<div><label class="fl">Country</label>`+
+        `<select name="country" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">`+
+          `<option value="">— Select —</option>`+
+          `${countries.map(co=>`<option${co===c.country?' selected':''}>${escHtml(co)}</option>`).join('')}`+
+        `</select></div>`+
+      `<div><label class="fl">Sales Region</label>`+
+        `<select name="region" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">`+
+          `<option value="">— Select —</option>`+
+          `${regions.map(r=>`<option${r===curRegion?' selected':''}>${escHtml(r)}</option>`).join('')}`+
+        `</select></div>`+
+    `</div>`+
+    `<div style="margin-bottom:20px"><label class="fl">Group / Tag</label>`+
+      `<select name="tag_group" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">`+
+        `<option value="">— Select —</option>`+
+        `${tagGroups.map(t=>`<option${t===curTag?' selected':''}>${escHtml(t)}</option>`).join('')}`+
+      `</select></div>`+
+    `<div id="ec-error" style="display:none;color:#B33A47;font-size:13px;margin-bottom:12px;padding:10px;background:#FAE3E5;border-radius:8px"></div>`+
+    `<div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:24px">`+
+      `<button type="button" onclick="document.getElementById('modal').style.display='none'" class="btn btn-secondary">Cancel</button>`+
+      `<button type="submit" class="btn btn-primary">Save</button>`+
+    `</div></form>`+
+    `<div style="border-top:1px solid var(--line);padding-top:16px">`+
+      `<div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:12px">Notes</div>`+
+      `<div id="contact-notes-list"><div style="font-size:13px;color:var(--warm-grey)">Loading…</div></div>`+
+      (c.notes ? `<div style="margin-bottom:12px;padding:10px 12px;background:var(--off-white);border-radius:8px;font-size:12px"><span style="font-weight:600;color:var(--warm-grey)">Imported note:</span> <span style="white-space:pre-wrap">${escHtml(c.notes)}</span></div>` : '')+
+      `<div style="margin-top:12px">`+
+        `<label class="fl">Add Note</label>`+
+        `<textarea id="new-note-body" rows="3" placeholder="Type a note…" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;resize:vertical;margin-bottom:8px;box-sizing:border-box"></textarea>`+
+        `<button onclick="addContactNote(${id})" class="btn btn-primary" style="font-size:13px">Add Note</button>`+
+      `</div>`+
+    `</div>`+
+    `<div style="border-top:1px solid var(--line);padding-top:16px;margin-top:16px">`+
+      `<div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:12px">Attachments</div>`+
+      `<div id="contact-attachments-list"><div style="font-size:13px;color:var(--warm-grey)">Loading…</div></div>`+
+      `<div style="margin-top:10px;display:flex;align-items:center;gap:10px">`+
+        `<label class="btn btn-secondary" style="cursor:pointer;font-size:12px">+ Attach File`+
+          `<input type="file" multiple style="display:none" onchange="uploadContactAttachment(${id},this)"/>`+
+        `</label>`+
+      `</div>`+
+    `</div>`+
+    `<div style="border-top:1px solid var(--line);padding-top:16px;margin-top:16px">`+
+      `<div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:12px">Tasks</div>`+
+      `<div id="contact-tasks-list"><div style="font-size:13px;color:var(--warm-grey)">Loading…</div></div>`+
+      `<div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;margin-top:10px">`+
+        `<div><label class="fl">New Task</label>`+
+          `<input id="new-task-title" placeholder="Task description…" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>`+
+        `<div><label class="fl">Due Date</label>`+
+          `<input type="date" id="new-task-due" style="border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>`+
+      `</div>`+
+      `<div style="display:flex;gap:8px;align-items:center;margin-top:8px">`+
+        `<select id="new-task-assignee" style="flex:1;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">`+
+          `<option value="">Assign to…</option>`+
+          `${(window._crmUsers||[]).map(u=>`<option value="${u.id}">${escHtml(u.name)}</option>`).join('')}`+
+        `</select>`+
+        `<button onclick="addContactTask(${id})" class="btn btn-primary" style="font-size:13px">Add Task</button>`+
+      `</div>`+
+    `</div>`;
   document.getElementById('modal').style.display = 'flex';
+  loadContactNotes(id);
+  loadContactAttachments(id);
+  loadContactTasks(id);
+}
+
+async function saveContactEdit(e, id) {
+  e.preventDefault();
+  const fd       = new FormData(e.target);
+  const first    = fd.get('first_name')||'';
+  const last     = fd.get('last_name')||'';
+  const name     = (first+' '+last).trim() || fd.get('company')||'';
+  const newRegion= fd.get('region')||'';
+  const newTag   = fd.get('tag_group')||'';
+  const c = await apiFetch('/contacts/'+id);
+  const regions   = getRegions();
+  const tagGroups = getTags();
+  let tags = (c ? (c.tags||'') : '').split(',').map(t=>t.trim())
+    .filter(t=>t && !regions.includes(t) && !tagGroups.includes(t) && t!=='Contact' && t!=='Company');
+  if (newRegion) tags.push(newRegion);
+  if (newTag)    tags.push(newTag);
+  const payload = {
+    first_name: first||null, last_name: last||null, name,
+    company: fd.get('company')||null,
+    email:   fd.get('email')||null,
+    phone:   fd.get('phone')||null,
+    country: fd.get('country')||null,
+    tags:    tags.join(', ')||null,
+  };
+  const btn = e.target.querySelector('[type=submit]');
+  btn.textContent='Saving…'; btn.disabled=true;
+  const result = await apiFetch('/contacts/'+id, {method:'PUT', body:JSON.stringify(payload)});
+  if (result) {
+    document.getElementById('modal').style.display='none';
+    showToast('Contact saved');
+    if (window._editFromReport) {
+      window._editFromReport = false;
+      loadQualityReport();
+    } else {
+      contactSearch = '';
+      const _si = document.getElementById('contact-search'); if (_si) _si.value = '';
+      loadContacts();
+    }
+  } else {
+    document.getElementById('ec-error').textContent='Failed to save. Please try again.';
+    document.getElementById('ec-error').style.display='block';
+    btn.textContent='Save'; btn.disabled=false;
+  }
+}
+
+async function loadContactNotes(contactId) {
+  const data = await apiFetch('/contacts/'+contactId+'/notes');
+  const el = document.getElementById('contact-notes-list');
+  if (!el) return;
+  if (!data || !data.length) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--warm-grey);margin-bottom:12px">No notes yet.</div>';
+    return;
+  }
+  el.innerHTML = data.map(n=>`
+    <div style="margin-bottom:8px;padding:10px 12px;background:var(--off-white);border-radius:8px">
+      <div style="font-size:11px;color:var(--warm-grey);margin-bottom:4px">
+        <strong style="color:var(--navy)">${escHtml(n.author_name)}</strong>
+        &nbsp;·&nbsp;${new Date(n.created_at).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}
+      </div>
+      <div style="font-size:13px;white-space:pre-wrap">${escHtml(n.body)}</div>
+    </div>`).join('');
+}
+
+async function addContactNote(contactId) {
+  const bodyEl = document.getElementById('new-note-body');
+  const body   = (bodyEl ? bodyEl.value : '').trim();
+  if (!body) return;
+  const btn = document.querySelector('[onclick="addContactNote('+contactId+')"]');
+  if (btn) { btn.textContent='Saving…'; btn.disabled=true; }
+  const result = await apiFetch('/contacts/'+contactId+'/notes', {method:'POST', body:JSON.stringify({body})});
+  if (result) {
+    if (bodyEl) bodyEl.value = '';
+    loadContactNotes(contactId);
+    showToast('Note added');
+  }
+  if (btn) { btn.textContent='Add Note'; btn.disabled=false; }
 }
 
 async function openCompanyContacts(name, encoded) {
@@ -1877,6 +2167,11 @@ async function openNewContactModal(type) {
             ${tags.map(t=>`<option>${t}</option>`).join('')}
           </select></div>
       </div>
+      <div style="margin-bottom:12px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Assigned To</label>
+        <select name="owner_id" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">
+          <option value="">— Select —</option>
+          ${(window._crmUsers||[]).map(u=>`<option value="${u.id}">${escHtml(u.name)}</option>`).join('')}
+        </select></div>
       <div style="margin-bottom:20px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Notes</label>
         <textarea name="notes" rows="3" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;resize:vertical"></textarea></div>
       <div id="nc-error" style="display:none;color:#B33A47;font-size:13px;margin-bottom:12px;padding:10px;background:#FAE3E5;border-radius:8px"></div>
@@ -1929,6 +2224,7 @@ async function saveNewContact(e, type) {
     phone: fd.get('phone')||null, country: fd.get('country')||null,
     tags: fd.get('tags') || (isCompany?'Company':'Contact'),
     notes: fd.get('notes')||null,
+    owner_id: fd.get('owner_id') ? parseInt(fd.get('owner_id')) : null,
   };
   const btn = e.target.querySelector('[type=submit]');
   btn.textContent='Saving…'; btn.disabled=true;
@@ -1971,7 +2267,7 @@ async function uploadContactCSV(input) {
 }
 
 // ---- Pipeline ----
-let pipelinePage=1, pipelineData=[], pipelineFilters={search:'',brand_id:'',owner_id:'',status:''};
+let pipelinePage=1, pipelineData=[], pipelineFilters={search:'',brand_id:'',owner_id:'',statuses:[]};
 let pipelineSort='updated_at', pipelineSortDir='desc';
 
 async function loadPipeline() {
@@ -1979,11 +2275,11 @@ async function loadPipeline() {
   if (pipelineFilters.search)   p.set('search',   pipelineFilters.search);
   if (pipelineFilters.brand_id) p.set('brand_id', pipelineFilters.brand_id);
   if (pipelineFilters.owner_id) p.set('owner_id', pipelineFilters.owner_id);
-  if (pipelineFilters.status)   p.set('status',   pipelineFilters.status);
+  if (pipelineFilters.statuses && pipelineFilters.statuses.length) p.set('statuses', pipelineFilters.statuses.join(','));
   const d = await apiFetch('/pipeline?'+p);
   if (!d) return;
   pipelineData = d.results;
-  const sc = document.getElementById('sb-count-pipeline'); if(sc) sc.textContent=d.total;
+  const sc = document.getElementById('sb-count-pipeline'); if(sc) sc.textContent=fmtNum(d.total);
   document.getElementById('pipeline-meta').innerHTML = `Showing <b>${fmtNum(d.results.length)}</b> of <b>${fmtNum(d.total)}</b> deals`;
   const psub = document.getElementById('pipeline-sub');
   if (psub) psub.innerHTML = fmtNum(d.total) + ' open deals &middot; USD ' + fmtShort(d.total_value||0) + ' total value';
@@ -2004,25 +2300,101 @@ async function loadPipeline() {
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
       </button></td>
     </tr>`).join('');
+  // Pipeline pagination
+  var _totalPages = Math.ceil(d.total / 50);
+  var _foot = document.getElementById('pipeline-foot');
+  if (_foot) {
+    var _s = (pipelinePage - 1) * 50 + 1, _e = Math.min(pipelinePage * 50, d.total);
+    var _pg = '';
+    if (_totalPages > 1) {
+      _pg = '<div class="pager">';
+      if (pipelinePage > 1) _pg += '<button class="pg-btn" onclick="pipelinePage='+(pipelinePage-1)+';loadPipeline()">&#8249;</button>';
+      var _last = 0;
+      for (var _pp = 1; _pp <= _totalPages; _pp++) {
+        if (_pp === 1 || _pp === _totalPages || Math.abs(_pp - pipelinePage) <= 1) {
+          if (_last && _pp - _last > 1) _pg += '<button class="pg-btn" disabled style="cursor:default">&#8230;</button>';
+          _pg += '<button class="pg-btn'+(_pp===pipelinePage?' current':'')+'" onclick="pipelinePage='+_pp+';loadPipeline()">'+_pp+'</button>';
+          _last = _pp;
+        }
+      }
+      if (pipelinePage < _totalPages) _pg += '<button class="pg-btn" onclick="pipelinePage='+(pipelinePage+1)+';loadPipeline()">&#8250;</button>';
+      _pg += '</div>';
+    }
+    _foot.innerHTML = '<span>Showing <b style="color:var(--navy)">'+fmtNum(_s)+'\u2013'+fmtNum(_e)+'</b> of <b style="color:var(--navy)">'+fmtNum(d.total)+'</b> deals</span>' + _pg;
+  }
+  if (boardViewActive) renderBoard();
 }
 
 function openPipelineDetail(id) {
   const e = pipelineData.find(x=>x.id===id); if(!e) return;
+  const statuses = getPipelineStatuses();
+  const users = window._crmUsers || [];
   document.getElementById('modal-title').innerHTML = `${e.contact_company||e.contact_name||''} — ${e.brand_name||''}`;
   document.getElementById('modal-body').innerHTML = `
-    <table style="width:100%;border-collapse:collapse;font-size:13px">
-      <tr><td style="padding:8px 0;color:var(--warm-grey);width:130px">Contact</td><td><b>${e.contact_name||'—'}</b></td></tr>
-      <tr><td style="padding:8px 0;color:var(--warm-grey)">Company</td><td>${e.contact_company||'—'}</td></tr>
-      <tr><td style="padding:8px 0;color:var(--warm-grey)">Brand</td><td>${e.brand_name||'—'}</td></tr>
-      <tr><td style="padding:8px 0;color:var(--warm-grey)">Status</td><td><span class="pill ${statusClass(e.status)}">${e.status}</span></td></tr>
-      <tr><td style="padding:8px 0;color:var(--warm-grey)">Potential Value</td><td>${fmtVal(e.potential_value)}</td></tr>
-      <tr><td style="padding:8px 0;color:var(--warm-grey)">Next Action</td><td>${e.next_action||'—'}</td></tr>
-      <tr><td style="padding:8px 0;color:var(--warm-grey)">FOB Date</td><td>${fmtDate(e.due_date)}</td></tr>
-      <tr><td style="padding:8px 0;color:var(--warm-grey)">Owner</td><td>${(e.owner_name||'—').split(' ')[0]}</td></tr>
-      <tr><td style="padding:8px 0;color:var(--warm-grey);vertical-align:top">Notes</td><td style="white-space:pre-wrap">${e.notes||'—'}</td></tr>
-    </table>`;
-  document.getElementById('modal-footer').innerHTML = `<button class="btn btn-secondary" onclick="document.getElementById('modal').style.display='none'">Close</button><button class="btn btn-primary" onclick="openConvertToOrderModal(${e.id})">Convert to Order</button>`;
+    <form id="pe-edit-form" onsubmit="savePipelineEdit(event,${e.id})">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div><label class="fl">Status</label>
+          <select name="status" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">
+            ${statuses.map(s=>`<option${s===e.status?' selected':''}>${s}</option>`).join('')}
+          </select></div>
+        <div><label class="fl">Owner</label>
+          <select name="owner_id" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">
+            ${users.map(u=>`<option value="${u.id}"${u.id===e.owner_id?' selected':''}>${u.name}</option>`).join('')}
+          </select></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div><label class="fl">Potential Value</label>
+          <input name="potential_value" type="number" step="0.01" value="${e.potential_value||0}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+        <div><label class="fl">FOB Date</label>
+          <input name="due_date" type="date" value="${e.due_date||''}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+      </div>
+      <div style="margin-bottom:12px"><label class="fl">Next Action</label>
+        <input name="next_action" value="${(e.next_action||'').replace(/"/g,'&quot;')}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+      <div id="pe-edit-error" style="display:none;color:#B33A47;font-size:13px;margin-bottom:12px;padding:10px;background:#FAE3E5;border-radius:8px"></div>
+    </form>
+    <div style="border-top:1px solid var(--line);padding-top:16px;margin-top:4px">
+      <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:12px">Notes</div>
+      <div id="pipeline-notes-list"><div style="font-size:13px;color:var(--warm-grey)">Loading…</div></div>
+      ${e.notes?`<div style="margin-bottom:12px;padding:10px 12px;background:var(--off-white);border-radius:8px;font-size:12px"><span style="font-weight:600;color:var(--warm-grey)">Legacy note:</span> <span style="white-space:pre-wrap">${escHtml(e.notes)}</span></div>`:''}
+      <div style="margin-top:8px">
+        <label class="fl">Add Note</label>
+        <textarea id="new-pipeline-note-body" rows="3" placeholder="Type a note…" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;resize:vertical;margin-bottom:8px;box-sizing:border-box"></textarea>
+        <button onclick="addPipelineNote(${e.id})" class="btn btn-primary" style="font-size:13px">Add Note</button>
+      </div>
+    </div>`;
+  document.getElementById('modal-footer').innerHTML = `
+    <button class="btn btn-secondary" onclick="document.getElementById('modal').style.display='none'">Cancel</button>
+    <button class="btn btn-secondary" onclick="openConvertToOrderModal(${e.id})">Convert to Order</button>
+    <button class="btn btn-primary" onclick="document.getElementById('pe-edit-form').requestSubmit()">Save</button>`;
   document.getElementById('modal').style.display = 'flex';
+  loadPipelineNotes(e.id);
+}
+
+async function savePipelineEdit(evt, id) {
+  evt.preventDefault();
+  const e = pipelineData.find(x=>x.id===id); if(!e) return;
+  const fd = new FormData(evt.target);
+  const payload = {
+    contact_id:      e.contact_id,
+    brand_id:        e.brand_id,
+    status:          fd.get('status'),
+    potential_value: parseFloat(fd.get('potential_value'))||0,
+    next_action:     fd.get('next_action')||null,
+    due_date:        fd.get('due_date')||null,
+    owner_id:        parseInt(fd.get('owner_id')),
+  };
+  const btn = document.querySelector('#modal-footer .btn-primary');
+  if (btn) { btn.textContent='Saving…'; btn.disabled=true; }
+  const result = await apiFetch('/pipeline/'+id, {method:'PUT', body:JSON.stringify(payload)});
+  if (result) {
+    document.getElementById('modal').style.display='none';
+    showToast('Pipeline entry saved');
+    loadPipeline();
+  } else {
+    document.getElementById('pe-edit-error').textContent='Failed to save. Please try again.';
+    document.getElementById('pe-edit-error').style.display='block';
+    if (btn) { btn.textContent='Save'; btn.disabled=false; }
+  }
 }
 
 
@@ -2032,13 +2404,31 @@ function sortPipeline(col) {
   pipelinePage=1; loadPipeline();
 }
 
+async function exportPipeline() {
+  const p = new URLSearchParams({ per_page:9999, sort_by:pipelineSort, sort_dir:pipelineSortDir });
+  if (pipelineFilters.search)   p.set('search',   pipelineFilters.search);
+  if (pipelineFilters.brand_id) p.set('brand_id', pipelineFilters.brand_id);
+  if (pipelineFilters.owner_id) p.set('owner_id', pipelineFilters.owner_id);
+  if (pipelineFilters.statuses && pipelineFilters.statuses.length) p.set('statuses', pipelineFilters.statuses.join(','));
+  const d = await apiFetch('/pipeline?'+p);
+  if (!d || !d.results.length) { showToast('No data to export'); return; }
+  const cols = ['Company','Contact','Brand','Status','Potential Value','Next Action','FOB Date','Owner','Notes'];
+  const rows = d.results.map(e => [
+    e.contact_company||'', e.contact_name||'', e.brand_name||'', e.status||'',
+    e.potential_value||0, e.next_action||'', e.due_date||'', e.owner_name||'', (e.notes||'').replace(/,/g,' ')
+  ]);
+  const csv = [cols, ...rows].map(r => r.map(v => '"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download = 'pipeline_export.csv'; a.click();
+  showToast('Exported ' + d.results.length + ' deals');
+}
+
 let boardViewActive = false;
 function toggleBoardView() {
   boardViewActive = !boardViewActive;
   var btn = document.getElementById('pipeline-board-btn');
   if (btn) btn.textContent = boardViewActive ? 'Table view' : 'Board view';
-  var gbSel = document.getElementById('board-group-by');
-  if (gbSel) gbSel.style.display = boardViewActive ? '' : 'none';
   document.getElementById('pipeline-table-wrap').style.display = boardViewActive ? 'none' : '';
   var board = document.getElementById('pipeline-board');
   if (board) board.style.display = boardViewActive ? 'flex' : 'none';
@@ -2052,7 +2442,7 @@ async function renderBoard() {
   if (pipelineFilters.search)   p.set('search',   pipelineFilters.search);
   if (pipelineFilters.brand_id) p.set('brand_id', pipelineFilters.brand_id);
   if (pipelineFilters.owner_id) p.set('owner_id', pipelineFilters.owner_id);
-  if (pipelineFilters.status)   p.set('status',   pipelineFilters.status);
+  if (pipelineFilters.statuses && pipelineFilters.statuses.length) p.set('statuses', pipelineFilters.statuses.join(','));
   var d = await apiFetch('/pipeline?' + p);
   if (!d) return;
   pipelineData = d.results;
@@ -2149,6 +2539,7 @@ async function openNewDealModal(preContactId) {
 
 async function openConvertToOrderModal(pipelineId) {
   const e = pipelineData.find(x=>x.id===pipelineId); if(!e) return;
+  const statuses = getOrderStatuses();
   document.getElementById('modal-title').innerHTML = 'Convert to Order';
   document.getElementById('modal-footer').innerHTML = '';
   document.getElementById('modal-body').innerHTML = `
@@ -2157,15 +2548,35 @@ async function openConvertToOrderModal(pipelineId) {
         <b>${e.contact_company||e.contact_name||'—'}</b> · ${e.brand_name||'—'}
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Status *</label>
+          <select name="status" required style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">
+            ${statuses.map(s=>'<option>'+s+'</option>').join('')}
+          </select></div>
         <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Order Date *</label>
           <input name="order_date" type="date" required value="${new Date().toISOString().slice(0,10)}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">PO Received</label>
+          <input name="po_date" type="date" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">PI Confirmed</label>
+          <input name="pi_date" type="date" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Deposit Paid</label>
+          <input name="deposit_date" type="date" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">FOB Date</label>
+          <input name="fob_date" type="date" value="${e.due_date||''}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Payment Date</label>
+          <input name="payment_date" type="date" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
         <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Order Value (USD) *</label>
           <input name="order_value" type="number" min="0" step="0.01" required placeholder="0" value="${e.potential_value||''}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Gross Commission % *</label>
-          <input name="gross_commission_rate" type="number" min="0" max="100" step="0.1" required placeholder="0" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
-        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Testing Cost Deduction</label>
+        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Commission (USD)</label>
+          <input name="commission_value" type="number" min="0" step="0.01" placeholder="0" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Testing Cost Deduction (USD)</label>
           <input name="testing_cost_deduction" type="number" min="0" step="0.01" placeholder="0" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
       </div>
       <div id="co-error" style="display:none;color:#B33A47;font-size:13px;margin-bottom:12px;padding:10px;background:#FAE3E5;border-radius:8px"></div>
@@ -2177,24 +2588,27 @@ async function openConvertToOrderModal(pipelineId) {
   document.getElementById('modal').style.display = 'flex';
 }
 
+
 async function saveConvertedOrder(ev, pipelineId) {
   ev.preventDefault();
   const e = pipelineData.find(x=>x.id===pipelineId); if(!e) return;
   const fd = new FormData(ev.target);
-  const orderValue = parseFloat(fd.get('order_value'))||0;
-  const commRate = parseFloat(fd.get('gross_commission_rate'))||0;
-  const testCost = parseFloat(fd.get('testing_cost_deduction'))||0;
-  const netComm = (orderValue * commRate / 100) - testCost;
+  const commValue = parseFloat(fd.get('commission_value'))||0;
+  const testCost  = parseFloat(fd.get('testing_cost_deduction'))||0;
   const payload = {
     contact_id: e.contact_id,
     brand_id: e.brand_id,
     order_date: fd.get('order_date'),
-    order_value: orderValue,
+    order_value: parseFloat(fd.get('order_value'))||0,
     currency: 'USD',
-    gross_commission_rate: commRate,
+    gross_commission_rate: commValue,
     testing_cost_deduction: testCost,
-    net_commission: netComm,
-    status: 'Confirmed',
+    po_date:      fd.get('po_date')      || null,
+    pi_date:      fd.get('pi_date')      || null,
+    deposit_date: fd.get('deposit_date') || null,
+    fob_date:     fd.get('fob_date')     || null,
+    payment_date: fd.get('payment_date') || null,
+    status: fd.get('status') || 'PO Received',
     notes: 'Converted from pipeline deal #' + pipelineId,
   };
   const btn = ev.target.querySelector('[type=submit]'); btn.textContent='Saving…'; btn.disabled=true;
@@ -2210,6 +2624,7 @@ async function saveConvertedOrder(ev, pipelineId) {
   }
 }
 
+
 async function saveNewDeal(e) {
   e.preventDefault();
   const fd = new FormData(e.target);
@@ -2222,6 +2637,241 @@ async function saveNewDeal(e) {
   if (result) { document.getElementById('modal').style.display='none'; loadPipeline(); }
   else { document.getElementById('nd-error').textContent='Failed. Check all required fields.'; document.getElementById('nd-error').style.display='block'; btn.textContent='Save Deal'; btn.disabled=false; }
 }
+
+// ---- Reports ----
+let qFilter = 'all', qCurrentPage = 1, qPerPage = 50;
+
+async function loadReports() {
+  var u = JSON.parse(localStorage.getItem('crm_user')||'{}');
+  var ac = document.getElementById('reports-activity-card');
+  if (ac) ac.style.display = (u.role==='admin') ? '' : 'none';
+  var od = document.getElementById('q-owner');
+  if (od && od.options.length <= 1) {
+    var users = await apiFetch('/users');
+    if (users) {
+      od.innerHTML = '<option value="">All owners</option>'
+        + users.map(function(u){ return '<option value="'+u.id+'">'+escHtml(u.name)+'</option>'; }).join('');
+    }
+  }
+  await Promise.all([loadQualityReport(), u.role==='admin' ? loadActivityReport() : Promise.resolve(), loadTaskReport()]);
+}
+
+function setQFilter(f) {
+  qFilter = f; qCurrentPage = 1;
+  ['all','missing','complete','invalid_country','wrong_region'].forEach(function(k) {
+    var btn = document.getElementById('qf-'+k);
+    if (btn) btn.classList.toggle('qf-pill-active', k===f);
+  });
+  loadQualityReport();
+}
+
+function qPage(dir) {
+  qCurrentPage = Math.max(1, qCurrentPage + dir);
+  loadQualityReport();
+}
+
+async function loadQualityReport() {
+  var tbody = document.getElementById('q-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--warm-grey)">Loading…</td></tr>';
+  var search       = (document.getElementById('q-search')||{}).value || '';
+  var owner_id     = (document.getElementById('q-owner')||{}).value || '';
+  var contact_type = (document.getElementById('q-contact-type')||{}).value || 'contacts';
+  var p = new URLSearchParams({filter:qFilter, search:search, page:qCurrentPage, per_page:qPerPage, contact_type:contact_type});
+  if (owner_id) p.set('owner_id', owner_id);
+  var d = await apiFetch('/reports/contact-quality?'+p);
+  if (!d) { tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:40px;color:#B33A47">Failed to load.</td></tr>'; return; }
+
+  // Timestamp
+  var sub = document.getElementById('q-report-subtitle');
+  if (sub) {
+    var now  = new Date();
+    var opts = {timeZone:'Asia/Bangkok',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false};
+    var ts   = now.toLocaleString('en-GB', opts).replace(',','');
+    sub.textContent = 'LACRM REPORTS • GENERATED: '+ts+' (BANGKOK TIME)';
+  }
+
+  document.getElementById('qt-total').textContent           = fmtNum(d.total);
+  document.getElementById('qt-missing').textContent         = fmtNum(d.n_missing);
+  document.getElementById('qt-complete').textContent        = fmtNum(d.n_complete);
+  document.getElementById('qt-invalid-country').textContent = fmtNum(d.n_invalid_country);
+  document.getElementById('qt-region').textContent          = fmtNum(d.n_wrong_region);
+
+  var showing = d.filtered_total;
+  document.getElementById('q-row-count').textContent =
+    fmtNum(Math.min(qCurrentPage*qPerPage, showing)) + ' of ' + fmtNum(showing) + ' contacts shown';
+
+  var totalPages = Math.ceil(showing / qPerPage);
+  document.getElementById('q-page-info').textContent = 'Page ' + qCurrentPage + ' of ' + (totalPages||1);
+  var prev = document.getElementById('q-prev'), next = document.getElementById('q-next');
+  if (prev) prev.disabled = qCurrentPage <= 1;
+  if (next) next.disabled = qCurrentPage >= totalPages;
+
+  if (!d.results.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--warm-grey)">No contacts match this filter.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = d.results.map(function(r) {
+    var pct = r.score;
+    var barColour = pct===100 ? '#4CAF50' : pct>=60 ? '#76BCE0' : pct>=40 ? '#F59E0B' : '#E57373';
+    var bar = '<div style="display:flex;align-items:center;gap:8px">'
+      + '<div style="flex:1;height:5px;border-radius:3px;background:var(--line);overflow:hidden">'
+      + '<div style="height:100%;width:'+pct+'%;background:'+barColour+'"></div></div>'
+      + '<span style="font-size:12px;font-family:JetBrains Mono,monospace;color:var(--navy);white-space:nowrap">'+pct+'%</span></div>';
+    var pills = r.missing.map(function(m){ return '<span class="q-pill">'+m+'</span>'; }).join('');
+    var countryCell = '';
+    if (r.country) {
+      countryCell = escHtml(r.country);
+      if (r.invalid_country) countryCell += ' <span style="color:#E57373;font-size:11px">⚠ Invalid</span>';
+      else if (r.wrong_region) countryCell += ' <span style="color:#F59E0B;font-size:11px">⚠ No region</span>';
+    } else {
+      countryCell = '<span style="color:var(--warm-grey)">—</span>';
+    }
+    var status = r.complete
+      ? '<span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:500;background:#F0FDF4;border:1px solid #86EFAC;color:#166534">Complete</span>'
+      : '<span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:11px;font-weight:500;background:#FEF2F2;border:1px solid #FCA5A5;color:#B33A47">Missing fields</span>';
+    return '<tr style="cursor:pointer" onclick="openContactEditFromReport('+r.id+')">' 
+      + '<td class="contact-cell" style="padding-left:32px"><div class="nm">'+escHtml(r.name||'—')+'</div>'
+      + (r.company?'<div class="co">'+escHtml(r.company)+'</div>':'')
+      + '</td>'
+      + '<td>'+bar+'</td>'
+      + '<td>'+(pills||'<span style="color:var(--warm-grey);font-size:12px">—</span>')+'</td>'
+      + '<td style="font-size:13px">'+countryCell+'</td>'
+      + '<td style="font-size:13px">'+(r.owner||'<span style="color:var(--warm-grey)">—</span>')+'</td>'
+      + '<td>'+status+'</td>'
+      + '</tr>';
+  }).join('');
+}
+
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function downloadQualityCSV() {
+  var search       = (document.getElementById('q-search')||{}).value || '';
+  var owner_id     = (document.getElementById('q-owner')||{}).value || '';
+  var contact_type = (document.getElementById('q-contact-type')||{}).value || 'contacts';
+  var p = new URLSearchParams({filter:qFilter, search:search, contact_type:contact_type});
+  if (owner_id) p.set('owner_id', owner_id);
+  var token = localStorage.getItem('crm_token');
+  var resp = await fetch('/api/reports/contact-quality-csv?'+p, {headers:{'Authorization':'Bearer '+token}});
+  if (!resp.ok) { showToast('Export failed'); return; }
+  var blob = await resp.blob();
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'contact_quality.csv'; a.click();
+  showToast('CSV downloaded');
+}
+
+async function loadActivityReport() {
+  var el = document.getElementById('reports-activity-body');
+  if (!el) return;
+  var sel = document.getElementById('reports-period');
+  var period = sel ? sel.value : '30d';
+  el.innerHTML = '<div style="padding:20px;color:var(--warm-grey);text-align:center">Loading…</div>';
+  var d = await apiFetch('/reports/activity?period='+period);
+  if (!d) { el.innerHTML='<span style="color:#B33A47">Failed to load.</span>'; return; }
+  var items = [
+    ['New Contacts',         d.new_contacts],
+    ['New Companies',        d.new_companies],
+    ['New Pipeline Entries', d.new_pipeline_entries],
+    ['New Orders',           d.new_orders],
+    ['Emails Received',      d.emails_inbound],
+    ['Emails Sent',          d.emails_outbound],
+    ['New Tasks',            d.new_tasks||0],
+    ['New Notes',            d.new_notes||0],
+  ];
+  el.innerHTML = '<div style="font-size:12px;color:var(--warm-grey);padding:0 0 16px">Since '+d.since+'</div>'
+    + '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">'
+    + items.map(function(it) {
+        return '<div style="background:var(--bg);border-radius:10px;padding:16px 20px">'
+          + '<div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);margin-bottom:6px">'+it[0]+'</div>'
+          + '<div style="font-size:26px;font-weight:700;font-family:JetBrains Mono,monospace;color:var(--navy)">'+fmtNum(it[1])+'</div>'
+          + '</div>';
+      }).join('')
+    + '</div>';
+}
+async function openContactEditFromReport(id) {
+  window._editFromReport = true;
+  openContactDetail(id);
+}
+
+async function _openContactEditFromReport_UNUSED(id) {
+  const c = await apiFetch('/contacts/'+id);
+  if (!c) return;
+  const countries = getCountries();
+  const regions   = getRegions();
+  const currentRegion = regions.find(r => (c.tags||'').includes(r)) || '';
+  document.getElementById('modal-title').innerHTML = 'Edit Contact';
+  document.getElementById('modal-body').innerHTML = `
+    <form id="edit-contact-form" onsubmit="saveContactEditFromReport(event,${id})">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div><label class="fl">First Name</label>
+          <input name="first_name" value="${escHtml(c.first_name||'')}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+        <div><label class="fl">Last Name</label>
+          <input name="last_name" value="${escHtml(c.last_name||c.name||'')}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+      </div>
+      <div style="margin-bottom:12px"><label class="fl">Company</label>
+        <input name="company" value="${escHtml(c.company||'')}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div><label class="fl">Email</label>
+          <input name="email" type="email" value="${escHtml(c.email||'')}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+        <div><label class="fl">Phone</label>
+          <input name="phone" value="${escHtml(c.phone||'')}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+        <div><label class="fl">Country</label>
+          <select name="country" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">
+            <option value="">— Select —</option>
+            ${countries.map(co=>`<option${co===c.country?' selected':''}>${co}</option>`).join('')}
+          </select></div>
+        <div><label class="fl">Sales Region</label>
+          <select name="region" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">
+            <option value="">— Select —</option>
+            ${regions.map(r=>`<option${r===currentRegion?' selected':''}>${r}</option>`).join('')}
+          </select></div>
+      </div>
+      <div id="ecfr-error" style="display:none;color:#B33A47;font-size:13px;margin-bottom:12px;padding:10px;background:#FAE3E5;border-radius:8px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button type="button" onclick="document.getElementById('modal').style.display='none'" class="btn btn-secondary">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>`;
+  document.getElementById('modal').style.display = 'flex';
+}
+
+async function saveContactEditFromReport(e, id) {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const first = fd.get('first_name')||'';
+  const last  = fd.get('last_name')||'';
+  const name  = (first+' '+last).trim() || fd.get('company')||'';
+  const newRegion = fd.get('region')||'';
+  const c = await apiFetch('/contacts/'+id);
+  // Keep existing tags, replace the region tag
+  const regions = getRegions();
+  let tags = (c ? (c.tags||'') : '').split(',').map(t=>t.trim()).filter(t=>t && !regions.includes(t));
+  if (newRegion) tags.push(newRegion);
+  const payload = {
+    first_name: first||null, last_name: last||null, name,
+    company: fd.get('company')||null,
+    email:   fd.get('email')||null,
+    phone:   fd.get('phone')||null,
+    country: fd.get('country')||null,
+    tags:    tags.join(', ')||null,
+  };
+  const btn = e.target.querySelector('[type=submit]');
+  btn.textContent='Saving…'; btn.disabled=true;
+  const result = await apiFetch('/contacts/'+id, {method:'PUT', body:JSON.stringify(payload)});
+  if (result) {
+    document.getElementById('modal').style.display='none';
+    showToast('Contact saved');
+    loadQualityReport();
+  } else {
+    document.getElementById('ecfr-error').textContent='Failed to save. Please try again.';
+    document.getElementById('ecfr-error').style.display='block';
+    btn.textContent='Save'; btn.disabled=false;
+  }
+}
+
 
 // ---- Brands ----
 let allBrands = [];
@@ -2278,7 +2928,7 @@ async function toggleBrand(id, active) {
 // ---- Orders ----
 async function loadOrders() {
   const d = await apiFetch('/orders'); if(!d) return;
-  const sc = document.getElementById('sb-count-orders'); if(sc) sc.textContent=d.total;
+  const sc = document.getElementById('sb-count-orders'); if(sc) sc.textContent=fmtNum(d.total);
   document.getElementById('orders-meta').textContent = d.total+' orders';
   const tbody = document.getElementById('orders-tbody');
   if(!d.results.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--warm-grey);">No orders yet.</td></tr>';return;}
@@ -2352,6 +3002,7 @@ function renderRefLists() {
   renderList('admin-tags-list',     getTags(),      'tag');
   renderList('admin-countries-list',getCountries(), 'country');
   renderList('admin-statuses-list', getPipelineStatuses(), 'status');
+  renderList('admin-order-statuses-list', getOrderStatuses(), 'order_status');
 }
 
 function addRefItem(type) {
@@ -2361,6 +3012,7 @@ function addRefItem(type) {
   if (type==='tag')    { const t=getTags();    if(!t.includes(val)){t.push(val);t.sort();saveTags(t);}    }
   if (type==='country'){ const c=getCountries();if(!c.includes(val)){c.push(val);c.sort();saveCountries(c);} }
   if (type==='status') { const s=getPipelineStatuses();if(!s.includes(val)){s.push(val);savePipelineStatuses(s);} }
+  if (type==='order_status') { const el2=document.getElementById('new-order-status-input'); const s=getOrderStatuses();if(!s.includes(val)){s.push(val);saveOrderStatuses(s);} if(el2)el2.value=''; renderRefLists(); return; }
   el.value=''; renderRefLists(); populateFilterDropdowns();
 }
 function removeRefItem(type, idx) {
@@ -2368,6 +3020,7 @@ function removeRefItem(type, idx) {
   if (type==='tag')    { const t=getTags();    t.splice(idx,1); saveTags(t);    }
   if (type==='country'){ const c=getCountries();c.splice(idx,1);saveCountries(c); }
   if (type==='status') { const s=getPipelineStatuses();s.splice(idx,1);savePipelineStatuses(s); }
+  if (type==='order_status') { const s=getOrderStatuses();s.splice(idx,1);saveOrderStatuses(s); }
   renderRefLists(); populateFilterDropdowns();
 }
 
@@ -2464,8 +3117,222 @@ function populateFilterDropdowns() {
 
 async function populateOwnerFilter() {
   const d=await apiFetch('/users'); if(!d) return;
+  window._crmUsers = d;
   const of=document.getElementById('filter-owner');
   if(of) of.innerHTML='<option value="">All owners</option>'+d.map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
+}
+
+
+// ---- Attachments ----
+async function loadContactAttachments(contactId) {
+  const el = document.getElementById('contact-attachments-list');
+  if (!el) return;
+  const data = await apiFetch('/contacts/'+contactId+'/attachments');
+  if (!data || !data.length) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--warm-grey);margin-bottom:8px">No attachments.</div>';
+    return;
+  }
+  el.innerHTML = data.map(a=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--off-white);border-radius:8px;margin-bottom:6px">
+      <div>
+        <div style="font-size:13px;font-weight:500">${escHtml(a.filename)}</div>
+        <div style="font-size:11px;color:var(--warm-grey)">${escHtml(a.uploaded_by)} · ${new Date(a.created_at).toLocaleDateString('en-GB')} · ${a.file_size?Math.ceil(a.file_size/1024)+'KB':''}</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button onclick="downloadAttachment(${contactId},${a.id},'${escHtml(a.filename).replace(/'/g,"\'")}')" class="btn btn-secondary" style="font-size:11px;padding:4px 10px">Download</button>
+        <button onclick="deleteAttachment(${contactId},${a.id})" class="btn btn-secondary" style="font-size:11px;padding:4px 10px;color:#B33A47">Delete</button>
+      </div>
+    </div>`).join('');
+}
+async function uploadContactAttachment(contactId, input) {
+  const files = input.files; if (!files.length) return;
+  for (const file of files) {
+    const fd = new FormData(); fd.append('file', file);
+    const token = localStorage.getItem('crm_token')||'';
+    const res = await fetch('/api/contacts/'+contactId+'/attachments', {method:'POST', headers:{'Authorization':'Bearer '+token}, body:fd});
+    if (!res.ok) { showToast('Upload failed: '+file.name); }
+  }
+  input.value = '';
+  loadContactAttachments(contactId);
+  showToast('Uploaded');
+}
+async function downloadAttachment(contactId, attId, filename) {
+  const token = localStorage.getItem('crm_token')||'';
+  const res = await fetch('/api/contacts/'+contactId+'/attachments/'+attId+'/download', {headers:{'Authorization':'Bearer '+token}});
+  if (!res.ok) { showToast('Download failed'); return; }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=filename; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 5000);
+}
+async function deleteAttachment(contactId, attId) {
+  if (!confirm('Delete this attachment?')) return;
+  const r = await apiFetch('/contacts/'+contactId+'/attachments/'+attId, {method:'DELETE'});
+  if (r) { loadContactAttachments(contactId); showToast('Deleted'); }
+}
+
+// ---- Contact Tasks ----
+async function loadContactTasks(contactId) {
+  const el = document.getElementById('contact-tasks-list');
+  if (!el) return;
+  const data = await apiFetch('/contacts/'+contactId+'/tasks');
+  if (!data || !data.length) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--warm-grey);margin-bottom:8px">No tasks.</div>';
+    return;
+  }
+  const today = new Date().toISOString().slice(0,10);
+  el.innerHTML = data.map(t=>{
+    const overdue = !t.completed && t.due_date && t.due_date < today;
+    return `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 12px;background:var(--off-white);border-radius:8px;margin-bottom:6px;${t.completed?'opacity:.6':''}">
+      <input type="checkbox" ${t.completed?'checked':''} onchange="completeContactTask(${contactId},${t.id},this.checked)" style="margin-top:2px;cursor:pointer"/>
+      <div style="flex:1">
+        <div style="font-size:13px;${t.completed?'text-decoration:line-through':''}">${escHtml(t.title)}</div>
+        <div style="font-size:11px;color:${overdue?'#B33A47':'var(--warm-grey)'}">
+          ${t.due_date?'Due '+t.due_date:'No due date'}
+          ${t.assigned_to?' · Assigned to '+escHtml(t.assigned_to):''}
+          · Added by ${escHtml(t.created_by||'')}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+async function addContactTask(contactId) {
+  const title = (document.getElementById('new-task-title').value||'').trim();
+  if (!title) return;
+  const due   = document.getElementById('new-task-due').value||null;
+  const asgEl = document.getElementById('new-task-assignee');
+  const aid   = asgEl && asgEl.value ? parseInt(asgEl.value) : null;
+  const r = await apiFetch('/contacts/'+contactId+'/tasks', {method:'POST', body:JSON.stringify({title, due_date:due, assigned_to_id:aid})});
+  if (r) {
+    document.getElementById('new-task-title').value = '';
+    document.getElementById('new-task-due').value = '';
+    loadContactTasks(contactId);
+    showToast('Task added');
+  }
+}
+async function completeContactTask(contactId, taskId, completed) {
+  await apiFetch('/contacts/'+contactId+'/tasks/'+taskId, {method:'PUT', body:JSON.stringify({completed})});
+  loadContactTasks(contactId);
+}
+
+// ---- Pipeline Notes ----
+async function loadPipelineNotes(pipelineId) {
+  const el = document.getElementById('pipeline-notes-list');
+  if (!el) return;
+  const data = await apiFetch('/pipeline/'+pipelineId+'/notes');
+  if (!data || !data.length) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--warm-grey);margin-bottom:8px">No notes yet.</div>';
+    return;
+  }
+  el.innerHTML = data.map(n=>`
+    <div id="pnote-${n.id}" style="margin-bottom:8px;padding:10px 12px;background:var(--off-white);border-radius:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <div style="font-size:11px;color:var(--warm-grey)">
+          <strong style="color:var(--navy)">${escHtml(n.author_name)}</strong>
+          &nbsp;·&nbsp;${new Date(n.created_at).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}
+          ${n.updated_at?`<span style="color:var(--warm-grey)"> · edited by ${escHtml(n.updated_by||'')} ${new Date(n.updated_at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</span>`:''}
+        </div>
+        <button onclick="startEditPipelineNote(${pipelineId},${n.id})" class="btn btn-secondary" style="font-size:10px;padding:2px 8px">Edit</button>
+      </div>
+      <div id="pnote-body-${n.id}" style="font-size:13px;white-space:pre-wrap">${escHtml(n.body)}</div>
+    </div>`).join('');
+}
+function startEditPipelineNote(pipelineId, noteId) {
+  const bodyEl = document.getElementById('pnote-body-'+noteId);
+  if (!bodyEl) return;
+  const current = bodyEl.textContent;
+  bodyEl.innerHTML = `<textarea style="width:100%;border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;resize:vertical;box-sizing:border-box" rows="3">${escHtml(current)}</textarea>`+
+    `<div style="display:flex;gap:6px;margin-top:6px;justify-content:flex-end">`+
+    `<button onclick="savePipelineNoteEdit(${pipelineId},${noteId})" class="btn btn-primary" style="font-size:12px;padding:4px 12px">Save</button>`+
+    `<button onclick="loadPipelineNotes(${pipelineId})" class="btn btn-secondary" style="font-size:12px;padding:4px 12px">Cancel</button>`+
+    `</div>`;
+}
+async function savePipelineNoteEdit(pipelineId, noteId) {
+  const bodyEl = document.getElementById('pnote-body-'+noteId);
+  if (!bodyEl) return;
+  const ta = bodyEl.querySelector('textarea');
+  if (!ta) return;
+  const body = ta.value.trim();
+  if (!body) return;
+  const r = await apiFetch('/pipeline/'+pipelineId+'/notes/'+noteId, {method:'PUT', body:JSON.stringify({body})});
+  if (r) { loadPipelineNotes(pipelineId); showToast('Note updated'); }
+}
+async function addPipelineNote(pipelineId) {
+  const bodyEl = document.getElementById('new-pipeline-note-body');
+  const body   = (bodyEl ? bodyEl.value : '').trim();
+  if (!body) return;
+  const btn = document.querySelector('[onclick="addPipelineNote('+pipelineId+')"]');
+  if (btn) { btn.textContent='Saving…'; btn.disabled=true; }
+  const r = await apiFetch('/pipeline/'+pipelineId+'/notes', {method:'POST', body:JSON.stringify({body})});
+  if (r) {
+    if (bodyEl) bodyEl.value='';
+    loadPipelineNotes(pipelineId);
+    showToast('Note added');
+  }
+  if (btn) { btn.textContent='Add Note'; btn.disabled=false; }
+}
+
+// ---- Task Report ----
+async function loadTaskReport() {
+  const tbody = document.getElementById('task-report-body');
+  if (!tbody) return;
+  const sel = document.getElementById('task-report-filter');
+  const filter = sel ? sel.value : 'open';
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--warm-grey)">Loading…</td></tr>';
+  const data = await apiFetch('/reports/tasks?filter='+filter);
+  if (!data) { tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:24px;color:#B33A47">Failed to load.</td></tr>'; return; }
+  if (!data.length) { tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--warm-grey)">No tasks found.</td></tr>'; return; }
+  const today = new Date().toISOString().slice(0,10);
+  tbody.innerHTML = data.map(t=>{
+    const overdue = !t.completed && t.due_date && t.due_date < today;
+    return `<tr onclick="openContactDetail(${t.contact_id})" style="cursor:pointer">
+      <td class="contact-cell"><div class="nm">${escHtml(t.contact_company||t.contact_name||'—')}</div><div class="co">${escHtml(t.contact_company?t.contact_name||'':'')}</div></td>
+      <td>${escHtml(t.title)}</td>
+      <td>${escHtml(t.assigned_to||'—')}</td>
+      <td style="color:${overdue?'#B33A47':'inherit'}">${t.due_date||'—'}</td>
+      <td>${t.completed?'<span style="color:#4CAF50;font-weight:600">Done</span>':overdue?'<span style="color:#B33A47;font-weight:600">Overdue</span>':'<span style="color:var(--warm-grey)">Open</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+
+
+// ---- Pipeline status multi-select ----
+function toggleStatusDropdown() {
+  var panel = document.getElementById('status-filter-panel');
+  if (!panel) return;
+  if (panel.style.display !== 'none') { panel.style.display = 'none'; return; }
+  panel.innerHTML = getPipelineStatuses().map(function(s) {
+    var checked = pipelineFilters.statuses.includes(s) ? 'checked' : '';
+    var safe = s.replace(/'/g, '&#39;');
+    return '<label style="display:flex;align-items:center;gap:8px;padding:7px 14px;cursor:pointer;font-size:13px" onmouseover="this.style.background=\x27var(--logo-blue-pale)\x27" onmouseout="this.style.background=\x27\x27">'
+      + '<input type="checkbox" value="'+escHtml(s)+'" '+checked+' onclick="event.stopPropagation();toggleStatusFilter(\x27'+safe+'\x27)" style="cursor:pointer"/>'
+      + '<span class="pill '+statusClass(s)+'">'+escHtml(s)+'</span></label>';
+  }).join('');
+  panel.style.display = 'block';
+  setTimeout(function() { document.addEventListener('click', _closeStatusDropdown, {once:true}); }, 10);
+}
+function _closeStatusDropdown(e) {
+  var wrap = document.getElementById('status-filter-wrap');
+  if (wrap && wrap.contains(e.target)) {
+    setTimeout(function(){ document.addEventListener('click', _closeStatusDropdown, {once:true}); }, 10);
+    return;
+  }
+  var p = document.getElementById('status-filter-panel'); if (p) p.style.display = 'none';
+}
+function toggleStatusFilter(status) {
+  var i = pipelineFilters.statuses.indexOf(status);
+  if (i === -1) pipelineFilters.statuses.push(status);
+  else pipelineFilters.statuses.splice(i, 1);
+  updateStatusFilterBtn();
+  pipelinePage = 1; loadPipeline();
+}
+function updateStatusFilterBtn() {
+  var btn = document.getElementById('status-filter-btn'); if (!btn) return;
+  var n = pipelineFilters.statuses.length;
+  btn.textContent = n === 0 ? 'All statuses ▾' : n + ' status' + (n>1?'es':'') + ' selected ▾';
+  btn.style.color = n > 0 ? 'var(--logo-blue-dark)' : 'var(--navy)';
+  btn.style.borderColor = n > 0 ? 'var(--logo-blue-dark)' : 'var(--line)';
+  btn.style.fontWeight = n > 0 ? '600' : '';
 }
 
 // ---- View router ----
@@ -2475,6 +3342,7 @@ async function loadView(view) {
   if(view==='companies') await loadCompanies();
   if(view==='pipeline')  await loadPipeline();
   if(view==='brands')    await loadBrands();
+  if(view==='reports')   await loadReports();
   if(view==='orders' && CURRENT_USER?.role==='admin') await loadOrders();
   if(view==='email')     await loadEmails();
   if(view==='admin')     await loadAdmin();
@@ -2484,17 +3352,27 @@ async function loadView(view) {
 document.getElementById('pipeline-search')?.addEventListener('input',function(){pipelineFilters.search=this.value;pipelinePage=1;loadPipeline();});
 document.getElementById('filter-brand')?.addEventListener('change',function(){pipelineFilters.brand_id=this.value;pipelinePage=1;loadPipeline();});
 document.getElementById('filter-owner')?.addEventListener('change',function(){pipelineFilters.owner_id=this.value;pipelinePage=1;loadPipeline();});
-document.getElementById('filter-status')?.addEventListener('change',function(){pipelineFilters.status=this.value;pipelinePage=1;loadPipeline();});
 document.getElementById('filter-clear')?.addEventListener('click',function(){
-  pipelineFilters={search:'',brand_id:'',owner_id:'',status:''};pipelinePage=1;
-  ['pipeline-search','filter-brand','filter-owner','filter-status'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  loadPipeline();
+  pipelineFilters={search:'',brand_id:'',owner_id:'',statuses:[]};pipelinePage=1;
+  ['pipeline-search','filter-brand','filter-owner'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  updateStatusFilterBtn(); loadPipeline();
 });
 document.getElementById('contact-search')?.addEventListener('input',function(){contactSearch=this.value;contactPage=1;loadContacts();});
 document.getElementById('company-search')?.addEventListener('input',function(){companySearch=this.value;companyPage=1;loadCompanies();});
 document.getElementById('modal-close')?.addEventListener('click',()=>document.getElementById('modal').style.display='none');
 document.getElementById('modal')?.addEventListener('click',function(e){if(e.target===this)this.style.display='none';});
-document.getElementById('logout-btn')?.addEventListener('click', logout);
+document.getElementById('logout-btn')?.addEventListener('click', function() {
+  var popup = document.createElement('div');
+  popup.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:9999';
+  popup.innerHTML = '<div style="background:#fff;border-radius:12px;padding:28px 32px;min-width:280px;box-shadow:0 8px 32px rgba(0,0,0,.18);text-align:center">'
+    + '<div style="font-family:Playfair Display,serif;font-size:17px;color:var(--navy);font-weight:700;margin-bottom:8px">Sign out?</div>'
+    + '<div style="font-size:13px;color:var(--warm-grey);margin-bottom:24px">You will need to sign in again to access the CRM.</div>'
+    + '<div style="display:flex;gap:10px;justify-content:center">'
+    + '<button onclick="this.closest(\'[style*=inset]\').remove()" style="padding:8px 20px;border:1px solid var(--line);border-radius:8px;background:#fff;font:inherit;font-size:13px;cursor:pointer">Cancel</button>'
+    + '<button onclick="logout()" style="padding:8px 20px;background:var(--navy);color:#fff;border:none;border-radius:8px;font:inherit;font-size:13px;cursor:pointer">Sign out</button>'
+    + '</div></div>';
+  document.body.appendChild(popup);
+});
 document.getElementById('login-form')?.addEventListener('submit',async function(e){
   e.preventDefault();
   const btn=document.getElementById('login-btn'), err=document.getElementById('login-error');

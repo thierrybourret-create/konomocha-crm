@@ -28,11 +28,6 @@ class PipelineStatus(str, enum.Enum):
     samples_sent      = "Samples Sent"
     stalled           = "Stalled"
 
-class OrderStatus(str, enum.Enum):
-    confirmed = "Confirmed"
-    invoiced  = "Invoiced"
-    paid      = "Paid"
-
 class EmailDirection(str, enum.Enum):
     inbound  = "inbound"
     outbound = "outbound"
@@ -60,11 +55,16 @@ class Contact(Base):
     tags       = Column(String(500))
     notes      = Column(Text)
     source     = Column(String(50), default="manual")
+    owner_id   = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    owner            = relationship("User", foreign_keys=[owner_id])
     pipeline_entries = relationship("PipelineEntry", back_populates="contact")
     email_logs       = relationship("EmailLog", back_populates="contact")
     orders           = relationship("Order", back_populates="contact")
+    contact_notes    = relationship("ContactNote", back_populates="contact", order_by="ContactNote.created_at")
+    attachments      = relationship("ContactAttachment", back_populates="contact", order_by="ContactAttachment.created_at")
+    tasks            = relationship("ContactTask", back_populates="contact", order_by="ContactTask.created_at")
 
 class Brand(Base):
     __tablename__ = "brands"
@@ -80,7 +80,7 @@ class PipelineEntry(Base):
     id              = Column(Integer, primary_key=True, index=True)
     contact_id      = Column(Integer, ForeignKey("contacts.id"), nullable=False)
     brand_id        = Column(Integer, ForeignKey("brands.id"), nullable=False)
-    status          = Column(String(100), nullable=False, default=In Progress)
+    status          = Column(String(100), nullable=False, default="In Progress")
     potential_value = Column(Numeric(12, 2), nullable=False)
     next_action     = Column(Text)
     due_date        = Column(Date)
@@ -88,9 +88,10 @@ class PipelineEntry(Base):
     notes           = Column(Text)
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
     updated_at      = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    contact = relationship("Contact", back_populates="pipeline_entries")
-    brand   = relationship("Brand",   back_populates="pipeline_entries")
-    owner   = relationship("User",    back_populates="pipeline_entries")
+    contact     = relationship("Contact", back_populates="pipeline_entries")
+    brand       = relationship("Brand",   back_populates="pipeline_entries")
+    owner       = relationship("User",    back_populates="pipeline_entries")
+    notes_list  = relationship("PipelineNote", back_populates="pipeline_entry", order_by="PipelineNote.created_at")
 
 class EmailLog(Base):
     __tablename__ = "email_logs"
@@ -116,12 +117,67 @@ class Order(Base):
     order_date             = Column(Date, nullable=False)
     order_value            = Column(Numeric(12, 2), nullable=False)
     currency               = Column(String(3), default="USD")
-    gross_commission_rate  = Column(Numeric(5, 2), nullable=False)
+    po_date                = Column(Date)
+    pi_date                = Column(Date)
+    deposit_date           = Column(Date)
+    fob_date               = Column(Date)
+    payment_date           = Column(Date)
+    gross_commission_rate  = Column(Numeric(12, 2), default=0)
     testing_cost_deduction = Column(Numeric(12, 2), default=0)
     net_commission         = Column(Numeric(12, 2))
-    status                 = Column(SAEnum(OrderStatus), default=OrderStatus.confirmed)
+    status                 = Column(String(100), default="PO Received")
     notes                  = Column(Text)
     created_at             = Column(DateTime(timezone=True), server_default=func.now())
     updated_at             = Column(DateTime(timezone=True), onupdate=func.now())
     contact = relationship("Contact", back_populates="orders")
     brand   = relationship("Brand",   back_populates="orders")
+
+class ContactNote(Base):
+    __tablename__ = "contact_notes"
+    id         = Column(Integer, primary_key=True, index=True)
+    contact_id = Column(Integer, ForeignKey("contacts.id"), nullable=False)
+    body       = Column(Text, nullable=False)
+    author_id  = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    contact = relationship("Contact", back_populates="contact_notes")
+    author  = relationship("User")
+
+class ContactAttachment(Base):
+    __tablename__ = "contact_attachments"
+    id             = Column(Integer, primary_key=True, index=True)
+    contact_id     = Column(Integer, ForeignKey("contacts.id"), nullable=False)
+    filename       = Column(String(500), nullable=False)
+    stored_name    = Column(String(500), nullable=False)
+    file_size      = Column(Integer)
+    uploaded_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at     = Column(DateTime(timezone=True), server_default=func.now())
+    contact     = relationship("Contact", back_populates="attachments")
+    uploaded_by = relationship("User")
+
+class ContactTask(Base):
+    __tablename__ = "contact_tasks"
+    id             = Column(Integer, primary_key=True, index=True)
+    contact_id     = Column(Integer, ForeignKey("contacts.id"), nullable=False)
+    title          = Column(String(500), nullable=False)
+    due_date       = Column(Date, nullable=True)
+    completed      = Column(Boolean, default=False)
+    completed_at   = Column(DateTime(timezone=True), nullable=True)
+    assigned_to_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_by_id  = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at     = Column(DateTime(timezone=True), server_default=func.now())
+    contact     = relationship("Contact", back_populates="tasks")
+    assigned_to = relationship("User", foreign_keys=[assigned_to_id])
+    created_by  = relationship("User", foreign_keys=[created_by_id])
+
+class PipelineNote(Base):
+    __tablename__ = "pipeline_notes"
+    id              = Column(Integer, primary_key=True, index=True)
+    pipeline_id     = Column(Integer, ForeignKey("pipeline_entries.id"), nullable=False)
+    body            = Column(Text, nullable=False)
+    author_id       = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at      = Column(DateTime(timezone=True), nullable=True)
+    updated_by_id   = Column(Integer, ForeignKey("users.id"), nullable=True)
+    pipeline_entry = relationship("PipelineEntry", back_populates="notes_list")
+    author         = relationship("User", foreign_keys=[author_id])
+    updated_by     = relationship("User", foreign_keys=[updated_by_id])

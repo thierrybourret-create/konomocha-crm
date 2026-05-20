@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from app.database import engine
 from app.models import models
-from app.routers import auth, contacts, brands, pipeline, orders, emails, users, dashboard
+from app.routers import auth, contacts, brands, pipeline, orders, emails, users, dashboard, reports
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -26,6 +26,7 @@ app.include_router(orders.router)
 app.include_router(emails.router)
 app.include_router(users.router)
 app.include_router(dashboard.router)
+app.include_router(reports.router)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 

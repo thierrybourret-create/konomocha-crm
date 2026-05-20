@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
@@ -20,6 +21,7 @@ class ContactCreate(BaseModel):
     address: Optional[str] = None
     tags: Optional[str] = None
     notes: Optional[str] = None
+    owner_id: Optional[int] = None
 
 class ContactUpdate(ContactCreate):
     pass
@@ -105,7 +107,8 @@ def get_contact(contact_id: int, db: Session = Depends(get_db), current_user: Us
 def create_contact(data: ContactCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     name = ((data.first_name or "") + " " + (data.last_name or "")).strip() or data.name or "Unknown"
     c = Contact(name=name, company=data.company, email=data.email, phone=data.phone,
-                country=data.country, address=data.address, tags=data.tags, notes=data.notes, source="manual")
+                country=data.country, address=data.address, tags=data.tags, notes=data.notes,
+                owner_id=data.owner_id, source="manual")
     db.add(c)
     db.commit()
     db.refresh(c)
@@ -120,7 +123,7 @@ def update_contact(contact_id: int, data: ContactUpdate, db: Session = Depends(g
         c.name = ((data.first_name or "") + " " + (data.last_name or "")).strip() or c.name
     elif data.name:
         c.name = data.name
-    for k in ("company", "email", "phone", "country", "address", "tags", "notes"):
+    for k in ("company", "email", "phone", "country", "address", "tags", "notes", "owner_id"):
         v = getattr(data, k)
         if v is not None:
             setattr(c, k, v)
@@ -136,5 +139,142 @@ def delete_contact(contact_id: int, db: Session = Depends(get_db), current_user:
     if not c:
         raise HTTPException(status_code=404, detail="Not found")
     db.delete(c)
+    db.commit()
+    return {"ok": True}
+
+
+class NoteCreate(BaseModel):
+    body: str
+
+@router.get("/{contact_id}/notes")
+def get_contact_notes(contact_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    from app.models.models import ContactNote
+    contact = db.query(Contact).filter(Contact.id == contact_id).first()
+    if not contact:
+        raise HTTPException(status_code=404, detail="Not found")
+    notes = db.query(ContactNote).filter(ContactNote.contact_id == contact_id).order_by(ContactNote.created_at.desc()).all()
+    return [{"id": n.id, "body": n.body, "author_name": n.author.name, "created_at": n.created_at.isoformat()} for n in notes]
+
+@router.post("/{contact_id}/notes")
+def add_contact_note(contact_id: int, data: NoteCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    from app.models.models import ContactNote
+    contact = db.query(Contact).filter(Contact.id == contact_id).first()
+    if not contact:
+        raise HTTPException(status_code=404, detail="Not found")
+    note = ContactNote(contact_id=contact_id, body=data.body, author_id=current_user.id)
+    db.add(note)
+    db.commit()
+    db.refresh(note)
+    return {"id": note.id, "body": note.body, "author_name": current_user.name, "created_at": note.created_at.isoformat()}
+
+
+import uuid, shutil
+from fastapi import UploadFile, File
+from fastapi.responses import FileResponse
+
+UPLOAD_DIR = "/home/thierry/konomocha-crm/uploads"
+
+@router.post("/{contact_id}/attachments")
+async def upload_attachment(
+    contact_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    from app.models.models import ContactAttachment
+    contact = db.query(Contact).filter(Contact.id == contact_id).first()
+    if not contact:
+        raise HTTPException(status_code=404, detail="Not found")
+    dest_dir = os.path.join(UPLOAD_DIR, str(contact_id))
+    os.makedirs(dest_dir, exist_ok=True)
+    ext = os.path.splitext(file.filename)[1] if file.filename else ""
+    stored = str(uuid.uuid4()) + ext
+    dest = os.path.join(dest_dir, stored)
+    with open(dest, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+    size = os.path.getsize(dest)
+    att = ContactAttachment(contact_id=contact_id, filename=file.filename, stored_name=stored,
+                            file_size=size, uploaded_by_id=current_user.id)
+    db.add(att)
+    db.commit()
+    db.refresh(att)
+    return {"id": att.id, "filename": att.filename, "file_size": att.file_size,
+            "uploaded_by": current_user.name, "created_at": att.created_at.isoformat()}
+
+@router.get("/{contact_id}/attachments")
+def list_attachments(contact_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    from app.models.models import ContactAttachment
+    atts = db.query(ContactAttachment).filter(ContactAttachment.contact_id == contact_id).order_by(ContactAttachment.created_at.desc()).all()
+    return [{"id": a.id, "filename": a.filename, "file_size": a.file_size,
+             "uploaded_by": a.uploaded_by.name, "created_at": a.created_at.isoformat()} for a in atts]
+
+@router.get("/{contact_id}/attachments/{att_id}/download")
+def download_attachment(contact_id: int, att_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    from app.models.models import ContactAttachment
+    att = db.query(ContactAttachment).filter(ContactAttachment.id == att_id, ContactAttachment.contact_id == contact_id).first()
+    if not att:
+        raise HTTPException(status_code=404, detail="Not found")
+    path = os.path.join(UPLOAD_DIR, str(contact_id), att.stored_name)
+    return FileResponse(path, filename=att.filename)
+
+@router.delete("/{contact_id}/attachments/{att_id}")
+def delete_attachment(contact_id: int, att_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    from app.models.models import ContactAttachment
+    att = db.query(ContactAttachment).filter(ContactAttachment.id == att_id, ContactAttachment.contact_id == contact_id).first()
+    if not att:
+        raise HTTPException(status_code=404, detail="Not found")
+    path = os.path.join(UPLOAD_DIR, str(contact_id), att.stored_name)
+    if os.path.exists(path):
+        os.remove(path)
+    db.delete(att)
+    db.commit()
+    return {"ok": True}
+
+
+class TaskCreate(BaseModel):
+    title: str
+    due_date: Optional[str] = None
+    assigned_to_id: Optional[int] = None
+
+@router.get("/{contact_id}/tasks")
+def list_tasks(contact_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    from app.models.models import ContactTask
+    tasks = db.query(ContactTask).filter(ContactTask.contact_id == contact_id).order_by(ContactTask.completed, ContactTask.due_date).all()
+    return [{"id": t.id, "title": t.title, "due_date": t.due_date.isoformat() if t.due_date else None,
+             "completed": t.completed, "completed_at": t.completed_at.isoformat() if t.completed_at else None,
+             "assigned_to": t.assigned_to.name if t.assigned_to else None,
+             "created_by": t.created_by.name if t.created_by else None,
+             "created_at": t.created_at.isoformat()} for t in tasks]
+
+@router.post("/{contact_id}/tasks")
+def create_task(contact_id: int, data: TaskCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    from app.models.models import ContactTask
+    from datetime import date as _date
+    contact = db.query(Contact).filter(Contact.id == contact_id).first()
+    if not contact:
+        raise HTTPException(status_code=404, detail="Not found")
+    due = None
+    if data.due_date:
+        try: due = _date.fromisoformat(data.due_date)
+        except: pass
+    t = ContactTask(contact_id=contact_id, title=data.title, due_date=due,
+                    assigned_to_id=data.assigned_to_id, created_by_id=current_user.id)
+    db.add(t)
+    db.commit()
+    db.refresh(t)
+    return {"id": t.id, "title": t.title, "due_date": t.due_date.isoformat() if t.due_date else None,
+            "completed": t.completed, "assigned_to": t.assigned_to.name if t.assigned_to else None,
+            "created_by": current_user.name, "created_at": t.created_at.isoformat()}
+
+@router.put("/{contact_id}/tasks/{task_id}")
+def update_task(contact_id: int, task_id: int, data: dict, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    from app.models.models import ContactTask
+    from datetime import datetime as _dt
+    t = db.query(ContactTask).filter(ContactTask.id == task_id, ContactTask.contact_id == contact_id).first()
+    if not t:
+        raise HTTPException(status_code=404, detail="Not found")
+    if "completed" in data:
+        t.completed = data["completed"]
+        t.completed_at = _dt.utcnow() if data["completed"] else None
     db.commit()
     return {"ok": True}

@@ -43,8 +43,10 @@ def entry_to_dict(e: PipelineEntry):
 def list_pipeline(
     search: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
+    statuses: Optional[str] = Query(None),  # comma-separated
     brand_id: Optional[int] = Query(None),
-    owner_id: Optional[int] = Query(None),
+    owner_id:    Optional[int] = Query(None),
+    contact_id:  Optional[int] = Query(None),
     sort_by: Optional[str] = Query("updated_at"),
     sort_dir: Optional[str] = Query("desc"),
     page: int = Query(1, ge=1),
@@ -69,12 +71,17 @@ def list_pipeline(
             Contact.company.ilike(f"%{search}%"),
             Brand.name.ilike(f"%{search}%"),
         ))
-    if status:
+    if statuses:
+        sl = [s.strip() for s in statuses.split(",") if s.strip()]
+        if sl: q = q.filter(PipelineEntry.status.in_(sl))
+    elif status:
         q = q.filter(PipelineEntry.status == status)
     if brand_id:
         q = q.filter(PipelineEntry.brand_id == brand_id)
     if owner_id:
         q = q.filter(PipelineEntry.owner_id == owner_id)
+    if contact_id:
+        q = q.filter(PipelineEntry.contact_id == contact_id)
 
     sort_col = {
         "contact": Contact.company,
@@ -149,3 +156,50 @@ def delete_entry(entry_id: int, db: Session = Depends(get_db), current_user: Use
     db.delete(e)
     db.commit()
     return {"ok": True}
+
+
+class PipelineNoteCreate(BaseModel):
+    body: str
+
+class PipelineNoteUpdate(BaseModel):
+    body: str
+
+@router.get("/{entry_id}/notes")
+def get_pipeline_notes(entry_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    from app.models.models import PipelineNote
+    e = db.query(PipelineEntry).filter(PipelineEntry.id == entry_id).first()
+    if not e:
+        raise HTTPException(status_code=404, detail="Not found")
+    notes = db.query(PipelineNote).filter(PipelineNote.pipeline_id == entry_id).order_by(PipelineNote.created_at.desc()).all()
+    return [{"id": n.id, "body": n.body, "author_name": n.author.name,
+             "created_at": n.created_at.isoformat(),
+             "updated_at": n.updated_at.isoformat() if n.updated_at else None,
+             "updated_by": n.updated_by.name if n.updated_by else None} for n in notes]
+
+@router.post("/{entry_id}/notes")
+def add_pipeline_note(entry_id: int, data: PipelineNoteCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    from app.models.models import PipelineNote
+    e = db.query(PipelineEntry).filter(PipelineEntry.id == entry_id).first()
+    if not e:
+        raise HTTPException(status_code=404, detail="Not found")
+    note = PipelineNote(pipeline_id=entry_id, body=data.body, author_id=current_user.id)
+    db.add(note)
+    db.commit()
+    db.refresh(note)
+    return {"id": note.id, "body": note.body, "author_name": current_user.name,
+            "created_at": note.created_at.isoformat(), "updated_at": None, "updated_by": None}
+
+@router.put("/{entry_id}/notes/{note_id}")
+def edit_pipeline_note(entry_id: int, note_id: int, data: PipelineNoteUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    from app.models.models import PipelineNote
+    from datetime import datetime as _dt
+    note = db.query(PipelineNote).filter(PipelineNote.id == note_id, PipelineNote.pipeline_id == entry_id).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="Not found")
+    note.body = data.body
+    note.updated_at = _dt.utcnow()
+    note.updated_by_id = current_user.id
+    db.commit()
+    return {"id": note.id, "body": note.body, "author_name": note.author.name,
+            "created_at": note.created_at.isoformat(),
+            "updated_at": note.updated_at.isoformat(), "updated_by": current_user.name}

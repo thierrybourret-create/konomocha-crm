@@ -4,7 +4,7 @@ from typing import Optional
 from datetime import date
 from decimal import Decimal
 from app.database import get_db
-from app.models.models import Order, User, OrderStatus
+from app.models.models import Order, User
 from app.auth import get_current_user, require_admin
 from pydantic import BaseModel
 
@@ -16,14 +16,18 @@ class OrderCreate(BaseModel):
     order_date: date
     order_value: Decimal
     currency: str = "USD"
-    gross_commission_rate: Decimal
+    gross_commission_rate: Decimal = Decimal("0")
     testing_cost_deduction: Decimal = Decimal("0")
-    status: OrderStatus = OrderStatus.confirmed
+    po_date: Optional[date] = None
+    pi_date: Optional[date] = None
+    deposit_date: Optional[date] = None
+    fob_date: Optional[date] = None
+    payment_date: Optional[date] = None
+    status: str = "PO Received"
     notes: Optional[str] = None
 
-def compute_net(order_value, gross_rate, testing_cost):
-    gross = (order_value * gross_rate / 100).quantize(Decimal("0.01"))
-    return (gross - testing_cost).quantize(Decimal("0.01"))
+def compute_net(commission_value, testing_cost):
+    return (Decimal(str(commission_value)) - Decimal(str(testing_cost))).quantize(Decimal("0.01"))
 
 def order_to_dict(o: Order):
     return {
@@ -36,9 +40,14 @@ def order_to_dict(o: Order):
         "order_date": o.order_date.isoformat() if o.order_date else None,
         "order_value": float(o.order_value),
         "currency": o.currency,
-        "gross_commission_rate": float(o.gross_commission_rate),
+        "commission_value": float(o.gross_commission_rate),
         "testing_cost_deduction": float(o.testing_cost_deduction),
         "net_commission": float(o.net_commission) if o.net_commission else None,
+        "po_date": o.po_date.isoformat() if o.po_date else None,
+        "pi_date": o.pi_date.isoformat() if o.pi_date else None,
+        "deposit_date": o.deposit_date.isoformat() if o.deposit_date else None,
+        "fob_date": o.fob_date.isoformat() if o.fob_date else None,
+        "payment_date": o.payment_date.isoformat() if o.payment_date else None,
         "status": o.status,
         "notes": o.notes,
         "created_at": o.created_at.isoformat() if o.created_at else None,
@@ -64,7 +73,7 @@ def list_orders(
 
 @router.post("")
 def create_order(data: OrderCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
-    net = compute_net(data.order_value, data.gross_commission_rate, data.testing_cost_deduction)
+    net = compute_net(data.gross_commission_rate, data.testing_cost_deduction)
     o = Order(**data.dict(), net_commission=net)
     db.add(o)
     db.commit()
@@ -78,7 +87,7 @@ def update_order(order_id: int, data: OrderCreate, db: Session = Depends(get_db)
         raise HTTPException(status_code=404, detail="Order not found")
     for k, v in data.dict(exclude_unset=True).items():
         setattr(o, k, v)
-    o.net_commission = compute_net(o.order_value, o.gross_commission_rate, o.testing_cost_deduction)
+    o.net_commission = compute_net(o.gross_commission_rate, o.testing_cost_deduction)
     db.commit()
     db.refresh(o)
     return order_to_dict(o)

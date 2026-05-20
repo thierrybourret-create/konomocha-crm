@@ -9,10 +9,10 @@ from app.auth import get_current_user
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 ACTIVE_STATUSES = [
-    Awaiting Feedback, Awaiting Info, Awaiting Samples,
-    Catalogue Sent, Deposit Paid, Form Completed, In Progress,
-    Order Placed, Price List Sent, Quotation Sent,
-    Samples Delivered, Samples Requested, Samples Sent,
+    'Awaiting Feedback', 'Awaiting Info', 'Awaiting Samples',
+    'Catalogue Sent', 'Deposit Paid', 'Form Completed', 'In Progress',
+    'Order Placed', 'Price List Sent', 'Quotation Sent',
+    'Samples Delivered', 'Samples Requested', 'Samples Sent',
 ]
 
 @router.get("")

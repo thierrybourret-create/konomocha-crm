@@ -24,13 +24,13 @@ def fix_regions(filepath):
     ws = wb.active
     headers = [cell.value for cell in next(ws.iter_rows(max_row=1))]
 
-    def last_col(name):
+    def first_col(name):
         indices = [i for i, h in enumerate(headers) if h == name]
-        return indices[-1] if indices else None
+        return indices[0] if indices else None
 
-    sr_idx  = last_col('Sales Region')
-    co_idx  = last_col('Country')
-    grp_idx = last_col('Groups')
+    sr_idx  = first_col('Sales Region')
+    co_idx  = first_col('Country')
+    grp_idx = first_col('Groups')
     email_idx = headers.index('Primary Email') if 'Primary Email' in headers else None
     print(f"Sales Region col: {sr_idx}, Country col: {co_idx}")
 

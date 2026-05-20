@@ -1175,10 +1175,10 @@
       <div class="page-head">
         <div>
           <h1 class="page-title">Pipeline</h1>
-          <div class="page-sub">128 open deals &middot; USD 1.08M weighted value &middot; Updated 2 minutes ago</div>
+          <div class="page-sub" id="pipeline-sub">Loading...</div>
         </div>
         <div class="page-actions">
-          <button class="btn btn-secondary">
+          <button id="pipeline-board-btn" class="btn btn-secondary" onclick="toggleBoardView()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
             Board view
           </button>
@@ -1186,10 +1186,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
             Export CSV
           </button>
-          <button class="btn btn-primary" onclick="openNewDealModal()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            Add deal
-          </button>
+
         </div>
       </div>
 
@@ -1222,17 +1219,17 @@
         </div>
 
         <!-- Pipeline table -->
-        <div class="table-wrap">
+        <div id="pipeline-table-wrap" class="table-wrap">
           <table class="data">
             <thead>
               <tr>
                 <th class="cell-checkbox"><span class="check"></span></th>
-                <th>Contact / Company</th>
-                <th>Brand</th>
-                <th>Status</th>
-                <th style="text-align: right;">Potential value <svg class="sort-ico" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></th>
+                <th onclick="sortPipeline('contact')" style="cursor:pointer">Company / Contact <span id="sort-pipeline-contact"></span></th>
+                <th onclick="sortPipeline('brand')" style="cursor:pointer">Brand <span id="sort-pipeline-brand"></span></th>
+                <th onclick="sortPipeline('status')" style="cursor:pointer">Status <span id="sort-pipeline-status"></span></th>
+                <th style="text-align:right;">Potential value</th>
                 <th>Next action</th>
-                <th>Due date <svg class="sort-ico" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg></th>
+                <th onclick="sortPipeline('due_date')" style="cursor:pointer">FOB Date <span id="sort-pipeline-due_date"></span></th>
                 <th>Owner</th>
                 <th style="width: 36px;"></th>
               </tr>
@@ -1255,6 +1252,7 @@
           </div>
         </div>
 
+        <div id="pipeline-board" style="display:none;overflow-x:auto;padding:8px 0 16px;flex-wrap:nowrap;align-items:flex-start"></div>
         <!-- Status legend -->
         <div class="legend">
           <span style="color: var(--navy); font-weight: 600;">Status legend:</span>
@@ -1544,6 +1542,7 @@ document.querySelectorAll('.sb-item[data-view]').forEach(n => n.addEventListener
 const STATUS_CLASS = { 'Deposit Paid':'green','Order Placed':'green','On Hold':'amber','Stalled':'amber','Closed / No Action':'grey','Cancelled':'grey' };
 function statusClass(s) { return STATUS_CLASS[s] || 'blue'; }
 
+function fmtNum(n) { return Number(n||0).toLocaleString(); }
 function fmtShort(n) {
   n = Number(n)||0;
   if (n>=1000000) return (n/1000000).toFixed(1)+'M';
@@ -1555,11 +1554,12 @@ function fmtVal(v, cur='USD') {
 }
 function fmtDate(d) {
   if (!d) return '<span style="color:var(--warm-grey-light)">—</span>';
-  const dt = new Date(d), today = new Date(); today.setHours(0,0,0,0);
+  const dt = new Date(d + 'T00:00:00'), today = new Date(); today.setHours(0,0,0,0);
   const diff = Math.floor((dt-today)/86400000);
-  const lbl = dt.toLocaleDateString('en-GB',{day:'numeric',month:'short'});
-  if (diff<0) return `<span style="color:#B33A47;font-weight:600">${Math.abs(diff)}d overdue</span>`;
-  if (diff===0) return `<span style="color:#8A5A00;font-weight:600">Today</span>`;
+  const mn = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const lbl = String(dt.getDate()).padStart(2,'0') + '/' + mn[dt.getMonth()] + '/' + dt.getFullYear();
+  if (diff<0) return '<span style="color:#B33A47;font-weight:600">' + lbl + '</span>';
+  if (diff===0) return '<span style="color:#8A5A00;font-weight:600">' + lbl + '</span>';
   return lbl;
 }
 
@@ -1679,7 +1679,7 @@ async function loadContacts() {
   if (contactFilters.region) rows = rows.filter(c => getRegionFromTags(c.tags) === contactFilters.region);
   if (contactFilters.tag)    rows = rows.filter(c => getTagGroup(c.tags) === contactFilters.tag);
 
-  document.getElementById('contacts-meta').textContent = d.total + ' contacts';
+  document.getElementById('contacts-meta').textContent = fmtNum(d.total) + ' contacts';
   const sc = document.getElementById('sb-count-contacts'); if(sc) sc.textContent = d.total;
   document.getElementById('contacts-foot').innerHTML = `Showing ${rows.length} of ${d.total}`;
 
@@ -1728,7 +1728,7 @@ async function loadCompanies() {
   if (companyFilters.region) rows = rows.filter(c => getRegionFromTags(c.tags) === companyFilters.region);
   if (companyFilters.tag)    rows = rows.filter(c => getTagGroup(c.tags) === companyFilters.tag);
 
-  document.getElementById('companies-meta').textContent = d.total + ' companies';
+  document.getElementById('companies-meta').textContent = fmtNum(d.total) + ' companies';
   const sc = document.getElementById('sb-count-companies'); if(sc) sc.textContent = d.total;
   document.getElementById('companies-foot').innerHTML = `Showing ${rows.length} of ${d.total}`;
 
@@ -1945,9 +1945,10 @@ async function uploadContactCSV(input) {
 
 // ---- Pipeline ----
 let pipelinePage=1, pipelineData=[], pipelineFilters={search:'',brand_id:'',owner_id:'',status:''};
+let pipelineSort='updated_at', pipelineSortDir='desc';
 
 async function loadPipeline() {
-  const p = new URLSearchParams({ page:pipelinePage, per_page:50 });
+  const p = new URLSearchParams({ page:pipelinePage, per_page:50, sort_by:pipelineSort, sort_dir:pipelineSortDir });
   if (pipelineFilters.search)   p.set('search',   pipelineFilters.search);
   if (pipelineFilters.brand_id) p.set('brand_id', pipelineFilters.brand_id);
   if (pipelineFilters.owner_id) p.set('owner_id', pipelineFilters.owner_id);
@@ -1956,13 +1957,16 @@ async function loadPipeline() {
   if (!d) return;
   pipelineData = d.results;
   const sc = document.getElementById('sb-count-pipeline'); if(sc) sc.textContent=d.total;
-  document.getElementById('pipeline-meta').innerHTML = `Showing <b>${d.results.length}</b> of <b>${d.total}</b> deals`;
+  document.getElementById('pipeline-meta').innerHTML = `Showing <b>${fmtNum(d.results.length)}</b> of <b>${fmtNum(d.total)}</b> deals`;
+  const psub = document.getElementById('pipeline-sub');
+  if (psub) psub.innerHTML = fmtNum(d.total) + ' open deals &middot; USD ' + fmtShort(d.total_value||0) + ' total value';
+  ['contact','brand','status','due_date'].forEach(function(k){var el=document.getElementById('sort-pipeline-'+k);if(el)el.textContent=pipelineSort===k?sortIcon(pipelineSortDir):'';});
   const tbody = document.getElementById('pipeline-tbody');
   if (!d.results.length) { tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--warm-grey);">No pipeline entries found.</td></tr>'; return; }
   tbody.innerHTML = d.results.map(e=>`
     <tr data-id="${e.id}" style="cursor:pointer" onclick="openPipelineDetail(${e.id})">
       <td class="cell-checkbox"><span class="check"></span></td>
-      <td class="contact-cell"><div class="nm">${e.contact_name||'—'}</div><div class="co">${e.contact_company||''}</div></td>
+      <td class="contact-cell"><div class="nm">${e.contact_company||e.contact_name||'—'}</div><div class="co">${e.contact_company?e.contact_name||'':''}</div></td>
       <td>${brandMark(e.brand_name||'—')}</td>
       <td><span class="pill ${statusClass(e.status)}">${e.status}</span></td>
       <td class="value-cell">${fmtVal(e.potential_value)}</td>
@@ -1977,7 +1981,7 @@ async function loadPipeline() {
 
 function openPipelineDetail(id) {
   const e = pipelineData.find(x=>x.id===id); if(!e) return;
-  document.getElementById('modal-title').innerHTML = `${e.contact_name||''} — ${e.brand_name||''}`;
+  document.getElementById('modal-title').innerHTML = `${e.contact_company||e.contact_name||''} — ${e.brand_name||''}`;
   document.getElementById('modal-body').innerHTML = `
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       <tr><td style="padding:8px 0;color:var(--warm-grey);width:130px">Contact</td><td><b>${e.contact_name||'—'}</b></td></tr>
@@ -1986,11 +1990,62 @@ function openPipelineDetail(id) {
       <tr><td style="padding:8px 0;color:var(--warm-grey)">Status</td><td><span class="pill ${statusClass(e.status)}">${e.status}</span></td></tr>
       <tr><td style="padding:8px 0;color:var(--warm-grey)">Potential Value</td><td>${fmtVal(e.potential_value)}</td></tr>
       <tr><td style="padding:8px 0;color:var(--warm-grey)">Next Action</td><td>${e.next_action||'—'}</td></tr>
-      <tr><td style="padding:8px 0;color:var(--warm-grey)">Due Date</td><td>${e.due_date||'—'}</td></tr>
+      <tr><td style="padding:8px 0;color:var(--warm-grey)">FOB Date</td><td>${fmtDate(e.due_date)}</td></tr>
       <tr><td style="padding:8px 0;color:var(--warm-grey)">Owner</td><td>${e.owner_name||'—'}</td></tr>
       <tr><td style="padding:8px 0;color:var(--warm-grey);vertical-align:top">Notes</td><td style="white-space:pre-wrap">${e.notes||'—'}</td></tr>
     </table>`;
   document.getElementById('modal').style.display = 'flex';
+}
+
+
+function sortPipeline(col) {
+  if (pipelineSort===col) pipelineSortDir = pipelineSortDir==='asc'?'desc':'asc';
+  else { pipelineSort=col; pipelineSortDir='asc'; }
+  pipelinePage=1; loadPipeline();
+}
+
+let boardViewActive = false;
+function toggleBoardView() {
+  boardViewActive = !boardViewActive;
+  var btn = document.getElementById('pipeline-board-btn');
+  if (btn) btn.textContent = boardViewActive ? 'Table view' : 'Board view';
+  document.getElementById('pipeline-table-wrap').style.display = boardViewActive ? 'none' : '';
+  var board = document.getElementById('pipeline-board');
+  if (board) board.style.display = boardViewActive ? 'flex' : 'none';
+  if (boardViewActive) renderBoard();
+}
+
+async function renderBoard() {
+  var board = document.getElementById('pipeline-board');
+  board.innerHTML = '<div style="padding:40px;color:var(--warm-grey)">Loading...</div>';
+  var d = await apiFetch('/pipeline?per_page=500');
+  if (!d) return;
+  pipelineData = d.results;
+  var statuses = ['In Progress','Awaiting Feedback','Awaiting Info','Awaiting Samples','Catalogue Sent','Price List Sent','Pricing Sent','Quotation Sent','Samples Requested','Samples Sent','Samples Delivered','Form Completed','Deposit Paid','Order Placed','On Hold','Stalled','Closed / No Action','Cancelled'];
+  var byStatus = {};
+  statuses.forEach(function(s){ byStatus[s] = []; });
+  d.results.forEach(function(e){ if(byStatus[e.status]!==undefined) byStatus[e.status].push(e); });
+  var cols = statuses.filter(function(s){ return byStatus[s].length > 0; });
+  board.innerHTML = cols.map(function(s) {
+    var cards = byStatus[s];
+    var total = cards.reduce(function(sum,c){ return sum+(c.potential_value||0); },0);
+    return '<div style="flex:0 0 220px;background:var(--bg);border-radius:10px;overflow:hidden;margin-right:12px">'
+      + '<div style="padding:10px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px">'
+      + '<span class="pill ' + statusClass(s) + '">' + s + '</span>'
+      + '<span style="font-size:11px;color:var(--warm-grey);white-space:nowrap">' + cards.length + ' &middot; ' + fmtShort(total) + '</span>'
+      + '</div>'
+      + '<div style="padding:8px;max-height:calc(100vh - 280px);overflow-y:auto">'
+      + cards.map(function(e) {
+          return '<div onclick="openPipelineDetail(' + e.id + ')" style="background:var(--white);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:6px;cursor:pointer">'
+            + '<div style="font-weight:600;color:var(--navy);font-size:13px;margin-bottom:2px">' + (e.contact_company||e.contact_name||'—') + '</div>'
+            + '<div style="font-size:11px;color:var(--warm-grey);margin-bottom:6px">' + (e.brand_name||'') + '</div>'
+            + '<div style="display:flex;justify-content:space-between;align-items:center">'
+            + '<span style="font-size:12px;font-weight:600;color:var(--logo-blue-dark)">USD ' + fmtNum(e.potential_value||0) + '</span>'
+            + ownerAv(e.owner_name)
+            + '</div></div>';
+        }).join('')
+      + '</div></div>';
+  }).join('');
 }
 
 // ---- New Deal modal ----
@@ -2026,7 +2081,7 @@ async function openNewDealModal(preContactId) {
           </select></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Due Date</label>
+        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">FOB Date</label>
           <input name="due_date" type="date" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
         <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Next Action</label>
           <input name="next_action" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_
+from sqlalchemy.orm import Session, contains_eager
+from sqlalchemy import or_, func
 from typing import Optional
 from datetime import date
 from decimal import Decimal
@@ -38,24 +38,33 @@ def entry_to_dict(e: PipelineEntry):
         "notes": e.notes,
         "updated_at": e.updated_at.isoformat() if e.updated_at else None,
     }
+
 @router.get("")
 def list_pipeline(
     search: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
     brand_id: Optional[int] = Query(None),
     owner_id: Optional[int] = Query(None),
+    sort_by: Optional[str] = Query("updated_at"),
+    sort_dir: Optional[str] = Query("desc"),
     page: int = Query(1, ge=1),
     per_page: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    q = db.query(PipelineEntry).options(
-        joinedload(PipelineEntry.contact),
-        joinedload(PipelineEntry.brand),
-        joinedload(PipelineEntry.owner)
+    q = (
+        db.query(PipelineEntry)
+        .join(Contact, PipelineEntry.contact_id == Contact.id, isouter=True)
+        .join(Brand, PipelineEntry.brand_id == Brand.id, isouter=True)
+        .join(User, PipelineEntry.owner_id == User.id, isouter=True)
+        .options(
+            contains_eager(PipelineEntry.contact),
+            contains_eager(PipelineEntry.brand),
+            contains_eager(PipelineEntry.owner),
+        )
     )
     if search:
-        q = q.join(Contact).join(Brand).filter(or_(
+        q = q.filter(or_(
             Contact.name.ilike(f"%{search}%"),
             Contact.company.ilike(f"%{search}%"),
             Brand.name.ilike(f"%{search}%"),
@@ -66,17 +75,42 @@ def list_pipeline(
         q = q.filter(PipelineEntry.brand_id == brand_id)
     if owner_id:
         q = q.filter(PipelineEntry.owner_id == owner_id)
+
+    sort_col = {
+        "contact": Contact.company,
+        "brand": Brand.name,
+        "status": PipelineEntry.status,
+        "due_date": PipelineEntry.due_date,
+        "potential_value": PipelineEntry.potential_value,
+    }.get(sort_by, PipelineEntry.updated_at)
+    q = q.order_by(sort_col.desc() if sort_dir == "desc" else sort_col)
+
     total = q.count()
-    entries = q.order_by(PipelineEntry.updated_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
-    return {"total": total, "page": page, "per_page": per_page, "results": [entry_to_dict(e) for e in entries]}
+    total_value = db.query(func.sum(PipelineEntry.potential_value)).scalar() or 0
+    entries = q.offset((page - 1) * per_page).limit(per_page).all()
+    return {
+        "total": total,
+        "total_value": float(total_value),
+        "page": page,
+        "per_page": per_page,
+        "results": [entry_to_dict(e) for e in entries],
+    }
 
 @router.get("/{entry_id}")
 def get_entry(entry_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    e = db.query(PipelineEntry).options(
-        joinedload(PipelineEntry.contact),
-        joinedload(PipelineEntry.brand),
-        joinedload(PipelineEntry.owner)
-    ).filter(PipelineEntry.id == entry_id).first()
+    e = (
+        db.query(PipelineEntry)
+        .join(Contact, PipelineEntry.contact_id == Contact.id, isouter=True)
+        .join(Brand, PipelineEntry.brand_id == Brand.id, isouter=True)
+        .join(User, PipelineEntry.owner_id == User.id, isouter=True)
+        .options(
+            contains_eager(PipelineEntry.contact),
+            contains_eager(PipelineEntry.brand),
+            contains_eager(PipelineEntry.owner),
+        )
+        .filter(PipelineEntry.id == entry_id)
+        .first()
+    )
     if not e:
         raise HTTPException(status_code=404, detail="Entry not found")
     return entry_to_dict(e)

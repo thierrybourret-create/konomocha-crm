@@ -1292,9 +1292,9 @@
             <thead><tr>
               <th onclick="sortContacts('name')" style="cursor:pointer">First Name <span id="sort-contact-name"></span></th>
               <th onclick="sortContacts('last_name')" style="cursor:pointer">Last Name <span id="sort-contact-last_name"></span></th>
-              <th>Company</th>
+              <th onclick="sortContacts('company')" style="cursor:pointer">Company <span id="sort-contact-company"></span></th>
               <th onclick="sortContacts('country')" style="cursor:pointer">Country <span id="sort-contact-country"></span></th>
-              <th>Region</th><th>Phone</th><th>Email</th><th>Tags</th>
+              <th onclick="sortContacts('region')" style="cursor:pointer">Region <span id="sort-contact-region"></span></th><th>Phone</th><th>Email</th><th onclick="sortContacts('tags')" style="cursor:pointer">Tags <span id="sort-contact-tags"></span></th>
             </tr></thead>
             <tbody id="contacts-tbody"><tr><td colspan="8" style="text-align:center;padding:40px;color:var(--warm-grey);">Loading…</td></tr></tbody>
           </table>
@@ -1327,7 +1327,7 @@
             <thead><tr>
               <th onclick="sortCompanies('company')" style="cursor:pointer">Company <span id="sort-company-company"></span></th>
               <th onclick="sortCompanies('country')" style="cursor:pointer">Country <span id="sort-company-country"></span></th>
-              <th>Region</th><th>Tags</th><th style="width:80px">Contacts</th>
+              <th onclick="sortCompanies('region')" style="cursor:pointer">Region <span id="sort-company-region"></span></th><th onclick="sortCompanies('tags')" style="cursor:pointer">Tags <span id="sort-company-tags"></span></th><th style="width:80px">Contacts</th>
             </tr></thead>
             <tbody id="companies-tbody"><tr><td colspan="5" style="text-align:center;padding:40px;color:var(--warm-grey);">Loading…</td></tr></tbody>
           </table>
@@ -1647,6 +1647,19 @@ async function loadDashboard() {
   } else {
     ef.innerHTML = '<div style="padding:20px;color:var(--warm-grey);text-align:center;">No emails logged yet.</div>';
   }
+  const tw = document.getElementById('team-workload');
+  if (tw && d.team_workload) {
+    tw.innerHTML = d.team_workload.length
+      ? d.team_workload.map(function(u) {
+          var od = u.overdue ? ' &middot; <span style="color:var(--accent-coral)">' + u.overdue + ' overdue</span>' : '';
+          return '<div style="background:var(--white);border:1px solid var(--line);border-radius:10px;padding:14px 18px;display:flex;flex-direction:column;gap:6px">'
+               + '<div style="font-weight:600;color:var(--navy);font-size:14px">' + u.name.split(' ')[0] + '</div>'
+               + '<div style="font-size:22px;font-weight:700;color:var(--logo-blue-dark);font-family:var(--font-mono)">' + u.active + '</div>'
+               + '<div style="font-size:11px;color:var(--warm-grey)">active deals' + od + '</div>'
+               + '</div>';
+        }).join('')
+      : '<div style="padding:20px;color:var(--warm-grey);text-align:center;grid-column:span 3">No pipeline data.</div>';
+  }
 }
 
 // ---- Contacts ----
@@ -1654,7 +1667,8 @@ let contactPage=1, contactSearch='', contactSort='name', contactSortDir='asc';
 let contactFilters = { country:'', region:'', tag:'' };
 
 async function loadContacts() {
-  const p = new URLSearchParams({ source:'contacts', page:contactPage, per_page:50, sort_by:contactSort, sort_dir:contactSortDir });
+  const backendContactSort = contactSort === 'region' ? 'tags' : contactSort;
+  const p = new URLSearchParams({ source:'contacts', page:contactPage, per_page:50, sort_by:backendContactSort, sort_dir:contactSortDir });
   if (contactSearch) p.set('search', contactSearch);
   if (contactFilters.country) p.set('country', contactFilters.country);
   const d = await apiFetch('/contacts?'+p);
@@ -1670,7 +1684,7 @@ async function loadContacts() {
   document.getElementById('contacts-foot').innerHTML = `Showing ${rows.length} of ${d.total}`;
 
   // Sort icons
-  ['name','last_name','country'].forEach(k => {
+  ['name','last_name','country','company','region','tags'].forEach(k => {
     const el = document.getElementById('sort-contact-'+k);
     if (el) el.textContent = contactSort===k ? sortIcon(contactSortDir) : '';
   });
@@ -1703,7 +1717,8 @@ let companyPage=1, companySearch='', companySort='company', companySortDir='asc'
 let companyFilters = { country:'', region:'', tag:'' };
 
 async function loadCompanies() {
-  const p = new URLSearchParams({ source:'companies', page:companyPage, per_page:50, sort_by:companySort, sort_dir:companySortDir });
+  const backendCompanySort = companySort === 'region' ? 'tags' : companySort;
+  const p = new URLSearchParams({ source:'companies', page:companyPage, per_page:50, sort_by:backendCompanySort, sort_dir:companySortDir });
   if (companySearch) p.set('search', companySearch);
   if (companyFilters.country) p.set('country', companyFilters.country);
   const d = await apiFetch('/contacts?'+p);
@@ -1717,7 +1732,7 @@ async function loadCompanies() {
   const sc = document.getElementById('sb-count-companies'); if(sc) sc.textContent = d.total;
   document.getElementById('companies-foot').innerHTML = `Showing ${rows.length} of ${d.total}`;
 
-  ['company','country'].forEach(k => {
+  ['company','country','region','tags'].forEach(k => {
     const el = document.getElementById('sort-company-'+k);
     if (el) el.textContent = companySort===k ? sortIcon(companySortDir) : '';
   });
@@ -1777,7 +1792,9 @@ async function openContactDetail(id) {
 async function openCompanyContacts(name, encoded) {
   const d = await apiFetch('/contacts?search='+encodeURIComponent(name)+'&per_page=100');
   if (!d) return;
-  const contacts = d.results.filter(c=>(c.company||'').toLowerCase()===name.toLowerCase());
+  const contacts = d.results
+    .filter(c => (c.company||'').toLowerCase()===name.toLowerCase() && c.source !== 'lacrm_company_import')
+    .sort((a,b) => (a.last_name||a.name||'').localeCompare(b.last_name||b.name||''));
   document.getElementById('modal-title').innerHTML = name;
   document.getElementById('modal-body').innerHTML = contacts.length ? `
     <div style="font-size:13px;color:var(--warm-grey);margin-bottom:12px">${contacts.length} contact${contacts.length>1?'s':''}</div>

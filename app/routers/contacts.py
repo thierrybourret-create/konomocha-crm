@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from typing import Optional
 from app.database import get_db
 from app.models.models import Contact, User
@@ -56,7 +56,6 @@ def list_contacts(
 ):
     q = db.query(Contact)
 
-    # Source filter — key fix for contacts vs companies split
     if source == "contacts":
         q = q.filter(Contact.source.in_(["lacrm_import", "manual"]))
     elif source == "companies":
@@ -73,12 +72,15 @@ def list_contacts(
     if country:
         q = q.filter(Contact.country == country)
 
-    # Sorting
     sort_col = {
         "name": Contact.name,
         "company": Contact.company,
         "country": Contact.country,
+        "tags": Contact.tags,
+        "region": Contact.tags,
+        "last_name": func.split_part(Contact.name, ' ', 2),
     }.get(sort_by, Contact.name)
+
     if sort_dir == "desc":
         sort_col = sort_col.desc()
     q = q.order_by(sort_col)

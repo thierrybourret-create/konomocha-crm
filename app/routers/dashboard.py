@@ -32,6 +32,22 @@ def get_dashboard(db: Session = Depends(get_db), current_user: User = Depends(ge
         Order.status != "paid"
     ).scalar() or 0
     recent_emails = db.query(EmailLog).order_by(EmailLog.sent_at.desc()).limit(5).all()
+
+    workload_rows = (
+        db.query(User.id, User.name, func.count(PipelineEntry.id).label("active"))
+        .outerjoin(PipelineEntry, (PipelineEntry.owner_id == User.id) & PipelineEntry.status.in_(ACTIVE_STATUSES))
+        .filter(User.is_active == True)
+        .group_by(User.id, User.name)
+        .all()
+    )
+    overdue_rows = (
+        db.query(PipelineEntry.owner_id, func.count(PipelineEntry.id).label("overdue"))
+        .filter(PipelineEntry.status.in_(ACTIVE_STATUSES), PipelineEntry.due_date < date.today())
+        .group_by(PipelineEntry.owner_id)
+        .all()
+    )
+    overdue_map = {r.owner_id: r.overdue for r in overdue_rows}
+
     return {
         "total_active_pipeline": total_active,
         "overdue_actions": overdue,
@@ -41,5 +57,9 @@ def get_dashboard(db: Session = Depends(get_db), current_user: User = Depends(ge
             {"id": e.id, "subject": e.subject, "direction": e.direction,
              "sent_at": e.sent_at.isoformat() if e.sent_at else None}
             for e in recent_emails
-        ]
+        ],
+        "team_workload": [
+            {"id": r.id, "name": r.name, "active": r.active, "overdue": overdue_map.get(r.id, 0)}
+            for r in workload_rows
+        ],
     }

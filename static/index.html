@@ -1693,8 +1693,8 @@ async function loadContacts() {
   if (!rows.length) { tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--warm-grey);">No contacts found.</td></tr>'; return; }
   tbody.innerHTML = rows.map(c => `
     <tr style="cursor:pointer" onclick="openContactDetail(${c.id})">
-      <td class="contact-cell"><div class="nm">${c.first_name||''}</div></td>
-      <td>${c.last_name||'—'}</td>
+      <td class="contact-cell">${c.first_name||''}</td>
+      <td><div class="nm">${c.last_name||'—'}</div></td>
       <td>${c.company ? `<span style="color:var(--logo-blue-dark);font-weight:500" onclick="event.stopPropagation();openCompanyContacts('${c.company.replace(/'/g,"\\'")}','${encodeURIComponent(c.company)}')">${c.company}</span>` : '—'}</td>
       <td>${c.country||'—'}</td>
       <td>${getRegionFromTags(c.tags)||'—'}</td>

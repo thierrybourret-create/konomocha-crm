@@ -5,7 +5,7 @@ from typing import Optional
 from datetime import date
 from decimal import Decimal
 from app.database import get_db
-from app.models.models import PipelineEntry, Contact, Brand, User, PipelineStatus
+from app.models.models import PipelineEntry, Contact, Brand, User
 from app.auth import get_current_user
 from pydantic import BaseModel
 
@@ -14,7 +14,7 @@ router = APIRouter(prefix="/api/pipeline", tags=["pipeline"])
 class PipelineCreate(BaseModel):
     contact_id: int
     brand_id: int
-    status: PipelineStatus
+    status: str
     potential_value: Decimal
     next_action: Optional[str] = None
     due_date: Optional[date] = None
@@ -82,6 +82,7 @@ def list_pipeline(
         "status": PipelineEntry.status,
         "due_date": PipelineEntry.due_date,
         "potential_value": PipelineEntry.potential_value,
+        "owner": User.name,
     }.get(sort_by, PipelineEntry.updated_at)
     q = q.order_by(sort_col.desc() if sort_dir == "desc" else sort_col)
 

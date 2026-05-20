@@ -3,19 +3,16 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import date
 from app.database import get_db
-from app.models.models import PipelineEntry, Order, EmailLog, User, PipelineStatus
+from app.models.models import PipelineEntry, Order, EmailLog, User
 from app.auth import get_current_user
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 ACTIVE_STATUSES = [
-    PipelineStatus.awaiting_feedback, PipelineStatus.awaiting_info,
-    PipelineStatus.awaiting_samples, PipelineStatus.catalogue_sent,
-    PipelineStatus.deposit_paid, PipelineStatus.form_completed,
-    PipelineStatus.in_progress, PipelineStatus.order_placed,
-    PipelineStatus.price_list_sent, PipelineStatus.pricing_sent,
-    PipelineStatus.quotation_sent, PipelineStatus.samples_delivered,
-    PipelineStatus.samples_requested, PipelineStatus.samples_sent,
+    Awaiting Feedback, Awaiting Info, Awaiting Samples,
+    Catalogue Sent, Deposit Paid, Form Completed, In Progress,
+    Order Placed, Price List Sent, Quotation Sent,
+    Samples Delivered, Samples Requested, Samples Sent,
 ]
 
 @router.get("")

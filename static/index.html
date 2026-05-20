@@ -841,6 +841,7 @@
       <button id="modal-close" style="color:var(--warm-grey);font-size:22px;line-height:1;cursor:pointer;background:none;border:none;">✕</button>
     </div>
     <div id="modal-body" style="padding:24px;"></div>
+    <div id="modal-footer" style="display:flex;gap:8px;justify-content:flex-end;padding:0 24px 20px;margin-top:8px;border-top:1px solid var(--line)"></div>
   </div>
 </div>
 
@@ -1178,6 +1179,7 @@
           <div class="page-sub" id="pipeline-sub">Loading...</div>
         </div>
         <div class="page-actions">
+          <select id="board-group-by" onchange="if(boardViewActive)renderBoard()" style="display:none;padding:7px 10px;font:inherit;font-size:13px;color:var(--navy);border:1px solid var(--line);border-radius:8px;background:var(--white);"><option value="status">Group by Status</option><option value="brand">Group by Brand</option><option value="contact">Group by Company</option></select>
           <button id="pipeline-board-btn" class="btn btn-secondary" onclick="toggleBoardView()">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
             Board view
@@ -1209,8 +1211,7 @@
             <option>Awaiting Feedback</option><option>Awaiting Info</option><option>Awaiting Samples</option>
             <option>Cancelled</option><option>Catalogue Sent</option><option>Closed / No Action</option>
             <option>Deposit Paid</option><option>Form Completed</option><option>In Progress</option>
-            <option>On Hold</option><option>Order Placed</option><option>Price List Sent</option>
-            <option>Pricing Sent</option><option>Quotation Sent</option><option>Samples Delivered</option>
+            <option>On Hold</option><option>Order Placed</option><option>Price List Sent</option><option>Quotation Sent</option><option>Samples Delivered</option>
             <option>Samples Requested</option><option>Samples Sent</option><option>Stalled</option>
           </select>
           <div class="filter-divider"></div>
@@ -1227,10 +1228,10 @@
                 <th onclick="sortPipeline('contact')" style="cursor:pointer">Company / Contact <span id="sort-pipeline-contact"></span></th>
                 <th onclick="sortPipeline('brand')" style="cursor:pointer">Brand <span id="sort-pipeline-brand"></span></th>
                 <th onclick="sortPipeline('status')" style="cursor:pointer">Status <span id="sort-pipeline-status"></span></th>
-                <th style="text-align:right;">Potential value</th>
+                <th onclick="sortPipeline('potential_value')" style="text-align:right;cursor:pointer">Potential value <span id="sort-pipeline-potential_value"></span></th>
                 <th>Next action</th>
                 <th onclick="sortPipeline('due_date')" style="cursor:pointer">FOB Date <span id="sort-pipeline-due_date"></span></th>
-                <th>Owner</th>
+                <th onclick="sortPipeline('owner')" style="cursor:pointer">Owner <span id="sort-pipeline-owner"></span></th>
                 <th style="width: 36px;"></th>
               </tr>
             </thead>
@@ -1376,10 +1377,10 @@
             <div><div class="card-title">Users</div><div class="card-sub" id="admin-meta">Manage CRM access and roles</div></div>
             <div class="right">
               <button class="btn btn-primary" onclick="event.stopPropagation();openNewUserModal()">+ New User</button>
-              <span id="admin-users-chevron" style="color:var(--warm-grey);margin-left:8px">▼</span>
+              <span id="admin-users-chevron" style="color:var(--warm-grey);margin-left:8px">▶</span>
             </div>
           </div>
-          <div id="admin-users-body">
+          <div id="admin-users-body" style="display:none">
           <div class="card-body" style="padding:0">
             <table class="data"><thead><tr>
               <th>Name</th><th>Email</th><th>Role</th><th style="width:140px"></th>
@@ -1395,14 +1396,29 @@
             <div><div class="card-title">Brands</div><div class="card-sub">Add or deactivate brands</div></div>
             <div class="right">
               <button class="btn btn-primary" onclick="event.stopPropagation();openNewBrandModal()">+ New Brand</button>
-              <span id="admin-brands-chevron" style="color:var(--warm-grey);margin-left:8px">▼</span>
+              <span id="admin-brands-chevron" style="color:var(--warm-grey);margin-left:8px">▶</span>
             </div>
           </div>
-          <div id="admin-brands-body">
+          <div id="admin-brands-body" style="display:none">
           <div class="card-body" style="padding:0">
             <table class="data"><thead><tr><th>Brand Name</th><th>Status</th><th>Notes</th><th style="width:80px"></th></tr></thead>
             <tbody id="admin-brands-tbody"><tr><td colspan="4" style="text-align:center;padding:30px;color:var(--warm-grey);">Loading…</td></tr></tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- Pipeline Statuses -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-head" style="cursor:pointer" onclick="toggleSection('admin-statuses-body')">
+            <div><div class="card-title">Pipeline Statuses</div><div class="card-sub">Manage available deal statuses</div></div>
+            <span id="admin-statuses-chevron" style="color:var(--warm-grey)">▶</span>
+          </div>
+          <div id="admin-statuses-body" style="display:none">
+            <div style="padding:0 20px" id="admin-statuses-list"></div>
+          </div>
+          <div class="card-foot" style="gap:8px;">
+            <input id="new-status-input" placeholder="New status…" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;flex:1;"/>
+            <button class="btn btn-primary" style="padding:6px 12px" onclick="addRefItem('status')">Add</button>
           </div>
         </div>
 
@@ -1412,9 +1428,9 @@
           <div class="card">
             <div class="card-head" style="cursor:pointer" onclick="toggleSection('admin-regions-body')">
               <div><div class="card-title">Sales Regions</div></div>
-              <span id="admin-regions-chevron" style="color:var(--warm-grey)">▼</span>
+              <span id="admin-regions-chevron" style="color:var(--warm-grey)">▶</span>
             </div>
-            <div id="admin-regions-body"><div style="padding:0 20px" id="admin-regions-list"></div></div>
+            <div id="admin-regions-body" style="display:none"><div style="padding:0 20px" id="admin-regions-list"></div></div>
             <div class="card-foot" style="gap:8px;">
               <input id="new-region-input" placeholder="New region…" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;flex:1;"/>
               <button class="btn btn-primary" style="padding:6px 12px" onclick="addRefItem('region')">Add</button>
@@ -1424,9 +1440,9 @@
           <div class="card">
             <div class="card-head" style="cursor:pointer" onclick="toggleSection('admin-tags-body')">
               <div><div class="card-title">Contact Tags</div></div>
-              <span id="admin-tags-chevron" style="color:var(--warm-grey)">▼</span>
+              <span id="admin-tags-chevron" style="color:var(--warm-grey)">▶</span>
             </div>
-            <div id="admin-tags-body"><div style="padding:0 20px" id="admin-tags-list"></div></div>
+            <div id="admin-tags-body" style="display:none"><div style="padding:0 20px" id="admin-tags-list"></div></div>
             <div class="card-foot" style="gap:8px;">
               <input id="new-tag-input" placeholder="New tag…" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;flex:1;"/>
               <button class="btn btn-primary" style="padding:6px 12px" onclick="addRefItem('tag')">Add</button>
@@ -1436,9 +1452,9 @@
           <div class="card">
             <div class="card-head" style="cursor:pointer" onclick="toggleSection('admin-countries-body')">
               <div><div class="card-title">Countries</div></div>
-              <span id="admin-countries-chevron" style="color:var(--warm-grey)">▼</span>
+              <span id="admin-countries-chevron" style="color:var(--warm-grey)">▶</span>
             </div>
-            <div id="admin-countries-body"><div style="padding:8px 20px;max-height:260px;overflow-y:auto" id="admin-countries-list"></div></div>
+            <div id="admin-countries-body" style="display:none"><div style="padding:8px 20px;max-height:260px;overflow-y:auto" id="admin-countries-list"></div></div>
             <div class="card-foot" style="gap:8px;">
               <input id="new-country-input" placeholder="New country…" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;flex:1;"/>
               <button class="btn btn-primary" style="padding:6px 12px" onclick="addRefItem('country')">Add</button>
@@ -1463,6 +1479,7 @@ let CURRENT_USER = JSON.parse(localStorage.getItem('crm_user') || 'null');
 
 // ---- Reference data (localStorage) ----
 const DEF_REGIONS   = ['Africa','Asia','Eastern Europe','Europe','India','Middle East','North America','Oceania','South America'];
+const DEF_PIPELINE_STATUSES = ['Awaiting Feedback','Awaiting Info','Awaiting Samples','Catalogue Sent','Closed / No Action','Deposit Paid','Form Completed','In Progress','On Hold','Order Placed','Price List Sent','Quotation Sent','Samples Delivered','Samples Requested','Samples Sent','Stalled'];
 const DEF_TAGS      = ['Agent','CloseOut','DND','Distributor','Manufacturer','Network','Principal','Retailer','Stationery'];
 const DEF_COUNTRIES = ['Afghanistan','Albania','Algeria','Argentina','Australia','Austria','Bahrain','Bangladesh','Belgium','Brazil','Bulgaria','Cambodia','Canada','Chile','China','Colombia','Croatia','Cyprus','Czech Republic','Denmark','Ecuador','Egypt','Estonia','Finland','France','Georgia','Germany','Ghana','Greece','Hong Kong','Hungary','India','Indonesia','Iran','Iraq','Ireland','Israel','Italy','Japan','Jordan','Kazakhstan','Kenya','Kuwait','Latvia','Lebanon','Lithuania','Luxembourg','Malaysia','Malta','Mexico','Morocco','Netherlands','New Zealand','Nigeria','Norway','Oman','Pakistan','Philippines','Poland','Portugal','Qatar','Romania','Russia','Saudi Arabia','Singapore','Slovakia','Slovenia','South Africa','South Korea','Spain','Sri Lanka','Sweden','Switzerland','Taiwan','Thailand','Turkey','Ukraine','United Arab Emirates','United Kingdom','United States of America','Vietnam'];
 
@@ -1472,6 +1489,8 @@ function getCountries() { return JSON.parse(localStorage.getItem('crm_countries'
 function saveRegions(v)   { localStorage.setItem('crm_regions',   JSON.stringify(v)); }
 function saveTags(v)      { localStorage.setItem('crm_tags',      JSON.stringify(v)); }
 function saveCountries(v) { localStorage.setItem('crm_countries', JSON.stringify(v)); }
+function getPipelineStatuses() { return JSON.parse(localStorage.getItem('crm_pipeline_statuses') || JSON.stringify(DEF_PIPELINE_STATUSES)); }
+function savePipelineStatuses(v) { localStorage.setItem('crm_pipeline_statuses', JSON.stringify(v)); }
 
 // ---- Auth ----
 async function login(email, password) {
@@ -1564,10 +1583,12 @@ function fmtDate(d) {
 }
 
 const OWN_COLORS = { Thierry:'linear-gradient(135deg,#76BCE0,#5A9FC4)', Zeal:'#F3E2C0', Erna:'#E0D8EE' };
+function firstOf(name){ return (name||'').split(' ')[0]; }
 function ownerAv(name) {
   const ini=(name||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
   const bg=OWN_COLORS[name]||'#E5E7EB';
-  return `<div class="owner-cell"><div class="avatar" style="width:24px;height:24px;font-size:10px;background:${bg};">${ini}</div>${name||'—'}</div>`;
+  const first=(name||'—').split(' ')[0];
+  return `<div class="owner-cell"><div class="avatar" style="width:24px;height:24px;font-size:10px;background:${bg};">${ini}</div>${first}</div>`;
 }
 
 const BM=['bm-1','bm-2','bm-3','bm-4','bm-5','bm-6','bm-7','bm-8']; const BM_MAP={}; let bmI=0;
@@ -1594,6 +1615,12 @@ function cleanTags(tags) {
 
 // ---- Sort helpers ----
 function sortIcon(dir) { return dir==='asc' ? ' ▲' : ' ▼'; }
+function showToast(msg) {
+  var t=document.createElement('div');
+  t.style.cssText='position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.2)';
+  t.textContent=msg; document.body.appendChild(t);
+  setTimeout(function(){t.remove();},3000);
+}
 
 // ---- Pager ----
 function renderPager(containerId, page, total, perPage, cb) {
@@ -1960,7 +1987,7 @@ async function loadPipeline() {
   document.getElementById('pipeline-meta').innerHTML = `Showing <b>${fmtNum(d.results.length)}</b> of <b>${fmtNum(d.total)}</b> deals`;
   const psub = document.getElementById('pipeline-sub');
   if (psub) psub.innerHTML = fmtNum(d.total) + ' open deals &middot; USD ' + fmtShort(d.total_value||0) + ' total value';
-  ['contact','brand','status','due_date'].forEach(function(k){var el=document.getElementById('sort-pipeline-'+k);if(el)el.textContent=pipelineSort===k?sortIcon(pipelineSortDir):'';});
+  ['contact','brand','status','due_date','owner','potential_value'].forEach(function(k){var el=document.getElementById('sort-pipeline-'+k);if(el)el.textContent=pipelineSort===k?sortIcon(pipelineSortDir):'';});
   const tbody = document.getElementById('pipeline-tbody');
   if (!d.results.length) { tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--warm-grey);">No pipeline entries found.</td></tr>'; return; }
   tbody.innerHTML = d.results.map(e=>`
@@ -1991,9 +2018,10 @@ function openPipelineDetail(id) {
       <tr><td style="padding:8px 0;color:var(--warm-grey)">Potential Value</td><td>${fmtVal(e.potential_value)}</td></tr>
       <tr><td style="padding:8px 0;color:var(--warm-grey)">Next Action</td><td>${e.next_action||'—'}</td></tr>
       <tr><td style="padding:8px 0;color:var(--warm-grey)">FOB Date</td><td>${fmtDate(e.due_date)}</td></tr>
-      <tr><td style="padding:8px 0;color:var(--warm-grey)">Owner</td><td>${e.owner_name||'—'}</td></tr>
+      <tr><td style="padding:8px 0;color:var(--warm-grey)">Owner</td><td>${(e.owner_name||'—').split(' ')[0]}</td></tr>
       <tr><td style="padding:8px 0;color:var(--warm-grey);vertical-align:top">Notes</td><td style="white-space:pre-wrap">${e.notes||'—'}</td></tr>
     </table>`;
+  document.getElementById('modal-footer').innerHTML = `<button class="btn btn-secondary" onclick="document.getElementById('modal').style.display='none'">Close</button><button class="btn btn-primary" onclick="openConvertToOrderModal(${e.id})">Convert to Order</button>`;
   document.getElementById('modal').style.display = 'flex';
 }
 
@@ -2009,6 +2037,8 @@ function toggleBoardView() {
   boardViewActive = !boardViewActive;
   var btn = document.getElementById('pipeline-board-btn');
   if (btn) btn.textContent = boardViewActive ? 'Table view' : 'Board view';
+  var gbSel = document.getElementById('board-group-by');
+  if (gbSel) gbSel.style.display = boardViewActive ? '' : 'none';
   document.getElementById('pipeline-table-wrap').style.display = boardViewActive ? 'none' : '';
   var board = document.getElementById('pipeline-board');
   if (board) board.style.display = boardViewActive ? 'flex' : 'none';
@@ -2018,27 +2048,47 @@ function toggleBoardView() {
 async function renderBoard() {
   var board = document.getElementById('pipeline-board');
   board.innerHTML = '<div style="padding:40px;color:var(--warm-grey)">Loading...</div>';
-  var d = await apiFetch('/pipeline?per_page=500');
+  var p = new URLSearchParams({ per_page:500, sort_by:pipelineSort, sort_dir:pipelineSortDir });
+  if (pipelineFilters.search)   p.set('search',   pipelineFilters.search);
+  if (pipelineFilters.brand_id) p.set('brand_id', pipelineFilters.brand_id);
+  if (pipelineFilters.owner_id) p.set('owner_id', pipelineFilters.owner_id);
+  if (pipelineFilters.status)   p.set('status',   pipelineFilters.status);
+  var d = await apiFetch('/pipeline?' + p);
   if (!d) return;
   pipelineData = d.results;
-  var statuses = ['In Progress','Awaiting Feedback','Awaiting Info','Awaiting Samples','Catalogue Sent','Price List Sent','Pricing Sent','Quotation Sent','Samples Requested','Samples Sent','Samples Delivered','Form Completed','Deposit Paid','Order Placed','On Hold','Stalled','Closed / No Action','Cancelled'];
-  var byStatus = {};
-  statuses.forEach(function(s){ byStatus[s] = []; });
-  d.results.forEach(function(e){ if(byStatus[e.status]!==undefined) byStatus[e.status].push(e); });
-  var cols = statuses.filter(function(s){ return byStatus[s].length > 0; });
+  var groupBy = (document.getElementById('board-group-by')||{}).value || 'status';
+  var colKeys = [], getKey;
+  if (groupBy === 'status') {
+    colKeys = getPipelineStatuses();
+    getKey = function(e){ return e.status; };
+  } else if (groupBy === 'brand') {
+    getKey = function(e){ return e.brand_name||'No Brand'; };
+    colKeys = [...new Set(d.results.map(getKey))].sort();
+  } else {
+    getKey = function(e){ return e.contact_company||e.contact_name||'Unknown'; };
+    colKeys = [...new Set(d.results.map(getKey))].sort();
+  }
+  var byKey = {};
+  colKeys.forEach(function(k){ byKey[k] = []; });
+  d.results.forEach(function(e){
+    var k = getKey(e);
+    if (!byKey[k]) byKey[k] = [];
+    byKey[k].push(e);
+  });
+  var cols = colKeys.filter(function(k){ return byKey[k] && byKey[k].length > 0; });
   board.innerHTML = cols.map(function(s) {
-    var cards = byStatus[s];
+    var cards = byKey[s];
     var total = cards.reduce(function(sum,c){ return sum+(c.potential_value||0); },0);
     return '<div style="flex:0 0 220px;background:var(--bg);border-radius:10px;overflow:hidden;margin-right:12px">'
       + '<div style="padding:10px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px">'
-      + '<span class="pill ' + statusClass(s) + '">' + s + '</span>'
+      + (groupBy==='status' ? '<span class="pill ' + statusClass(s) + '">' + s + '</span>' : '<b style="font-size:13px;color:var(--navy)">' + s + '</b>')
       + '<span style="font-size:11px;color:var(--warm-grey);white-space:nowrap">' + cards.length + ' &middot; ' + fmtShort(total) + '</span>'
       + '</div>'
       + '<div style="padding:8px;max-height:calc(100vh - 280px);overflow-y:auto">'
       + cards.map(function(e) {
           return '<div onclick="openPipelineDetail(' + e.id + ')" style="background:var(--white);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:6px;cursor:pointer">'
             + '<div style="font-weight:600;color:var(--navy);font-size:13px;margin-bottom:2px">' + (e.contact_company||e.contact_name||'—') + '</div>'
-            + '<div style="font-size:11px;color:var(--warm-grey);margin-bottom:6px">' + (e.brand_name||'') + '</div>'
+            + '<div style="font-size:11px;color:var(--warm-grey);margin-bottom:4px">' + (e.brand_name||'') + (groupBy!=='status'?' · <span class="pill ' + statusClass(e.status) + '" style="font-size:10px">' + e.status + '</span>':'') + '</div>'
             + '<div style="display:flex;justify-content:space-between;align-items:center">'
             + '<span style="font-size:12px;font-weight:600;color:var(--logo-blue-dark)">USD ' + fmtNum(e.potential_value||0) + '</span>'
             + ownerAv(e.owner_name)
@@ -2052,7 +2102,7 @@ async function renderBoard() {
 async function openNewDealModal(preContactId) {
   const [cData, bData, uData] = await Promise.all([apiFetch('/contacts?source=contacts&per_page=200'), apiFetch('/brands'), apiFetch('/users')]);
   const contacts = cData?cData.results:[], brands=bData||[], users=uData||[];
-  const statuses = ['Awaiting Feedback','Awaiting Info','Awaiting Samples','Cancelled','Catalogue Sent','Closed / No Action','Deposit Paid','Form Completed','In Progress','On Hold','Order Placed','Price List Sent','Pricing Sent','Quotation Sent','Samples Delivered','Samples Requested','Samples Sent','Stalled'];
+  const statuses = getPipelineStatuses();
   document.getElementById('modal-title').innerHTML = 'New Pipeline Entry';
   document.getElementById('modal-body').innerHTML = `
     <form id="new-deal-form" onsubmit="saveNewDeal(event)">
@@ -2095,6 +2145,69 @@ async function openNewDealModal(preContactId) {
       </div>
     </form>`;
   document.getElementById('modal').style.display = 'flex';
+}
+
+async function openConvertToOrderModal(pipelineId) {
+  const e = pipelineData.find(x=>x.id===pipelineId); if(!e) return;
+  document.getElementById('modal-title').innerHTML = 'Convert to Order';
+  document.getElementById('modal-footer').innerHTML = '';
+  document.getElementById('modal-body').innerHTML = `
+    <form id="convert-order-form" onsubmit="saveConvertedOrder(event,${pipelineId})">
+      <div style="background:var(--logo-blue-pale);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px">
+        <b>${e.contact_company||e.contact_name||'—'}</b> · ${e.brand_name||'—'}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Order Date *</label>
+          <input name="order_date" type="date" required value="${new Date().toISOString().slice(0,10)}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Order Value (USD) *</label>
+          <input name="order_value" type="number" min="0" step="0.01" required placeholder="0" value="${e.potential_value||''}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Gross Commission % *</label>
+          <input name="gross_commission_rate" type="number" min="0" max="100" step="0.1" required placeholder="0" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Testing Cost Deduction</label>
+          <input name="testing_cost_deduction" type="number" min="0" step="0.01" placeholder="0" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+      </div>
+      <div id="co-error" style="display:none;color:#B33A47;font-size:13px;margin-bottom:12px;padding:10px;background:#FAE3E5;border-radius:8px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button type="button" onclick="document.getElementById('modal').style.display='none'" class="btn btn-secondary">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create Order</button>
+      </div>
+    </form>`;
+  document.getElementById('modal').style.display = 'flex';
+}
+
+async function saveConvertedOrder(ev, pipelineId) {
+  ev.preventDefault();
+  const e = pipelineData.find(x=>x.id===pipelineId); if(!e) return;
+  const fd = new FormData(ev.target);
+  const orderValue = parseFloat(fd.get('order_value'))||0;
+  const commRate = parseFloat(fd.get('gross_commission_rate'))||0;
+  const testCost = parseFloat(fd.get('testing_cost_deduction'))||0;
+  const netComm = (orderValue * commRate / 100) - testCost;
+  const payload = {
+    contact_id: e.contact_id,
+    brand_id: e.brand_id,
+    order_date: fd.get('order_date'),
+    order_value: orderValue,
+    currency: 'USD',
+    gross_commission_rate: commRate,
+    testing_cost_deduction: testCost,
+    net_commission: netComm,
+    status: 'Confirmed',
+    notes: 'Converted from pipeline deal #' + pipelineId,
+  };
+  const btn = ev.target.querySelector('[type=submit]'); btn.textContent='Saving…'; btn.disabled=true;
+  const result = await apiFetch('/orders', {method:'POST', body:JSON.stringify(payload)});
+  if (result) {
+    document.getElementById('modal').style.display='none';
+    showToast('Order created successfully');
+    loadPipeline();
+  } else {
+    document.getElementById('co-error').textContent='Failed to create order.';
+    document.getElementById('co-error').style.display='block';
+    btn.textContent='Create Order'; btn.disabled=false;
+  }
 }
 
 async function saveNewDeal(e) {
@@ -2216,7 +2329,7 @@ async function loadAdminUsers() {
   document.getElementById('admin-meta').textContent=d.length+' users';
   document.getElementById('admin-users-tbody').innerHTML=d.map(u=>`
     <tr>
-      <td class="contact-cell"><div class="nm">${u.name}</div></td>
+      <td class="contact-cell"><div class="nm">${u.name.split(' ').slice(1).join(' ')||'—'}</div><div class="co">${u.name.split(' ')[0]}</div></td>
       <td style="color:var(--warm-grey)">${u.email}</td>
       <td><span class="pill ${u.role==='admin'?'green':'blue'}">${u.role}</span></td>
       <td style="display:flex;gap:6px">
@@ -2238,6 +2351,7 @@ function renderRefLists() {
   renderList('admin-regions-list',  getRegions(),   'region');
   renderList('admin-tags-list',     getTags(),      'tag');
   renderList('admin-countries-list',getCountries(), 'country');
+  renderList('admin-statuses-list', getPipelineStatuses(), 'status');
 }
 
 function addRefItem(type) {
@@ -2246,12 +2360,14 @@ function addRefItem(type) {
   if (type==='region') { const r=getRegions(); if(!r.includes(val)){r.push(val);r.sort();saveRegions(r);} }
   if (type==='tag')    { const t=getTags();    if(!t.includes(val)){t.push(val);t.sort();saveTags(t);}    }
   if (type==='country'){ const c=getCountries();if(!c.includes(val)){c.push(val);c.sort();saveCountries(c);} }
+  if (type==='status') { const s=getPipelineStatuses();if(!s.includes(val)){s.push(val);savePipelineStatuses(s);} }
   el.value=''; renderRefLists(); populateFilterDropdowns();
 }
 function removeRefItem(type, idx) {
   if (type==='region') { const r=getRegions(); r.splice(idx,1); saveRegions(r); }
   if (type==='tag')    { const t=getTags();    t.splice(idx,1); saveTags(t);    }
   if (type==='country'){ const c=getCountries();c.splice(idx,1);saveCountries(c); }
+  if (type==='status') { const s=getPipelineStatuses();s.splice(idx,1);savePipelineStatuses(s); }
   renderRefLists(); populateFilterDropdowns();
 }
 
@@ -2339,6 +2455,11 @@ function populateFilterDropdowns() {
     const el=document.getElementById(id); if(!el) return;
     el.innerHTML='<option value="">All countries</option>'+countries.map(c=>`<option>${c}</option>`).join('');
   });
+  var fs = document.getElementById('filter-status');
+  if (fs) {
+    var curStatus = fs.value;
+    fs.innerHTML = '<option value="">All statuses</option>' + getPipelineStatuses().map(function(s){ return '<option' + (s===curStatus?' selected':'') + '>' + s + '</option>'; }).join('');
+  }
 }
 
 async function populateOwnerFilter() {
@@ -2391,14 +2512,13 @@ document.getElementById('login-form')?.addEventListener('submit',async function(
 
 // ---- Collapsible sections ----
 function toggleSection(id) {
-  const el = document.getElementById(id);
+  var el = document.getElementById(id);
   if (!el) return;
-  const isOpen = el.style.display !== 'none';
-  el.style.display = isOpen ? 'none' : '';
-  // Update chevron
-  const chevronId = id.replace('-body', '-chevron');
-  const chev = document.getElementById(chevronId);
-  if (chev) chev.textContent = isOpen ? '▶' : '▼';
+  var hidden = el.style.display === 'none';
+  el.style.display = hidden ? '' : 'none';
+  var chevId = id.replace('-body', '-chevron');
+  var chev = document.getElementById(chevId);
+  if (chev) chev.textContent = hidden ? '▼' : '▶';
 }
 
 // ---- Boot ----

@@ -80,7 +80,7 @@ class PipelineEntry(Base):
     id              = Column(Integer, primary_key=True, index=True)
     contact_id      = Column(Integer, ForeignKey("contacts.id"), nullable=False)
     brand_id        = Column(Integer, ForeignKey("brands.id"), nullable=False)
-    status          = Column(SAEnum(PipelineStatus), nullable=False, default=PipelineStatus.in_progress)
+    status          = Column(String(100), nullable=False, default=In Progress)
     potential_value = Column(Numeric(12, 2), nullable=False)
     next_action     = Column(Text)
     due_date        = Column(Date)

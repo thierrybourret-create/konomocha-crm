@@ -1761,14 +1761,14 @@ function ownerAv(name) {
   const ini=(name||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
   const bg=OWN_COLORS[name]||'#E5E7EB';
   const first=(name||'—').split(' ')[0];
-  return `<div class="owner-cell"><div class="avatar" style="width:24px;height:24px;font-size:10px;background:${bg};">${ini}</div>${first}</div>`;
+  return `<div class="owner-cell"><div class="avatar" style="width:24px;height:24px;font-size:10px;background:${bg};">${escHtml(ini)}</div>${escHtml(first)}</div>`;
 }
 
 const BM=['bm-1','bm-2','bm-3','bm-4','bm-5','bm-6','bm-7','bm-8']; const BM_MAP={}; let bmI=0;
 function brandMark(name) {
   if (!BM_MAP[name]) BM_MAP[name]=BM[bmI++%8];
   const ini=(name||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
-  return `<div class="brand-cell"><div class="brand-mark ${BM_MAP[name]}">${ini}</div>${name}</div>`;
+  return `<div class="brand-cell"><div class="brand-mark ${BM_MAP[name]}">${escHtml(ini)}</div>${escHtml(name)}</div>`;
 }
 
 function getRegionFromTags(tags) {
@@ -1981,13 +1981,13 @@ async function loadContacts() {
   if (!rows.length) { tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--warm-grey);">No contacts found.</td></tr>'; return; }
   tbody.innerHTML = rows.map(c => `
     <tr style="cursor:pointer" onclick="openContactDetail(${c.id})">
-      <td class="contact-cell">${c.first_name||''}</td>
-      <td><div class="nm">${c.last_name||'—'}</div></td>
-      <td>${c.company ? `<span style="color:var(--logo-blue-dark);font-weight:500" onclick="event.stopPropagation();openCompanyContacts('${c.company.replace(/'/g,"\\'")}','${encodeURIComponent(c.company)}')">${c.company}</span>` : '—'}</td><td>${c.job_title||'—'}</td>
-      <td>${c.country||'—'}</td>
+      <td class="contact-cell">${escHtml(c.first_name||'')}</td>
+      <td><div class="nm">${escHtml(c.last_name)||'—'}</div></td>
+      <td>${c.company ? `<span style="color:var(--logo-blue-dark);font-weight:500" onclick="event.stopPropagation();openCompanyContacts('${c.company.replace(/'/g,"\\'")}','${encodeURIComponent(c.company)}')">${escHtml(c.company)}</span>` : '—'}</td><td>${escHtml(c.job_title)||'—'}</td>
+      <td>${escHtml(c.country)||'—'}</td>
       <td>${getRegionFromTags(c.tags)||'—'}</td>
-      <td>${c.phone||'—'}</td>
-      <td style="font-size:12px;color:var(--warm-grey)">${c.email||'—'}</td>
+      <td>${escHtml(c.phone)||'—'}</td>
+      <td style="font-size:12px;color:var(--warm-grey)">${escHtml(c.email)||'—'}</td>
       <td>${getTagGroup(c.tags)?`<span style="font-size:11px;background:var(--logo-blue-pale);color:var(--logo-blue-dark);padding:2px 8px;border-radius:10px">${getTagGroup(c.tags)}</span>`:'—'}</td>
     </tr>`).join('');
 
@@ -2029,8 +2029,8 @@ async function loadCompanies() {
   if (!rows.length) { tbody.innerHTML='<tr><td colspan="5" style="text-align:center;padding:40px;color:var(--warm-grey);">No companies found.</td></tr>'; return; }
   tbody.innerHTML = rows.map(c => `
     <tr style="cursor:pointer" onclick="openCompanyContacts('${(c.company||c.name).replace(/'/g,"\\'")}','${encodeURIComponent(c.company||c.name)}')">
-      <td class="contact-cell"><div class="nm">${c.company||c.name}</div></td>
-      <td>${c.country||'—'}</td>
+      <td class="contact-cell"><div class="nm">${escHtml(c.company||c.name)}</div></td>
+      <td>${escHtml(c.country)||'—'}</td>
       <td>${getRegionFromTags(c.tags)||'—'}</td>
       <td>${getTagGroup(c.tags)?`<span style="font-size:11px;background:var(--logo-blue-pale);color:var(--logo-blue-dark);padding:2px 8px;border-radius:10px">${getTagGroup(c.tags)}</span>`:'—'}</td>
       <td><span style="color:var(--logo-blue-dark);font-weight:600">View →</span></td>
@@ -2225,14 +2225,14 @@ async function openCompanyContacts(name, encoded) {
   const contacts = d.results
     .filter(c => (c.company||'').toLowerCase()===name.toLowerCase() && c.source !== 'lacrm_company_import')
     .sort((a,b) => (a.last_name||a.name||'').localeCompare(b.last_name||b.name||''));
-  document.getElementById('modal-title').innerHTML = name;
+  document.getElementById('modal-title').innerHTML = escHtml(name);
   document.getElementById('modal-body').innerHTML = contacts.length ? `
     <div style="font-size:13px;color:var(--warm-grey);margin-bottom:12px">${contacts.length} contact${contacts.length>1?'s':''}</div>
     ${contacts.map(c=>`<div onclick="document.getElementById('modal').style.display='none';setTimeout(()=>openContactDetail(${c.id}),100)"
       style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;cursor:pointer"
       onmouseover="this.style.background='var(--logo-blue-pale)'" onmouseout="this.style.background=''">
-      <div><div style="font-weight:600;color:var(--navy)">${c.first_name||''} ${c.last_name||c.name}</div>
-      <div style="font-size:12px;color:var(--warm-grey)">${c.email||''} ${c.phone?'· '+c.phone:''}</div></div>
+      <div><div style="font-weight:600;color:var(--navy)">${escHtml(c.first_name||'')} ${escHtml(c.last_name||c.name)}</div>
+      <div style="font-size:12px;color:var(--warm-grey)">${escHtml(c.email||'')} ${c.phone?'· '+escHtml(c.phone):''}</div></div>
       <span style="color:var(--logo-blue-dark)">View →</span>
     </div>`).join('')}
   ` : '<div style="padding:20px;text-align:center;color:var(--warm-grey);">No contacts found for this company.</div>';
@@ -2310,7 +2310,7 @@ async function companyLookup(val) {
       <div onclick="document.getElementById('company-name-input').value='${(c.company||c.name).replace(/'/g,"\\'")}';document.getElementById('company-suggestions').style.display='none'"
         style="padding:9px 14px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--line)"
         onmouseover="this.style.background='var(--logo-blue-pale)'" onmouseout="this.style.background=''">
-        ${c.company||c.name} ${c.country?`<span style="color:var(--warm-grey);font-size:11px">· ${c.country}</span>`:''}
+        ${escHtml(c.company||c.name)} ${c.country?`<span style="color:var(--warm-grey);font-size:11px">· ${escHtml(c.country)}</span>`:''}
       </div>`).join('');
   }
   list.style.display = 'block';
@@ -2404,11 +2404,11 @@ async function loadPipeline() {
   tbody.innerHTML = d.results.map(e=>`
     <tr data-id="${e.id}" style="cursor:pointer" onclick="openPipelineDetail(${e.id})">
       <td class="cell-checkbox"><span class="check"></span></td>
-      <td class="contact-cell"><div class="nm">${e.contact_company||e.contact_name||'—'}</div><div class="co">${e.contact_company?e.contact_name||'':''}</div></td>
+      <td class="contact-cell"><div class="nm">${escHtml(e.contact_company||e.contact_name||'—')}</div><div class="co">${e.contact_company?escHtml(e.contact_name||''):''}</div></td>
       <td>${brandMark(e.brand_name||'—')}</td>
       <td><span class="pill ${statusClass(e.status)}">${e.status}</span></td>
       <td class="value-cell">${fmtVal(e.potential_value)}</td>
-      <td class="action-cell">${e.next_action||'—'}<div class="note">${e.notes?e.notes.slice(0,60)+(e.notes.length>60?'…':''):''}</div></td>
+      <td class="action-cell">${escHtml(e.next_action)||'—'}<div class="note">${e.notes?escHtml(e.notes.slice(0,60))+(e.notes.length>60?'…':''):''}</div></td>
       <td>${fmtDate(e.fob_date)}</td>
       <td>${ownerAv(e.owner_name)}</td>
       <td><button class="more-btn" onclick="event.stopPropagation();openPipelineDetail(${e.id})">
@@ -2444,7 +2444,7 @@ function openPipelineDetail(id) {
   const e = pipelineData.find(x=>x.id===id); if(!e) return;
   const statuses = getPipelineStatuses();
   const users = window._crmUsers || [];
-  document.getElementById('modal-title').innerHTML = `${e.contact_company||e.contact_name||''} — ${e.brand_name||''}`;
+  document.getElementById('modal-title').innerHTML = escHtml((e.contact_company||e.contact_name||'') + ' — ' + (e.brand_name||''));
   document.getElementById('modal-body').innerHTML = `
     <form id="pe-edit-form" onsubmit="savePipelineEdit(event,${e.id})">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
@@ -2610,8 +2610,8 @@ async function renderBoard() {
       + '<div style="padding:8px;max-height:calc(100vh - 280px);overflow-y:auto">'
       + cards.map(function(e) {
           return '<div onclick="openPipelineDetail(' + e.id + ')" style="background:var(--white);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:6px;cursor:pointer">'
-            + '<div style="font-weight:600;color:var(--navy);font-size:13px;margin-bottom:2px">' + (e.contact_company||e.contact_name||'—') + '</div>'
-            + '<div style="font-size:11px;color:var(--warm-grey);margin-bottom:4px">' + (e.brand_name||'') + (groupBy!=='status'?' · <span class="pill ' + statusClass(e.status) + '" style="font-size:10px">' + e.status + '</span>':'') + '</div>'
+            + '<div style="font-weight:600;color:var(--navy);font-size:13px;margin-bottom:2px">' + escHtml(e.contact_company||e.contact_name||'—') + '</div>'
+            + '<div style="font-size:11px;color:var(--warm-grey);margin-bottom:4px">' + escHtml(e.brand_name||'') + (groupBy!=='status'?' · <span class="pill ' + statusClass(e.status) + '" style="font-size:10px">' + escHtml(e.status) + '</span>':'') + '</div>'
             + '<div style="display:flex;justify-content:space-between;align-items:center">'
             + '<span style="font-size:12px;font-weight:600;color:var(--logo-blue-dark)">USD ' + fmtNum(e.potential_value||0) + '</span>'
             + ownerAv(e.owner_name)
@@ -2678,7 +2678,7 @@ async function openConvertToOrderModal(pipelineId) {
   document.getElementById('modal-body').innerHTML = `
     <form id="convert-order-form" onsubmit="saveConvertedOrder(event,${pipelineId})">
       <div style="background:var(--logo-blue-pale);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px">
-        <b>${e.contact_company||e.contact_name||'—'}</b> · ${e.brand_name||'—'}
+        <b>${escHtml(e.contact_company||e.contact_name||'—')}</b> · ${escHtml(e.brand_name||'—')}
         <span class="pill blue" style="margin-left:8px">PO Received</span>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
@@ -3506,19 +3506,19 @@ async function loadBrands() {
   if (grid) grid.innerHTML = d.map(b=>`
     <div class="wl">
       <div class="wl-head">
-        <div class="wl-av" style="background:var(--logo-blue-pale);color:var(--navy)">${b.name.slice(0,2).toUpperCase()}</div>
-        <div><div class="wl-name">${b.name}</div><div class="wl-sub">${b.is_active?'Active':'Inactive'}</div></div>
+        <div class="wl-av" style="background:var(--logo-blue-pale);color:var(--navy)">${escHtml(b.name.slice(0,2).toUpperCase())}</div>
+        <div><div class="wl-name">${escHtml(b.name)}</div><div class="wl-sub">${b.is_active?'Active':'Inactive'}</div></div>
       </div>
-      ${b.notes?`<div style="font-size:12px;color:var(--warm-grey);margin-top:4px">${b.notes}</div>`:''}
+      ${b.notes?`<div style="font-size:12px;color:var(--warm-grey);margin-top:4px">${escHtml(b.notes)}</div>`:''}
       <div style="margin-top:10px;text-align:right"><button onclick="downloadBrandReport(${b.id})" style="font-size:12px;color:var(--logo-blue);background:transparent;border:1px solid var(--logo-blue);border-radius:6px;padding:3px 10px;cursor:pointer;white-space:nowrap">↓ Report</button></div>
     </div>`).join('');
   const bf = document.getElementById('filter-brand');
   if (bf) bf.innerHTML='<option value="">All brands</option>'+d.map(b=>`<option value="${b.id}">${b.name}</option>`).join('');
   const ab = document.getElementById('admin-brands-tbody');
   if (ab) ab.innerHTML = d.map(b=>`
-    <tr><td class="contact-cell"><div class="nm">${b.name}</div></td>
+    <tr><td class="contact-cell"><div class="nm">${escHtml(b.name)}</div></td>
       <td><span class="pill ${b.is_active?'green':'grey'}">${b.is_active?'Active':'Inactive'}</span></td>
-      <td style="color:var(--warm-grey);font-size:12px">${b.notes||'—'}</td>
+      <td style="color:var(--warm-grey);font-size:12px">${escHtml(b.notes)||'—'}</td>
       <td style="display:flex;gap:6px"><button class="btn btn-secondary" style="padding:4px 10px;font-size:12px" onclick="toggleBrand(${b.id},${b.is_active})">${b.is_active?'Deactivate':'Activate'}</button><button onclick="downloadBrandReport(${b.id})" class="btn btn-secondary" style="padding:4px 10px;font-size:12px;cursor:pointer">↓ Report</button></td>
     </tr>`).join('');
 }
@@ -3832,11 +3832,11 @@ async function loadEmails() {
     <div class="email-row">
       <div class="email-avatar av-b">${(e.from_address||e.subject||'?')[0].toUpperCase()}</div>
       <div>
-        <div class="em-line1"><span class="em-from">${e.from_address||'—'}</span>${e.contact_name?`<span class="em-co">· ${e.contact_name}</span>`:''}
+        <div class="em-line1"><span class="em-from">${escHtml(e.from_address||'—')}</span>${e.contact_name?`<span class="em-co">· ${escHtml(e.contact_name)}</span>`:''}
           <span class="em-dir ${e.direction==='inbound'?'in':'out'}">${e.direction==='inbound'?'In':'Out'}</span></div>
-        <div class="em-subj">${e.subject||'(no subject)'}</div>
-        <div class="em-snip">${e.body_snippet||''}</div>
-        ${e.bcc_address?`<div style="font-size:11px;color:var(--warm-grey)">BCC: ${e.bcc_address}</div>`:''}
+        <div class="em-subj">${escHtml(e.subject||'(no subject)')}</div>
+        <div class="em-snip">${escHtml(e.body_snippet||'')}</div>
+        ${e.bcc_address?`<div style="font-size:11px;color:var(--warm-grey)">BCC: ${escHtml(e.bcc_address)}</div>`:''}
       </div>
       <div class="em-meta">${e.sent_at?new Date(e.sent_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):''}</div>
     </div>`).join('');
@@ -3859,8 +3859,8 @@ async function loadAdminUsers() {
   document.getElementById('admin-meta').textContent=d.length+' users';
   document.getElementById('admin-users-tbody').innerHTML=d.map(u=>`
     <tr>
-      <td class="contact-cell"><div class="nm">${u.name.split(' ').slice(1).join(' ')||'—'}</div><div class="co">${u.name.split(' ')[0]}</div></td>
-      <td style="color:var(--warm-grey)">${u.email}</td>
+      <td class="contact-cell"><div class="nm">${escHtml(u.name.split(' ').slice(1).join(' ')||'—')}</div><div class="co">${escHtml(u.name.split(' ')[0])}</div></td>
+      <td style="color:var(--warm-grey)">${escHtml(u.email)}</td>
       <td><span class="pill ${u.role==='admin'?'green':'blue'}">${u.role}</span></td>
       <td style="display:flex;gap:6px">
         <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px" onclick="openEditUserModal(${u.id},'${u.name}','${u.email}','${u.role}')">Edit</button>

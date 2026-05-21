@@ -27,7 +27,7 @@ def get_dashboard(db: Session = Depends(get_db), current_user: User = Depends(ge
         pq = pq.filter(PipelineEntry.owner_id == uid)
 
     total_active     = pq.count()
-    overdue_pipeline = pq.filter(PipelineEntry.due_date < today).count()
+    overdue_pipeline = pq.filter(PipelineEntry.fob_date < today).count()
 
     val_q = db.query(func.sum(PipelineEntry.potential_value)).filter(PipelineEntry.status.in_(ACTIVE_STATUSES))
     if not is_admin:

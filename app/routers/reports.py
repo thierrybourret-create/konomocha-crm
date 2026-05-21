@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_
 from datetime import datetime, timedelta
 from typing import Optional
@@ -412,7 +412,7 @@ def principal_report(
             e.contact.company if e.contact else "",
             e.status,
             e.next_action or "",
-            e.due_date.strftime("%d %b %Y") if e.due_date else "",
+            e.fob_date.strftime("%d %b %Y") if e.fob_date else "",
             e.owner.name if e.owner else "",
         ]
         for ci, val in enumerate(row_data, 1): ws1.cell(row=ri, column=ci, value=val)
@@ -455,4 +455,188 @@ def principal_report(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": 'attachment; filename="principal_report.xlsx"'}
     )
+
+
+@router.get("/commission-forecast")
+def commission_forecast(db: Session = Depends(get_db), current_user=Depends(require_admin)):
+    from datetime import date as _date
+    from app.models.models import Order, PipelineEntry
+    from app.constants import PIPELINE_PROBABILITIES, COMMISSION_LAG_DAYS, fy_label, add_months
+    today = _date.today()
+    # Generate 24 months: Apr 2026 to Mar 2028
+    start = _date(2026, 4, 1)
+    months_data = []
+    for i in range(24):
+        m_start = add_months(start, i)
+        m_end = add_months(start, i + 1)
+        label = m_start.strftime("%b %Y")
+        month_key = m_start.strftime("%Y-%m")
+        # Actual: commission_paid orders where commission_paid_date in this month
+        actual = db.query(func.sum(Order.net_commission)).filter(
+            Order.status == 'commission_paid',
+            Order.commission_paid_date >= m_start,
+            Order.commission_paid_date < m_end,
+        ).scalar() or 0
+        # Confirmed: shipped (not commission_paid) where ship_date+30 in this month
+        conf_orders = db.query(Order).filter(
+            Order.status.in_(['shipped', 'fully_paid', 'commission_invoiced']),
+            Order.ship_date.isnot(None),
+        ).all()
+        confirmed = sum(
+            float(o.net_commission or 0) for o in conf_orders
+            if o.ship_date and m_start <= (o.ship_date + timedelta(days=COMMISSION_LAG_DAYS)) < m_end
+        )
+        # Weighted pipeline: fob_date+30 in this month, prob > 0
+        pipe_entries = db.query(PipelineEntry).filter(PipelineEntry.fob_date.isnot(None)).all()
+        weighted = sum(
+            float(e.potential_value or 0) * PIPELINE_PROBABILITIES.get(e.status, 0) / 100
+            for e in pipe_entries
+            if e.fob_date and m_start <= (e.fob_date + timedelta(days=COMMISSION_LAG_DAYS)) < m_end
+              and PIPELINE_PROBABILITIES.get(e.status, 0) > 0
+        )
+        months_data.append({
+            "month":            month_key,
+            "label":            label,
+            "actual_received":  round(float(actual), 2),
+            "confirmed":        round(confirmed, 2),
+            "weighted_pipeline":round(weighted, 2),
+            "total_forecast":   round(confirmed + weighted, 2),
+            "is_past":          m_end <= today,
+            "is_current":       m_start <= today < m_end,
+        })
+
+    def fy_sum(months, fy_start_year):
+        fy_months = [m for m in months if m["month"] >= f"{fy_start_year}-04" and m["month"] < f"{fy_start_year+1}-04"]
+        return {
+            "label":             fy_label(fy_start_year),
+            "actual_received":   round(sum(m["actual_received"]   for m in fy_months), 2),
+            "confirmed":         round(sum(m["confirmed"]         for m in fy_months), 2),
+            "weighted_pipeline": round(sum(m["weighted_pipeline"] for m in fy_months), 2),
+            "total_forecast":    round(sum(m["total_forecast"]    for m in fy_months), 2),
+        }
+
+    return {
+        "months":     months_data,
+        "fy_current": fy_sum(months_data, 2026),
+        "fy_next":    fy_sum(months_data, 2027),
+    }
+
+
+@router.get("/bonus")
+def bonus_report(
+    fy: int = Query(..., description="FY start year, e.g. 2026 for FY2026-27"),
+    quarter: str = Query(..., description="Q1, Q2, Q3, or Q4"),
+    db: Session = Depends(get_db),
+    current_user=Depends(require_admin),
+):
+    from datetime import date as _date
+    from app.models.models import Order, User
+    from app.constants import quarter_date_range, quarter_label
+    q_num = int(quarter[1]) if quarter and len(quarter) >= 2 else 1
+    q_start, q_end = quarter_date_range(fy, q_num)
+    agents = db.query(User).filter(User.role == "agent", User.is_active == True).all()
+    result_agents = []
+    grand_total = 0.0
+    for agent in agents:
+        orders = db.query(Order).options(
+            joinedload(Order.contact), joinedload(Order.brand)
+        ).filter(
+            Order.owner_id == agent.id,
+            Order.status == "commission_paid",
+            Order.commission_paid_date >= q_start,
+            Order.commission_paid_date < q_end,
+        ).all()
+        agent_orders = []
+        total_net = 0.0
+        total_bonus = 0.0
+        for o in orders:
+            net = float(o.net_commission or 0)
+            bonus = float(o.bonus_amount or 0)
+            agent_orders.append({
+                "order_id":            o.id,
+                "contact_name":        o.contact.name if o.contact else None,
+                "brand_name":          o.brand.name   if o.brand   else None,
+                "net_commission":      net,
+                "bonus_amount":        bonus,
+                "commission_paid_date":o.commission_paid_date.isoformat() if o.commission_paid_date else None,
+                "bonus_paid":          o.bonus_paid_date is not None,
+            })
+            total_net += net
+            total_bonus += bonus
+        grand_total += total_bonus
+        result_agents.append({
+            "owner_id":             agent.id,
+            "owner_name":           agent.name,
+            "orders":               agent_orders,
+            "total_net_commission": round(total_net, 2),
+            "total_bonus":          round(total_bonus, 2),
+        })
+    return {
+        "quarter":           quarter_label(fy, q_num),
+        "agents":            result_agents,
+        "grand_total_bonus": round(grand_total, 2),
+    }
+
+
+@router.get("/my-bonus")
+def my_bonus(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    from datetime import date as _date
+    from app.models.models import Order, PipelineEntry
+    from app.constants import quarter_of, quarter_label, quarter_date_range, PIPELINE_PROBABILITIES, COMMISSION_LAG_DAYS
+    if current_user.role == "admin":
+        return None
+    today = _date.today()
+    fsy, q = quarter_of(today)
+    q_start, q_end = quarter_date_range(fsy, q)
+    # Next quarter
+    nq = q + 1 if q < 4 else 1
+    nfy = fsy if q < 4 else fsy + 1
+    nq_start, nq_end = quarter_date_range(nfy, nq)
+    VISIBLE_STATUSES = ['shipped', 'fully_paid', 'commission_invoiced', 'commission_paid', 'bonus_paid']
+    orders = db.query(Order).options(
+        joinedload(Order.contact), joinedload(Order.brand)
+    ).filter(
+        Order.owner_id == current_user.id,
+        Order.status.in_(VISIBLE_STATUSES),
+    ).all()
+    order_list = []
+    total_earned = total_paid = total_pending = 0.0
+    for o in orders:
+        net = float(o.net_commission or 0)
+        bonus = float(o.bonus_amount or 0)
+        order_list.append({
+            "order_id":       o.id,
+            "contact_name":   o.contact.name if o.contact else None,
+            "brand_name":     o.brand.name   if o.brand   else None,
+            "net_commission": net,
+            "bonus_amount":   bonus,
+            "status":         o.status,
+            "bonus_paid":     o.bonus_paid_date is not None,
+        })
+        if o.status in ('commission_paid', 'bonus_paid'):
+            total_earned += bonus
+        if o.bonus_paid_date:
+            total_paid += bonus
+        elif o.status in ('shipped', 'fully_paid', 'commission_invoiced'):
+            total_pending += bonus
+    # Next quarter pipeline projection
+    pipe = db.query(PipelineEntry).filter(
+        PipelineEntry.owner_id == current_user.id,
+        PipelineEntry.fob_date.isnot(None),
+    ).all()
+    nq_pipeline = sum(
+        float(e.potential_value or 0) * PIPELINE_PROBABILITIES.get(e.status, 0) / 100 * 0.05
+        for e in pipe
+        if e.fob_date and nq_start <= (e.fob_date + timedelta(days=COMMISSION_LAG_DAYS)) < nq_end
+    )
+    return {
+        "current_quarter": quarter_label(fsy, q),
+        "orders":          order_list,
+        "summary": {
+            "total_earned":  round(total_earned, 2),
+            "total_paid":    round(total_paid, 2),
+            "total_pending": round(total_pending, 2),
+        },
+        "next_quarter_pipeline": round(nq_pipeline, 2),
+    }
 

@@ -990,6 +990,18 @@
           </div>
         </div>
 
+        <!-- Agent bonus widget (Zeal / Erna only) -->
+        <div id="agent-bonus-widget" style="display:none;margin-bottom:20px">
+          <div class="card">
+            <div class="card-head">
+              <div><div class="card-title" id="bonus-widget-title">My Bonus</div><div class="card-sub" id="bonus-widget-sub">Loading…</div></div>
+            </div>
+            <div class="card-body" id="bonus-widget-body" style="padding:0 20px 16px">
+              <div style="color:var(--warm-grey);font-size:13px">Loading…</div>
+            </div>
+          </div>
+        </div>
+
         <!-- Two-column body -->
         <div class="dash-grid">
 
@@ -1214,7 +1226,7 @@
                 <th onclick="sortPipeline('status')" style="cursor:pointer">Status <span id="sort-pipeline-status"></span></th>
                 <th onclick="sortPipeline('potential_value')" style="text-align:right;cursor:pointer">Potential value <span id="sort-pipeline-potential_value"></span></th>
                 <th>Next action</th>
-                <th onclick="sortPipeline('due_date')" style="cursor:pointer">FOB Date <span id="sort-pipeline-due_date"></span></th>
+                <th onclick="sortPipeline('fob_date')" style="cursor:pointer">FOB Date <span id="sort-pipeline-fob_date"></span></th>
                 <th onclick="sortPipeline('owner')" style="cursor:pointer">Owner <span id="sort-pipeline-owner"></span></th>
                 <th style="width: 36px;"></th>
               </tr>
@@ -1328,13 +1340,38 @@
 
     <!-- ===== ORDERS ===== -->
     <section class="view" id="view-orders" data-screen-label="Orders">
-      <div class="page-head"><div><h1 class="page-title">Orders &amp; Commission</h1><div class="page-sub" id="orders-meta">Loading…</div></div><div class="page-actions"><button class="btn btn-secondary" onclick="exportOrders()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Export CSV</button></div></div>
-      <div class="page-body">
+      <div class="page-head">
+        <div><h1 class="page-title">Orders &amp; Commission</h1><div class="page-sub" id="orders-meta">Loading…</div></div>
+        <div class="page-actions">
+          <button class="btn btn-secondary" onclick="exportOrdersCSV()">&#8595; Export CSV</button>
+        </div>
+      </div>
+      <div class="page-body" style="padding-top:0">
+        <!-- Filter bar -->
+        <div class="filter-bar" style="margin-bottom:12px;padding-top:12px">
+          <select id="orders-filter-status" onchange="ordersPage=1;loadOrders()" style="border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:inherit;font-size:13px;background:var(--white)">
+            <option value="">All statuses</option>
+            <option value="po_received">PO Received</option>
+            <option value="deposit_paid">Deposit Paid</option>
+            <option value="shipped">Shipped</option>
+            <option value="fully_paid">Fully Paid</option>
+            <option value="commission_invoiced">Commission Invoiced</option>
+            <option value="commission_paid">Commission Paid</option>
+            <option value="bonus_paid">Bonus Paid</option>
+          </select>
+          <select id="orders-filter-owner" onchange="ordersPage=1;loadOrders()" style="border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:inherit;font-size:13px;background:var(--white)">
+            <option value="">All owners</option>
+          </select>
+          <select id="orders-filter-brand" onchange="ordersPage=1;loadOrders()" style="border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:inherit;font-size:13px;background:var(--white)">
+            <option value="">All brands</option>
+          </select>
+        </div>
         <div class="table-wrap"><table class="data">
           <thead><tr>
-            <th>Contact / Company</th><th>Brand</th><th>Order Date</th>
-            <th style="text-align:right">Value</th><th style="text-align:right">Commission %</th>
-            <th style="text-align:right">Testing Ded.</th><th style="text-align:right">Net Commission</th><th>Status</th>
+            <th>Contact / Company</th><th>Brand</th>
+            <th style="text-align:right">Order Value</th>
+            <th style="text-align:right">Net Commission</th>
+            <th>Status</th><th>Ship Date</th><th>Commission Due</th><th>Owner</th>
           </tr></thead>
           <tbody id="orders-tbody"><tr><td colspan="8" style="text-align:center;padding:40px;color:var(--warm-grey);">Loading…</td></tr></tbody>
         </table></div>
@@ -1382,6 +1419,22 @@
             <div>
               <div style="font-size:14px;font-weight:600;color:var(--navy)">Task Report</div>
               <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">All tasks across contacts, filterable by status</div>
+            </div>
+            <span style="color:var(--logo-blue);font-size:20px;font-weight:300">&#8594;</span>
+          </div>
+
+          <div class="report-row" id="rr-commission" onclick="loadCommissionForecast()">
+            <div>
+              <div style="font-size:14px;font-weight:600;color:var(--navy)">Commission Forecast</div>
+              <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">Monthly actual, confirmed and weighted pipeline income — Apr to Mar FY</div>
+            </div>
+            <span style="color:var(--logo-blue);font-size:20px;font-weight:300">&#8594;</span>
+          </div>
+
+          <div class="report-row" id="rr-bonus" onclick="loadBonusReport()">
+            <div>
+              <div style="font-size:14px;font-weight:600;color:var(--navy)">Bonus Report</div>
+              <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">Quarterly bonus summary for Zeal and Erna</div>
             </div>
             <span style="color:var(--logo-blue);font-size:20px;font-weight:300">&#8594;</span>
           </div>
@@ -1643,6 +1696,8 @@ function showApp() {
   // Orders — admin only
   if (CURRENT_USER.role !== 'admin') {
     document.querySelectorAll('[data-view="orders"]').forEach(el => el.style.display='none');
+    var rrc = document.getElementById('rr-commission'); if(rrc) rrc.style.display='none';
+    var rrb = document.getElementById('rr-bonus'); if(rrb) rrb.style.display='none';
   }
 }
 
@@ -1780,6 +1835,11 @@ async function loadDashboard() {
   var kvf = document.getElementById('kpi-val-scope');  if(kvf) kvf.textContent = scope;
   var kcf = document.getElementById('kpi-com-scope');  if(kcf) kcf.textContent = d.is_admin ? 'unpaid orders' : 'your contacts';
   var kof = document.getElementById('kpi-ovd-scope');  if(kof) kof.textContent = scope;
+  // Agent bonus widget
+  if (!d.is_admin) {
+    var bw = document.getElementById('agent-bonus-widget'); if(bw) bw.style.display='block';
+    loadMyBonus();
+  }
 
   // Recent emails
   const ef = document.getElementById('email-feed');
@@ -2321,7 +2381,7 @@ async function loadPipeline() {
   document.getElementById('pipeline-meta').innerHTML = `Showing <b>${fmtNum(d.results.length)}</b> of <b>${fmtNum(d.total)}</b> deals`;
   const psub = document.getElementById('pipeline-sub');
   if (psub) psub.innerHTML = fmtNum(d.total) + ' open deals &middot; USD ' + fmtShort(d.total_value||0) + ' total value';
-  ['contact','brand','status','due_date','owner','potential_value'].forEach(function(k){var el=document.getElementById('sort-pipeline-'+k);if(el)el.textContent=pipelineSort===k?sortIcon(pipelineSortDir):'';});
+  ['contact','brand','status','fob_date','owner','potential_value'].forEach(function(k){var el=document.getElementById('sort-pipeline-'+k);if(el)el.textContent=pipelineSort===k?sortIcon(pipelineSortDir):'';});
   const tbody = document.getElementById('pipeline-tbody');
   if (!d.results.length) { tbody.innerHTML='<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--warm-grey);">No pipeline entries found.</td></tr>'; return; }
   tbody.innerHTML = d.results.map(e=>`
@@ -2332,7 +2392,7 @@ async function loadPipeline() {
       <td><span class="pill ${statusClass(e.status)}">${e.status}</span></td>
       <td class="value-cell">${fmtVal(e.potential_value)}</td>
       <td class="action-cell">${e.next_action||'—'}<div class="note">${e.notes?e.notes.slice(0,60)+(e.notes.length>60?'…':''):''}</div></td>
-      <td>${fmtDate(e.due_date)}</td>
+      <td>${fmtDate(e.fob_date)}</td>
       <td>${ownerAv(e.owner_name)}</td>
       <td><button class="more-btn" onclick="event.stopPropagation();openPipelineDetail(${e.id})">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
@@ -2384,7 +2444,7 @@ function openPipelineDetail(id) {
         <div><label class="fl">Potential Value</label>
           <input name="potential_value" type="number" step="0.01" value="${e.potential_value||0}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
         <div><label class="fl">FOB Date</label>
-          <input name="due_date" type="date" value="${e.due_date||''}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+          <input name="fob_date" type="date" value="${e.fob_date||''}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
       </div>
       <div style="margin-bottom:12px"><label class="fl">Next Action</label>
         <input name="next_action" value="${(e.next_action||'').replace(/"/g,'&quot;')}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
@@ -2418,7 +2478,7 @@ async function savePipelineEdit(evt, id) {
     status:          fd.get('status'),
     potential_value: parseFloat(fd.get('potential_value'))||0,
     next_action:     fd.get('next_action')||null,
-    due_date:        fd.get('due_date')||null,
+    fob_date:        fd.get('fob_date')||null,
     owner_id:        parseInt(fd.get('owner_id')),
   };
   const btn = document.querySelector('#modal-footer .btn-primary');
@@ -2471,7 +2531,7 @@ async function exportPipeline() {
   const cols = ['Company','Contact','Brand','Status','Potential Value','Next Action','FOB Date','Owner','Notes'];
   const rows = d.results.map(e => [
     e.contact_company||'', e.contact_name||'', e.brand_name||'', e.status||'',
-    e.potential_value||0, e.next_action||'', e.due_date||'', e.owner_name||'', (e.notes||'').replace(/,/g,' ')
+    e.potential_value||0, e.next_action||'', e.fob_date||'', e.owner_name||'', (e.notes||'').replace(/,/g,' ')
   ]);
   const csv = [cols, ...rows].map(r => r.map(v => '"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
   const a = document.createElement('a');
@@ -2578,7 +2638,7 @@ async function openNewDealModal(preContactId) {
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
         <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">FOB Date</label>
-          <input name="due_date" type="date" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+          <input name="fob_date" type="date" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
         <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Next Action</label>
           <input name="next_action" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
       </div>
@@ -2602,38 +2662,25 @@ async function openConvertToOrderModal(pipelineId) {
     <form id="convert-order-form" onsubmit="saveConvertedOrder(event,${pipelineId})">
       <div style="background:var(--logo-blue-pale);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:13px">
         <b>${e.contact_company||e.contact_name||'—'}</b> · ${e.brand_name||'—'}
+        <span class="pill blue" style="margin-left:8px">PO Received</span>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Status *</label>
-          <select name="status" required style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">
-            ${statuses.map(s=>'<option>'+s+'</option>').join('')}
-          </select></div>
-        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Order Date *</label>
+        <div><label class="fl">Order Date *</label>
           <input name="order_date" type="date" required value="${new Date().toISOString().slice(0,10)}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">PO Received</label>
+        <div><label class="fl">PO Date</label>
           <input name="po_date" type="date" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
-        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">PI Confirmed</label>
-          <input name="pi_date" type="date" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Deposit Paid</label>
-          <input name="deposit_date" type="date" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
-        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">FOB Date</label>
-          <input name="fob_date" type="date" value="${e.due_date||''}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Payment Date</label>
-          <input name="payment_date" type="date" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
-        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Order Value (USD) *</label>
+        <div><label class="fl">Order Value (USD) *</label>
           <input name="order_value" type="number" min="0" step="0.01" required placeholder="0" value="${e.potential_value||''}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+        <div><label class="fl">Commission Rate %</label>
+          <input name="gross_commission_rate" type="number" min="0" step="0.01" placeholder="0" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Commission (USD)</label>
-          <input name="commission_value" type="number" min="0" step="0.01" placeholder="0" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
-        <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Testing Cost Deduction (USD)</label>
+        <div><label class="fl">Testing Cost Deduction (USD)</label>
           <input name="testing_cost_deduction" type="number" min="0" step="0.01" placeholder="0" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+        <div><label class="fl">Ship Date (optional)</label>
+          <input name="ship_date" type="date" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
       </div>
       <div id="co-error" style="display:none;color:#B33A47;font-size:13px;margin-bottom:12px;padding:10px;background:#FAE3E5;border-radius:8px"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -2649,7 +2696,7 @@ async function saveConvertedOrder(ev, pipelineId) {
   ev.preventDefault();
   const e = pipelineData.find(x=>x.id===pipelineId); if(!e) return;
   const fd = new FormData(ev.target);
-  const commValue = parseFloat(fd.get('commission_value'))||0;
+  const commRate = parseFloat(fd.get('gross_commission_rate'))||0;
   const testCost  = parseFloat(fd.get('testing_cost_deduction'))||0;
   const payload = {
     contact_id: e.contact_id,
@@ -2657,14 +2704,12 @@ async function saveConvertedOrder(ev, pipelineId) {
     order_date: fd.get('order_date'),
     order_value: parseFloat(fd.get('order_value'))||0,
     currency: 'USD',
-    gross_commission_rate: commValue,
+    gross_commission_rate: commRate,
     testing_cost_deduction: testCost,
+    owner_id: e.owner_id || null,
     po_date:      fd.get('po_date')      || null,
-    pi_date:      fd.get('pi_date')      || null,
-    deposit_date: fd.get('deposit_date') || null,
-    fob_date:     fd.get('fob_date')     || null,
-    payment_date: fd.get('payment_date') || null,
-    status: fd.get('status') || 'PO Received',
+    ship_date:    fd.get('ship_date')    || null,
+    status: 'po_received',
     notes: 'Converted from pipeline deal #' + pipelineId,
   };
   const btn = ev.target.querySelector('[type=submit]'); btn.textContent='Saving…'; btn.disabled=true;
@@ -2686,12 +2731,185 @@ async function saveNewDeal(e) {
   const fd = new FormData(e.target);
   const payload = { contact_id:parseInt(fd.get('contact_id')), brand_id:parseInt(fd.get('brand_id')),
     status:fd.get('status'), potential_value:parseFloat(fd.get('potential_value'))||0,
-    owner_id:parseInt(fd.get('owner_id')), due_date:fd.get('due_date')||null,
+    owner_id:parseInt(fd.get('owner_id')), fob_date:fd.get('fob_date')||null,
     next_action:fd.get('next_action')||null, notes:fd.get('notes')||null };
   const btn = e.target.querySelector('[type=submit]'); btn.textContent='Saving…'; btn.disabled=true;
   const result = await apiFetch('/pipeline',{method:'POST',body:JSON.stringify(payload)});
   if (result) { document.getElementById('modal').style.display='none'; loadPipeline(); }
   else { document.getElementById('nd-error').textContent='Failed. Check all required fields.'; document.getElementById('nd-error').style.display='block'; btn.textContent='Save Deal'; btn.disabled=false; }
+}
+
+// ---- Agent Bonus Widget ----
+async function loadMyBonus() {
+  const d = await apiFetch('/reports/my-bonus');
+  const widget = document.getElementById('agent-bonus-widget');
+  if (!d || !widget) return;
+  var titleEl = document.getElementById('bonus-widget-title');
+  var subEl = document.getElementById('bonus-widget-sub');
+  var bodyEl = document.getElementById('bonus-widget-body');
+  if (titleEl) titleEl.textContent = 'My Bonus — ' + (d.current_quarter||'');
+  if (subEl) subEl.textContent = 'Commission Paid: $' + fmtShort(d.summary.total_paid||0) + '  ·  Pending: $' + fmtShort(d.summary.total_pending||0);
+  if (!bodyEl) return;
+  if (!d.orders||!d.orders.length) {
+    bodyEl.innerHTML = '<div style="padding:12px 0;color:var(--warm-grey);font-size:13px">No orders in progress this quarter.</div>';
+  } else {
+    var STATUS_COLOR = {shipped:'amber',fully_paid:'amber',commission_invoiced:'amber',commission_paid:'green',bonus_paid:'grey'};
+    var STATUS_LABEL = {shipped:'Shipped',fully_paid:'Fully Paid',commission_invoiced:'Comm. Invoiced',commission_paid:'Comm. Paid',bonus_paid:'Bonus Paid'};
+    bodyEl.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px">'
+      + '<thead><tr style="color:var(--warm-grey);font-size:11px">'
+      + '<th style="text-align:left;padding:4px 0">Contact</th><th style="text-align:left;padding:4px 0">Brand</th>'
+      + '<th style="text-align:right;padding:4px 0">Net Commission</th><th style="text-align:right;padding:4px 0">My Bonus</th><th style="text-align:center;padding:4px 0">Status</th>'
+      + '</tr></thead><tbody>'
+      + d.orders.map(function(o){
+          var pc = STATUS_COLOR[o.status]||'blue';
+          var rowStyle = o.status==='bonus_paid'?'color:var(--warm-grey)':'';
+          return '<tr style="border-bottom:1px solid var(--line);'+rowStyle+'">'
+            +'<td style="padding:6px 0">'+escHtml(o.contact_name||'—')+'</td>'
+            +'<td style="padding:6px 0">'+escHtml(o.brand_name||'—')+'</td>'
+            +'<td style="text-align:right;padding:6px 0">'+fmtVal(o.net_commission)+'</td>'
+            +'<td style="text-align:right;padding:6px 0;font-weight:700;color:#8E44AD">'+fmtVal(o.bonus_amount)+'</td>'
+            +'<td style="text-align:center;padding:6px 0"><span class="pill '+pc+'" style="font-size:10px">'+escHtml(STATUS_LABEL[o.status]||o.status)+'</span></td>'
+            +'</tr>';
+        }).join('')
+      + '</tbody></table>'
+      + '<div style="font-size:13px;border-top:1px solid var(--line);padding-top:10px">'
+      + '<b>This quarter:</b> $'+fmtShort(d.summary.total_earned||0)+' earned, <span style="color:var(--st-green-fg)">$'+fmtShort(d.summary.total_paid||0)+' paid</span>, <span style="color:#C97B2B">$'+fmtShort(d.summary.total_pending||0)+' pending</span>'
+      + (d.next_quarter_pipeline?'<br><b>Next quarter estimate:</b> <span style="color:#8E44AD">$'+fmtShort(d.next_quarter_pipeline)+' projected</span>':'')
+      + '</div>';
+  }
+}
+
+// ---- Commission Forecast Report ----
+async function loadCommissionForecast() {
+  const overlay = document.getElementById('report-overlay');
+  const body = document.getElementById('report-overlay-body');
+  document.getElementById('report-overlay-title').textContent = 'Commission Forecast';
+  overlay.style.display = 'flex';
+  body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--warm-grey)">Loading…</div>';
+  const d = await apiFetch('/reports/commission-forecast'); if(!d){body.innerHTML='<div style="padding:40px;text-align:center;color:#B33A47">Failed to load report.</div>';return;}
+  var COLS = ['actual_received','confirmed','weighted_pipeline','total_forecast'];
+  var LABELS = {actual_received:'Actual Received',confirmed:'Confirmed',weighted_pipeline:'Weighted Pipeline',total_forecast:'Total Forecast'};
+  var COLORS = {actual_received:'var(--st-green-fg)',confirmed:'var(--logo-blue)',weighted_pipeline:'#C97B2B',total_forecast:'var(--navy)'};
+  var months = d.months||[];
+  var html = '<div style="padding:16px;overflow-x:auto">';
+  html += '<div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">';
+  [d.fy_current, d.fy_next].forEach(function(fy){
+    if(!fy) return;
+    html += '<div style="flex:1;min-width:220px;background:var(--off-white);border-radius:10px;padding:14px 16px">'
+      + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey);margin-bottom:8px">'+escHtml(fy.label)+'</div>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+      + COLS.map(function(k){return '<div><div style="font-size:10px;color:var(--warm-grey)">'+LABELS[k]+'</div><div style="font-size:14px;font-weight:700;color:'+COLORS[k]+'">$'+fmtShort(fy[k]||0)+'</div></div>';}).join('')
+      + '</div></div>';
+  });
+  html += '</div>';
+  html += '<table style="width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap">'
+    + '<thead><tr><th style="text-align:left;padding:6px 10px;border-bottom:2px solid var(--line);color:var(--warm-grey);font-size:11px"></th>'
+    + months.map(function(m){
+        var hl = m.is_current ? 'background:var(--logo-blue-pale);' : '';
+        return '<th style="text-align:right;padding:6px 8px;border-bottom:2px solid var(--line);'+hl+'font-size:11px;color:'+(m.is_current?'var(--logo-blue)':'var(--warm-grey)')+'">'+escHtml(m.label)+'</th>';
+      }).join('')
+    + '</tr></thead><tbody>'
+    + COLS.map(function(k){
+        var bold = k==='total_forecast' ? 'font-weight:700;' : '';
+        return '<tr>'
+          + '<td style="padding:6px 10px;font-weight:600;color:'+COLORS[k]+';white-space:nowrap">'+LABELS[k]+'</td>'
+          + months.map(function(m){
+              var hl = m.is_current ? 'background:var(--logo-blue-pale);' : '';
+              var v = m[k]||0;
+              return '<td style="text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);'+hl+bold+'color:'+COLORS[k]+'">'+(v?'$'+fmtShort(v):'—')+'</td>';
+            }).join('')
+          + '</tr>';
+      }).join('')
+    + '</tbody></table>'
+    + '<div style="margin-top:12px"><button class="btn btn-secondary" onclick="exportCommissionCSV()">&#8595; Export CSV</button></div>'
+    + '</div>';
+  body.innerHTML = html;
+}
+
+function exportCommissionCSV() {
+  apiFetch('/reports/commission-forecast').then(function(d){
+    if(!d) return;
+    var cols = ['Month','Actual Received','Confirmed','Weighted Pipeline','Total Forecast'];
+    var rows = d.months.map(function(m){return[m.label,m.actual_received,m.confirmed,m.weighted_pipeline,m.total_forecast];});
+    var csv = [cols.join(',')].concat(rows.map(function(r){return r.join(',');})).join(String.fromCharCode(10));
+    var a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='commission_forecast.csv';a.click();
+  });
+}
+
+// ---- Bonus Report ----
+var bonusReportFY = 2026, bonusReportQ = 1;
+
+async function loadBonusReport() {
+  const overlay = document.getElementById('report-overlay');
+  const body = document.getElementById('report-overlay-body');
+  document.getElementById('report-overlay-title').textContent = 'Bonus Report';
+  overlay.style.display = 'flex';
+  body.innerHTML = '<div style="padding:16px">'
+    + '<div style="display:flex;gap:8px;align-items:center;margin-bottom:16px;flex-wrap:wrap">'
+    + '<label style="font-size:13px;font-weight:600;color:var(--navy)">Quarter:</label>'
+    + '<select id="bonus-fy-sel" onchange="bonusReportFY=parseInt(this.value);loadBonusReportData()" style="border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:inherit;font-size:13px">'
+    + [2026,2027].map(function(y){return '<option value="'+y+'"'+(y===bonusReportFY?' selected':'')+'>FY'+y+'-'+(y+1).toString().slice(2)+'</option>';}).join('')
+    + '</select>'
+    + '<select id="bonus-q-sel" onchange="bonusReportQ=parseInt(this.value);loadBonusReportData()" style="border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:inherit;font-size:13px">'
+    + [1,2,3,4].map(function(q){return '<option value="'+q+'"'+(q===bonusReportQ?' selected':'')+'>'+'Q'+q+'</option>';}).join('')
+    + '</select>'
+    + '</div>'
+    + '<div id="bonus-report-content"><div style="padding:20px;text-align:center;color:var(--warm-grey)">Loading…</div></div></div>';
+  await loadBonusReportData();
+}
+
+async function loadBonusReportData() {
+  const d = await apiFetch('/reports/bonus?fy='+bonusReportFY+'&quarter=Q'+bonusReportQ);
+  const cont = document.getElementById('bonus-report-content');
+  if (!cont) return;
+  if (!d) { cont.innerHTML='<div style="padding:20px;text-align:center;color:#B33A47">Failed to load.</div>'; return; }
+  var html = '<div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:16px">'+escHtml(d.quarter)+'</div>';
+  d.agents.forEach(function(agent){
+    html += '<div style="margin-bottom:20px">'
+      + '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey);padding:8px 0;border-bottom:2px solid var(--line);margin-bottom:8px">'+escHtml(agent.owner_name)+'</div>';
+    if (!agent.orders.length) {
+      html += '<div style="color:var(--warm-grey);font-size:13px;padding:8px 0">No qualifying orders this quarter.</div>';
+    } else {
+      html += '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+        + '<thead><tr style="color:var(--warm-grey);font-size:11px">'
+        + '<th style="text-align:left;padding:4px 8px">Contact</th><th style="text-align:left;padding:4px 8px">Brand</th>'
+        + '<th style="text-align:right;padding:4px 8px">Net Commission</th><th style="text-align:right;padding:4px 8px">Bonus</th>'
+        + '<th style="text-align:center;padding:4px 8px">Commission Paid</th><th style="text-align:center;padding:4px 8px">Bonus Paid</th>'
+        + '</tr></thead><tbody>'
+        + agent.orders.map(function(o){
+            return '<tr style="border-bottom:1px solid var(--line)">'
+              +'<td style="padding:6px 8px">'+escHtml(o.contact_name||'—')+'</td>'
+              +'<td style="padding:6px 8px">'+escHtml(o.brand_name||'—')+'</td>'
+              +'<td style="text-align:right;padding:6px 8px">'+fmtVal(o.net_commission)+'</td>'
+              +'<td style="text-align:right;padding:6px 8px;font-weight:700;color:#8E44AD">'+fmtVal(o.bonus_amount)+'</td>'
+              +'<td style="text-align:center;padding:6px 8px;color:var(--warm-grey);font-size:11px">'+escHtml(o.commission_paid_date||'—')+'</td>'
+              +'<td style="text-align:center;padding:6px 8px">'+(o.bonus_paid?'<span class="pill green" style="font-size:10px">Paid</span>':'<span class="pill amber" style="font-size:10px">Pending</span>')+'</td>'
+              +'</tr>';
+          }).join('')
+        + '</tbody></table>'
+        + '<div style="margin-top:8px;text-align:right;font-size:13px">'
+        + 'Total commission: <b>'+fmtVal(agent.total_net_commission)+'</b> &nbsp;·&nbsp; Total bonus: <b style="color:#8E44AD">'+fmtVal(agent.total_bonus)+'</b>'
+        + '</div>'
+        + '<div style="margin-top:8px">'
+        + '<button class="btn btn-secondary" style="font-size:12px" onclick="markAllBonusPaid('+JSON.stringify(agent.orders.map(function(o){return o.order_id;}))+')">Mark all as Bonus Paid</button>'
+        + '</div>';
+    }
+    html += '</div>';
+  });
+  html += '<div style="margin-top:16px;padding-top:16px;border-top:2px solid var(--line);font-size:14px;font-weight:700;color:#8E44AD">Grand Total Bonus: '+fmtVal(d.grand_total_bonus)+'</div>';
+  cont.innerHTML = html;
+}
+
+async function markAllBonusPaid(orderIds) {
+  if (!orderIds.length) return;
+  if (!confirm('Mark '+orderIds.length+' order(s) as Bonus Paid?')) return;
+  var done = 0;
+  for (var i=0;i<orderIds.length;i++) {
+    var r = await apiFetch('/orders/'+orderIds[i]+'/advance-status',{method:'POST',body:JSON.stringify({status:'bonus_paid'})});
+    if (r) done++;
+  }
+  showToast(done+' order(s) marked as Bonus Paid');
+  loadBonusReportData();
 }
 
 // ---- Reports ----
@@ -3253,22 +3471,146 @@ async function toggleBrand(id, active) {
 }
 
 // ---- Orders ----
+var ordersPage = 1;
+var ordersData = [];
+
+function orderStatusPillClass(s) {
+  if (s==='commission_paid'||s==='bonus_paid') return 'green';
+  if (s==='shipped'||s==='fully_paid'||s==='commission_invoiced') return 'amber';
+  return 'blue';
+}
+
 async function loadOrders() {
-  const d = await apiFetch('/orders'); if(!d) return;
+  const p = new URLSearchParams({ page: ordersPage, per_page: 50 });
+  const sf = document.getElementById('orders-filter-status'); if(sf&&sf.value) p.set('status',sf.value);
+  const of2 = document.getElementById('orders-filter-owner'); if(of2&&of2.value) p.set('owner_id',of2.value);
+  const bf = document.getElementById('orders-filter-brand'); if(bf&&bf.value) p.set('brand_id',bf.value);
+  const d = await apiFetch('/orders?'+p); if(!d) return;
+  ordersData = d.results||[];
   const sc = document.getElementById('sb-count-orders'); if(sc) sc.textContent=fmtNum(d.total);
-  document.getElementById('orders-meta').textContent = d.total+' orders';
+  const meta = document.getElementById('orders-meta'); if(meta) meta.textContent=d.total+' order'+(d.total!==1?'s':'');
+  // Populate owner filter if empty
+  var ownerSel = document.getElementById('orders-filter-owner');
+  if (ownerSel && ownerSel.options.length<=1 && d.results.length) {
+    var seen={};
+    d.results.forEach(function(o){if(o.owner_id&&!seen[o.owner_id]){seen[o.owner_id]=1;ownerSel.innerHTML+='<option value="'+o.owner_id+'">'+escHtml(o.owner_name||'')+'</option>';}});
+  }
+  // Populate brand filter if empty
+  var brandSel = document.getElementById('orders-filter-brand');
+  if (brandSel && brandSel.options.length<=1 && d.results.length) {
+    var seen2={};
+    d.results.forEach(function(o){if(o.brand_id&&!seen2[o.brand_id]){seen2[o.brand_id]=1;brandSel.innerHTML+='<option value="'+o.brand_id+'">'+escHtml(o.brand_name||'')+'</option>';}});
+  }
   const tbody = document.getElementById('orders-tbody');
-  if(!d.results.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--warm-grey);">No orders yet.</td></tr>';return;}
-  tbody.innerHTML=d.results.map(o=>`
-    <tr>
-      <td class="contact-cell"><div class="nm">${o.contact_name||'—'}</div><div class="co">${o.contact_company||''}</div></td>
-      <td>${brandMark(o.brand_name||'—')}</td><td>${o.order_date||'—'}</td>
-      <td class="value-cell">${fmtVal(o.order_value,o.currency)}</td>
-      <td style="text-align:right">${o.gross_commission_rate}%</td>
-      <td class="value-cell" style="color:var(--accent-coral)">${fmtVal(o.testing_cost_deduction,o.currency)}</td>
-      <td class="value-cell" style="color:var(--st-green-fg)">${fmtVal(o.net_commission,o.currency)}</td>
-      <td><span class="pill ${o.status==='paid'?'green':o.status==='invoiced'?'blue':'amber'}">${o.status}</span></td>
-    </tr>`).join('');
+  const isAdmin = CURRENT_USER&&CURRENT_USER.role==='admin';
+  if(!ordersData.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--warm-grey);">No orders yet.</td></tr>';return;}
+  tbody.innerHTML=ordersData.map(function(o){
+    var pillCls=orderStatusPillClass(o.status);
+    var shipDate=o.ship_date||'—';
+    var commDue=o.commission_due_date||'—';
+    return '<tr style="cursor:pointer" onclick="openOrderDetail('+o.id+')">'
+      +'<td class="contact-cell"><div class="nm">'+escHtml(o.contact_name||'—')+'</div><div class="co">'+escHtml(o.contact_company||'')+'</div></td>'
+      +'<td>'+brandMark(o.brand_name||'—')+'</td>'
+      +'<td class="value-cell">'+fmtVal(o.order_value)+'</td>'
+      +'<td class="value-cell" style="color:var(--st-green-fg)">'+fmtVal(o.net_commission)+'</td>'
+      +'<td><span class="pill '+pillCls+'">'+escHtml(o.status_label||o.status)+'</span></td>'
+      +'<td>'+fmtDate(o.ship_date)+'</td>'
+      +'<td style="color:var(--logo-blue)">'+fmtDate(o.commission_due_date)+'</td>'
+      +'<td>'+ownerAv(o.owner_name)+'</td>'
+      +'</tr>';
+  }).join('');
+}
+
+async function openOrderDetail(orderId) {
+  var o = ordersData.find(function(x){return x.id===orderId;}); if(!o) return;
+  var isAdmin = CURRENT_USER&&CURRENT_USER.role==='admin';
+  var ORDER_STATUSES = ['po_received','deposit_paid','shipped','fully_paid','commission_invoiced','commission_paid','bonus_paid'];
+  var ORDER_STATUS_LABELS = {po_received:'PO Received',deposit_paid:'Deposit Paid',shipped:'Shipped',fully_paid:'Fully Paid',commission_invoiced:'Commission Invoiced',commission_paid:'Commission Paid',bonus_paid:'Bonus Paid'};
+  var ORDER_STATUS_DATES = {po_received:'po_date',deposit_paid:'deposit_date',shipped:'ship_date',fully_paid:'fully_paid_date',commission_invoiced:'commission_invoiced_date',commission_paid:'commission_paid_date',bonus_paid:'bonus_paid_date'};
+  var ORDER_STATUS_COLORS = {po_received:'blue',deposit_paid:'blue',shipped:'amber',fully_paid:'amber',commission_invoiced:'amber',commission_paid:'green',bonus_paid:'green'};
+  var idx = ORDER_STATUSES.indexOf(o.status);
+
+  // Progress bar
+  var progressHtml = '<div style="display:flex;gap:0;margin-bottom:20px;border-radius:8px;overflow:hidden;background:var(--off-white)">'
+    + ORDER_STATUSES.map(function(s,i){
+        var active = i<=idx;
+        var colors = {blue:'var(--logo-blue)',amber:'#C97B2B',green:'var(--st-green-fg)'};
+        var bg = active ? colors[ORDER_STATUS_COLORS[s]] : 'transparent';
+        var fg = active ? '#fff' : 'var(--warm-grey)';
+        return '<div style="flex:1;padding:6px 4px;text-align:center;font-size:10px;font-weight:600;background:'+bg+';color:'+fg+';transition:background .2s">'
+          + escHtml(ORDER_STATUS_LABELS[s]) + '</div>';
+      }).join('')
+    + '</div>';
+
+  // Dates grid
+  var datesHtml = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;font-size:13px">';
+  ORDER_STATUSES.forEach(function(s){
+    var df = ORDER_STATUS_DATES[s];
+    var val = o[df];
+    datesHtml += '<div style="padding:8px 12px;background:var(--off-white);border-radius:8px">'
+      + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey);margin-bottom:2px">'+escHtml(ORDER_STATUS_LABELS[s])+'</div>'
+      + '<div style="color:var(--navy)">'+(val||'—')+'</div>'
+      + '</div>';
+  });
+  datesHtml += '</div>';
+
+  // Next status button
+  var nextStatusHtml = '';
+  if (o.next_status && (isAdmin || o.owner_id===CURRENT_USER?.id)) {
+    nextStatusHtml = '<button class="btn btn-primary" style="margin-bottom:16px" data-oid="'+o.id+'" data-ns="'+o.next_status+'" onclick="advanceOrderStatus(parseInt(this.dataset.oid),this.dataset.ns)">Mark as '+escHtml(o.next_status_label||o.next_status)+' &#8594;</button>';
+  }
+
+  // Financials
+  var finHtml = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px;font-size:13px">'
+    + '<div style="padding:10px 12px;background:var(--off-white);border-radius:8px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Order Value</div><div style="font-size:16px;font-weight:700;color:var(--navy)">'+fmtVal(o.order_value)+'</div></div>'
+    + '<div style="padding:10px 12px;background:var(--off-white);border-radius:8px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Commission Rate</div><div style="font-size:16px;font-weight:700;color:var(--navy)">'+o.gross_commission_rate+'%</div></div>'
+    + '<div style="padding:10px 12px;background:var(--off-white);border-radius:8px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Net Commission</div><div style="font-size:16px;font-weight:700;color:var(--st-green-fg)">'+fmtVal(o.net_commission)+'</div></div>'
+    + (isAdmin&&o.bonus_amount!=null?'<div style="padding:10px 12px;background:var(--off-white);border-radius:8px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Bonus (5%)</div><div style="font-size:16px;font-weight:700;color:#8E44AD">'+fmtVal(o.bonus_amount)+'</div></div>':'')
+    + '</div>';
+
+  document.getElementById('modal-title').innerHTML = escHtml(o.contact_name||'—')+' · '+escHtml(o.brand_name||'—');
+  var mf = document.getElementById('modal-footer');
+  mf.innerHTML = '';
+  var closeBtn = document.createElement('button');
+  closeBtn.className='btn btn-secondary'; closeBtn.textContent='Close';
+  closeBtn.onclick = function(){ document.getElementById('modal').style.display='none'; };
+  mf.appendChild(closeBtn);
+  if (isAdmin) {
+    var delBtn = document.createElement('button');
+    delBtn.className='btn btn-secondary'; delBtn.style.color='#B33A47'; delBtn.textContent='Delete';
+    delBtn.onclick = function(){ deleteOrder(o.id); };
+    mf.appendChild(delBtn);
+  }
+  document.getElementById('modal-body').innerHTML = progressHtml + nextStatusHtml + finHtml + datesHtml
+    + '<div style="font-size:12px;color:var(--warm-grey);margin-top:4px">'
+    + 'Owner: <b>'+escHtml(o.owner_name||'—')+'</b>'
+    + (o.commission_due_date?' &nbsp;·&nbsp; Commission due: <b style="color:var(--logo-blue)">'+o.commission_due_date+'</b>':'')
+    + '</div>';
+  document.getElementById('modal').style.display='flex';
+}
+
+async function advanceOrderStatus(orderId, newStatus) {
+  var r = await apiFetch('/orders/'+orderId+'/advance-status', {method:'POST', body:JSON.stringify({status:newStatus})});
+  if (r) { document.getElementById('modal').style.display='none'; showToast('Order updated to '+newStatus.replace(/_/g,' ')); loadOrders(); }
+  else showToast('Failed to update status');
+}
+
+async function deleteOrder(orderId) {
+  if (!confirm('Delete this order? This cannot be undone.')) return;
+  var r = await apiFetch('/orders/'+orderId, {method:'DELETE'});
+  if (r) { document.getElementById('modal').style.display='none'; showToast('Order deleted'); loadOrders(); }
+  else showToast('Failed to delete order');
+}
+
+function exportOrdersCSV() {
+  if (!ordersData.length) { showToast('No orders to export'); return; }
+  var cols = ['Contact','Company','Brand','Owner','Order Value','Net Commission','Status','Ship Date','Commission Due'];
+  var rows = ordersData.map(function(o){return[
+    o.contact_name||'',o.contact_company||'',o.brand_name||'',o.owner_name||'',
+    o.order_value||0,o.net_commission||0,o.status||'',o.ship_date||'',o.commission_due_date||''
+  ];});
+  var csv=cols.join(',')+String.fromCharCode(10);csv+=rows.map(function(r){return r.map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(',');}).join(String.fromCharCode(10));
+  var a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='orders.csv';a.click();
 }
 
 // ---- Emails ----
@@ -3801,7 +4143,7 @@ async function loadView(view) {
   if(view==='pipeline')  await loadPipeline();
   if(view==='brands')    await loadBrands();
   if(view==='reports')   await loadReports();
-  if(view==='orders' && CURRENT_USER?.role==='admin') await loadOrders();
+  if(view==='orders') await loadOrders();
   if(view==='tasks')     await loadMyTasks();
   if(view==='email')     await loadEmails();
   if(view==='admin')     await loadAdmin();

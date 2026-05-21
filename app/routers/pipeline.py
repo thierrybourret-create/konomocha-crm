@@ -2,14 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, contains_eager
 from sqlalchemy import or_, func
 from typing import Optional
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from app.database import get_db
 from app.models.models import PipelineEntry, Contact, Brand, User
 from app.auth import get_current_user
+from app.constants import PIPELINE_PROBABILITIES, COMMISSION_LAG_DAYS
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/pipeline", tags=["pipeline"])
+
 
 class PipelineCreate(BaseModel):
     contact_id: int
@@ -17,11 +19,16 @@ class PipelineCreate(BaseModel):
     status: str
     potential_value: Decimal
     next_action: Optional[str] = None
-    due_date: Optional[date] = None
+    fob_date: Optional[date] = None
     owner_id: int
     notes: Optional[str] = None
 
+
 def entry_to_dict(e: PipelineEntry):
+    prob = PIPELINE_PROBABILITIES.get(e.status, 0)
+    pv = float(e.potential_value) if e.potential_value else 0.0
+    fob = e.fob_date.isoformat() if e.fob_date else None
+    comm_exp = (e.fob_date + timedelta(days=COMMISSION_LAG_DAYS)).isoformat() if e.fob_date else None
     return {
         "id": e.id,
         "contact_id": e.contact_id,
@@ -30,23 +37,32 @@ def entry_to_dict(e: PipelineEntry):
         "brand_id": e.brand_id,
         "brand_name": e.brand.name if e.brand else None,
         "status": e.status,
-        "potential_value": float(e.potential_value) if e.potential_value else None,
+        "potential_value": pv,
+        "probability": prob,
+        "weighted_value": round(pv * prob / 100, 2),
         "next_action": e.next_action,
-        "due_date": e.due_date.isoformat() if e.due_date else None,
+        "fob_date": fob,
+        "commission_expected_date": comm_exp,
         "owner_id": e.owner_id,
         "owner_name": e.owner.name if e.owner else None,
         "notes": e.notes,
         "updated_at": e.updated_at.isoformat() if e.updated_at else None,
     }
 
+
+@router.get("/probabilities")
+def get_probabilities(current_user=Depends(get_current_user)):
+    return PIPELINE_PROBABILITIES
+
+
 @router.get("")
 def list_pipeline(
     search: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
-    statuses: Optional[str] = Query(None),  # comma-separated
+    statuses: Optional[str] = Query(None),
     brand_id: Optional[int] = Query(None),
-    owner_id:    Optional[int] = Query(None),
-    contact_id:  Optional[int] = Query(None),
+    owner_id: Optional[int] = Query(None),
+    contact_id: Optional[int] = Query(None),
     sort_by: Optional[str] = Query("updated_at"),
     sort_dir: Optional[str] = Query("desc"),
     page: int = Query(1, ge=1),
@@ -73,7 +89,8 @@ def list_pipeline(
         ))
     if statuses:
         sl = [s.strip() for s in statuses.split(",") if s.strip()]
-        if sl: q = q.filter(PipelineEntry.status.in_(sl))
+        if sl:
+            q = q.filter(PipelineEntry.status.in_(sl))
     elif status:
         q = q.filter(PipelineEntry.status == status)
     if brand_id:
@@ -84,12 +101,13 @@ def list_pipeline(
         q = q.filter(PipelineEntry.contact_id == contact_id)
 
     sort_col = {
-        "contact": Contact.company,
-        "brand": Brand.name,
-        "status": PipelineEntry.status,
-        "due_date": PipelineEntry.due_date,
+        "contact":         Contact.company,
+        "brand":           Brand.name,
+        "status":          PipelineEntry.status,
+        "fob_date":        PipelineEntry.fob_date,
+        "due_date":        PipelineEntry.fob_date,
         "potential_value": PipelineEntry.potential_value,
-        "owner": User.name,
+        "owner":           User.name,
     }.get(sort_by, PipelineEntry.updated_at)
     q = q.order_by(sort_col.desc() if sort_dir == "desc" else sort_col)
 
@@ -103,6 +121,7 @@ def list_pipeline(
         "per_page": per_page,
         "results": [entry_to_dict(e) for e in entries],
     }
+
 
 @router.get("/{entry_id}")
 def get_entry(entry_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -123,6 +142,7 @@ def get_entry(entry_id: int, db: Session = Depends(get_db), current_user: User =
         raise HTTPException(status_code=404, detail="Entry not found")
     return entry_to_dict(e)
 
+
 @router.post("")
 def create_entry(data: PipelineCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if current_user.role == "agent" and data.owner_id != current_user.id:
@@ -132,6 +152,7 @@ def create_entry(data: PipelineCreate, db: Session = Depends(get_db), current_us
     db.commit()
     db.refresh(e)
     return entry_to_dict(e)
+
 
 @router.put("/{entry_id}")
 def update_entry(entry_id: int, data: PipelineCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -145,6 +166,7 @@ def update_entry(entry_id: int, data: PipelineCreate, db: Session = Depends(get_
     db.commit()
     db.refresh(e)
     return entry_to_dict(e)
+
 
 @router.delete("/{entry_id}")
 def delete_entry(entry_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -161,8 +183,10 @@ def delete_entry(entry_id: int, db: Session = Depends(get_db), current_user: Use
 class PipelineNoteCreate(BaseModel):
     body: str
 
+
 class PipelineNoteUpdate(BaseModel):
     body: str
+
 
 @router.get("/{entry_id}/notes")
 def get_pipeline_notes(entry_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -176,6 +200,7 @@ def get_pipeline_notes(entry_id: int, db: Session = Depends(get_db), current_use
              "updated_at": n.updated_at.isoformat() if n.updated_at else None,
              "updated_by": n.updated_by.name if n.updated_by else None} for n in notes]
 
+
 @router.post("/{entry_id}/notes")
 def add_pipeline_note(entry_id: int, data: PipelineNoteCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     from app.models.models import PipelineNote
@@ -188,6 +213,7 @@ def add_pipeline_note(entry_id: int, data: PipelineNoteCreate, db: Session = Dep
     db.refresh(note)
     return {"id": note.id, "body": note.body, "author_name": current_user.name,
             "created_at": note.created_at.isoformat(), "updated_at": None, "updated_by": None}
+
 
 @router.put("/{entry_id}/notes/{note_id}")
 def edit_pipeline_note(entry_id: int, note_id: int, data: PipelineNoteUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

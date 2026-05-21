@@ -191,3 +191,14 @@ class PipelineNote(Base):
     pipeline_entry = relationship("PipelineEntry", back_populates="notes_list")
     author         = relationship("User", foreign_keys=[author_id])
     updated_by     = relationship("User", foreign_keys=[updated_by_id])
+
+
+class AppStage(Base):
+    __tablename__ = 'app_stages'
+    id          = Column(Integer, primary_key=True)
+    stage_type  = Column(String, nullable=False)   # 'pipeline' or 'order'
+    name        = Column(String, nullable=False)   # internal key
+    label       = Column(String, nullable=False)   # display label
+    probability = Column(Integer, nullable=True)   # 0-100, null for order stages
+    position    = Column(Integer, nullable=False, default=0)
+

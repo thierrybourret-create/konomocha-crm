@@ -25,7 +25,7 @@ class PipelineCreate(BaseModel):
 
 
 def entry_to_dict(e: PipelineEntry):
-    prob = PIPELINE_PROBABILITIES.get(e.status, 0)
+    prob = get_db_probabilities(db).get(e.status, 0)
     pv = float(e.potential_value) if e.potential_value else 0.0
     fob = e.fob_date.isoformat() if e.fob_date else None
     comm_exp = (e.fob_date + timedelta(days=COMMISSION_LAG_DAYS)).isoformat() if e.fob_date else None
@@ -49,6 +49,17 @@ def entry_to_dict(e: PipelineEntry):
         "updated_at": e.updated_at.isoformat() if e.updated_at else None,
     }
 
+
+
+
+def get_db_probabilities(db):
+    """Load pipeline probabilities from DB, fall back to constants."""
+    from app.models.models import AppStage
+    stages = db.query(AppStage).filter(AppStage.stage_type == 'pipeline').all()
+    if stages:
+        return {s.name: (s.probability or 0) for s in stages}
+    from app.constants import PIPELINE_PROBABILITIES
+    return PIPELINE_PROBABILITIES
 
 @router.get("/probabilities")
 def get_probabilities(current_user=Depends(get_current_user)):

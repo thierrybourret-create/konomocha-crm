@@ -18,6 +18,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from app.routers.admin_stages import router as admin_stages_router
+
 app.include_router(auth.router)
 app.include_router(contacts.router)
 app.include_router(brands.router)
@@ -28,6 +30,7 @@ app.include_router(users.router)
 app.include_router(dashboard.router)
 app.include_router(reports.router)
 app.include_router(tasks.router)
+app.include_router(admin_stages_router, prefix="/api")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 

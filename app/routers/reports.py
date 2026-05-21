@@ -93,6 +93,17 @@ def _row(c):
         "owner":           c.owner.name if c.owner else "",
     }
 
+
+
+def get_db_probabilities(db):
+    """Load pipeline probabilities from DB, fall back to constants."""
+    from app.models.models import AppStage
+    stages = db.query(AppStage).filter(AppStage.stage_type == 'pipeline').all()
+    if stages:
+        return {s.name: (s.probability or 0) for s in stages}
+    from app.constants import PIPELINE_PROBABILITIES
+    return PIPELINE_PROBABILITIES
+
 @router.get("/contact-quality")
 def contact_quality(
     filter:       str = Query("all"),
@@ -489,10 +500,10 @@ def commission_forecast(db: Session = Depends(get_db), current_user=Depends(requ
         # Weighted pipeline: fob_date+30 in this month, prob > 0
         pipe_entries = db.query(PipelineEntry).filter(PipelineEntry.fob_date.isnot(None)).all()
         weighted = sum(
-            float(e.potential_value or 0) * PIPELINE_PROBABILITIES.get(e.status, 0) / 100
+            float(e.potential_value or 0) * get_db_probabilities(db).get(e.status, 0) / 100
             for e in pipe_entries
             if e.fob_date and m_start <= (e.fob_date + timedelta(days=COMMISSION_LAG_DAYS)) < m_end
-              and PIPELINE_PROBABILITIES.get(e.status, 0) > 0
+              and get_db_probabilities(db).get(e.status, 0) > 0
         )
         months_data.append({
             "month":            month_key,
@@ -625,7 +636,7 @@ def my_bonus(db: Session = Depends(get_db), current_user=Depends(get_current_use
         PipelineEntry.fob_date.isnot(None),
     ).all()
     nq_pipeline = sum(
-        float(e.potential_value or 0) * PIPELINE_PROBABILITIES.get(e.status, 0) / 100 * 0.05
+        float(e.potential_value or 0) * get_db_probabilities(db).get(e.status, 0) / 100 * 0.05
         for e in pipe
         if e.fob_date and nq_start <= (e.fob_date + timedelta(days=COMMISSION_LAG_DAYS)) < nq_end
     )

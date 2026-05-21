@@ -1605,7 +1605,55 @@
           </div>
         </div>
 
-      </div>
+      
+<!-- Stage Management -->
+<div class="card" style="margin-top:16px">
+  <div style="font-weight:600;font-size:15px;margin-bottom:12px">Stage Management</div>
+
+  <!-- Pipeline Stages -->
+  <div style="font-weight:500;margin-bottom:8px;color:var(--navy)">Pipeline Stages</div>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:16px" id="tbl-pipeline-stages">
+    <thead>
+      <tr style="background:var(--warm-grey-light,#f5f5f2);font-size:12px;color:var(--warm-grey)">
+        <th style="padding:6px 8px;text-align:left">Stage Name</th>
+        <th style="padding:6px 8px;text-align:center;width:80px">Probability %</th>
+        <th style="padding:6px 8px;text-align:center;width:60px">Position</th>
+        <th style="padding:6px 8px;text-align:center;width:60px"></th>
+      </tr>
+    </thead>
+    <tbody id="tbody-pipeline-stages"></tbody>
+    <tfoot>
+      <tr>
+        <td colspan="4" style="padding:6px 0">
+          <button onclick="addStage('pipeline')" style="font-size:12px;padding:4px 10px;border:1px dashed var(--warm-grey);background:none;cursor:pointer;border-radius:4px">+ Add Pipeline Stage</button>
+        </td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <!-- Order Stages -->
+  <div style="font-weight:500;margin-bottom:8px;color:var(--navy)">Order Stages</div>
+  <table style="width:100%;border-collapse:collapse" id="tbl-order-stages">
+    <thead>
+      <tr style="background:var(--warm-grey-light,#f5f5f2);font-size:12px;color:var(--warm-grey)">
+        <th style="padding:6px 8px;text-align:left">Stage Key</th>
+        <th style="padding:6px 8px;text-align:left">Display Label</th>
+        <th style="padding:6px 8px;text-align:center;width:80px">Probability %</th>
+        <th style="padding:6px 8px;text-align:center;width:60px">Position</th>
+        <th style="padding:6px 8px;text-align:center;width:60px"></th>
+      </tr>
+    </thead>
+    <tbody id="tbody-order-stages"></tbody>
+    <tfoot>
+      <tr>
+        <td colspan="5" style="padding:6px 0">
+          <button onclick="addStage('order')" style="font-size:12px;padding:4px 10px;border:1px dashed var(--warm-grey);background:none;cursor:pointer;border-radius:4px">+ Add Order Stage</button>
+        </td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+</div>
     </section>
 
   </main>
@@ -2912,6 +2960,100 @@ async function markAllBonusPaid(orderIds) {
   loadBonusReportData();
 }
 
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── Stage Management ─────────────────────────────────────────────────────────
+async function loadStages() {
+  var r = await fetch('/crm/api/admin/stages', {headers:{Authorization:'Bearer '+TOKEN}});
+  if (!r.ok) return;
+  var d = await r.json();
+  renderStageTable('pipeline', d.pipeline || []);
+  renderStageTable('order', d.order || []);
+}
+
+function renderStageTable(type, stages) {
+  var tbody = document.getElementById('tbody-' + type + '-stages');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  stages.sort(function(a,b){ return a.position - b.position; });
+  stages.forEach(function(s) {
+    var tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid #eee';
+    // Name cell — DOM-based to avoid quote nesting in onchange
+    var nameInp = document.createElement('input');
+    nameInp.type = 'text'; nameInp.value = s.name || '';
+    nameInp.style.cssText = 'width:100%;border:1px solid #ddd;border-radius:3px;padding:3px 6px;font-size:13px';
+    nameInp.onchange = (function(sid){ return function(){ updateStageField(sid, 'name', this.value); }; })(s.id);
+    var nameTd = document.createElement('td'); nameTd.style.padding = '5px 8px';
+    nameTd.appendChild(nameInp); tr.appendChild(nameTd);
+    // Label cell (order stages only)
+    if (type === 'order') {
+      var labelInp = document.createElement('input');
+      labelInp.type = 'text'; labelInp.value = s.label || '';
+      labelInp.style.cssText = 'width:100%;border:1px solid #ddd;border-radius:3px;padding:3px 6px;font-size:13px';
+      labelInp.onchange = (function(sid){ return function(){ updateStageField(sid, 'label', this.value); }; })(s.id);
+      var labelTd = document.createElement('td'); labelTd.style.padding = '5px 8px';
+      labelTd.appendChild(labelInp); tr.appendChild(labelTd);
+    }
+    // Probability cell
+    var probInp = document.createElement('input');
+    probInp.type = 'number'; probInp.min = '0'; probInp.max = '100';
+    probInp.value = s.probability != null ? s.probability : 0;
+    probInp.style.cssText = 'width:60px;text-align:center;border:1px solid #ddd;border-radius:3px;padding:3px 4px;font-size:13px';
+    probInp.onchange = (function(sid){ return function(){ updateStageField(sid, 'probability', parseInt(this.value)); }; })(s.id);
+    var probTd = document.createElement('td'); probTd.style.cssText = 'padding:5px 8px;text-align:center';
+    probTd.appendChild(probInp); tr.appendChild(probTd);
+    // Position cell
+    var posInp = document.createElement('input');
+    posInp.type = 'number'; posInp.min = '0'; posInp.value = s.position;
+    posInp.style.cssText = 'width:50px;text-align:center;border:1px solid #ddd;border-radius:3px;padding:3px 4px;font-size:13px';
+    posInp.onchange = (function(sid){ return function(){ updateStageField(sid, 'position', parseInt(this.value)); }; })(s.id);
+    var posTd = document.createElement('td'); posTd.style.cssText = 'padding:5px 8px;text-align:center';
+    posTd.appendChild(posInp); tr.appendChild(posTd);
+    // Delete button
+    var delBtn = document.createElement('button');
+    delBtn.innerHTML = '&#x2715;'; delBtn.title = 'Delete';
+    delBtn.style.cssText = 'background:none;border:none;cursor:pointer;color:#c0392b;font-size:14px';
+    delBtn.onclick = (function(sid){ return function(){ deleteStage(sid); }; })(s.id);
+    var delTd = document.createElement('td'); delTd.style.cssText = 'padding:5px 8px;text-align:center';
+    delTd.appendChild(delBtn); tr.appendChild(delTd);
+    tbody.appendChild(tr);
+  });
+}
+
+async function updateStageField(id, field, value) {
+  var body = {};
+  body[field] = value;
+  var r = await fetch('/crm/api/admin/stages/' + id, {
+    method: 'PUT',
+    headers: {Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json'},
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) { alert('Save failed'); }
+}
+
+async function deleteStage(id) {
+  if (!confirm('Delete this stage?')) return;
+  var r = await fetch('/crm/api/admin/stages/' + id, {
+    method: 'DELETE',
+    headers: {Authorization: 'Bearer ' + TOKEN}
+  });
+  if (r.ok) { loadStages(); } else { alert('Delete failed'); }
+}
+
+async function addStage(type) {
+  var name = prompt(type === 'pipeline' ? 'Stage name (e.g. "Follow Up")' : 'Stage key (e.g. "awaiting_deposit")');
+  if (!name || !name.trim()) return;
+  var label = type === 'order' ? (prompt('Display label (e.g. "Awaiting Deposit")') || name) : name;
+  var body = {stage_type: type, name: name.trim(), label: label.trim(), probability: 0};
+  var r = await fetch('/crm/api/admin/stages', {
+    method: 'POST',
+    headers: {Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json'},
+    body: JSON.stringify(body)
+  });
+  if (r.ok) { loadStages(); } else { alert('Create failed'); }
+}
+
 // ---- Reports ----
 let qFilter = 'all', qCurrentPage = 1, qPerPage = 50;
 
@@ -3772,6 +3914,7 @@ async function loadAdmin() {
   }
   await loadBrands();
   renderRefLists();
+  await loadStages();
 }
 
 async function loadAdminUsers() {

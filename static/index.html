@@ -4337,5 +4337,38 @@ if (TOKEN) {
 }
 </script>
 
+<script>
+(function () {
+  function reportError(data) {
+    fetch('/api/log-client-error', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+      keepalive: true
+    }).catch(function () {});
+  }
+  window.onerror = function (message, source, lineno, colno, error) {
+    reportError({
+      message: String(message),
+      source: source || '',
+      lineno: lineno || 0,
+      colno: colno || 0,
+      stack: error && error.stack ? error.stack : '',
+      url: window.location.href
+    });
+  };
+  window.addEventListener('unhandledrejection', function (e) {
+    var err = e.reason;
+    reportError({
+      message: err && err.message ? err.message : String(err),
+      source: '',
+      lineno: 0,
+      colno: 0,
+      stack: err && err.stack ? err.stack : '',
+      url: window.location.href
+    });
+  });
+})();
+</script>
 </body>
 </html>

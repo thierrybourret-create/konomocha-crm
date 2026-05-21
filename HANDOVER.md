@@ -573,13 +573,6 @@ ssh thierry@vps.konomocha.com \
   "cd /home/thierry/konomocha-crm && source venv/bin/activate && alembic upgrade head"
 ```
 
-### Quick column add without Alembic
-```sql
--- On VPS via psql:
-ALTER TABLE orders ADD COLUMN my_column varchar;
--- Then update SQLAlchemy model and restart uvicorn
-```
-
 ### Check current git status on VPS
 ```bash
 ssh thierry@vps.konomocha.com \

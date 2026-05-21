@@ -3,17 +3,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import date
 from app.database import get_db
-from app.models.models import PipelineEntry, Order, EmailLog, User, ContactTask, Contact
+from app.models.models import PipelineEntry, Order, EmailLog, User, ContactTask, Contact, AppStage
 from app.auth import get_current_user
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
-
-ACTIVE_STATUSES = [
-    'Awaiting Feedback', 'Awaiting Info', 'Awaiting Samples',
-    'Catalogue Sent', 'Deposit Paid', 'Form Completed', 'In Progress',
-    'Order Placed', 'Price List Sent', 'Quotation Sent',
-    'Samples Delivered', 'Samples Requested', 'Samples Sent',
-]
 
 @router.get("")
 def get_dashboard(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -21,20 +14,30 @@ def get_dashboard(db: Session = Depends(get_db), current_user: User = Depends(ge
     is_admin = getattr(current_user, "role", None) == "admin"
     uid      = current_user.id
 
-    # ── Pipeline KPIs (filtered for non-admin) ───────────────────────────────
-    pq = db.query(PipelineEntry).filter(PipelineEntry.status.in_(ACTIVE_STATUSES))
+    # ── Pipeline stages from DB ───────────────────────────────────────────────
+    pipeline_stages    = db.query(AppStage).filter(AppStage.stage_type == 'pipeline').all()
+    stage_prob_map     = {s.name: (s.probability or 0) for s in pipeline_stages}
+    active_stage_names = [name for name, prob in stage_prob_map.items() if prob > 0]
+
+    # ── Pipeline KPIs ─────────────────────────────────────────────────────────
+    pq = db.query(PipelineEntry).filter(PipelineEntry.status.in_(active_stage_names))
     if not is_admin:
         pq = pq.filter(PipelineEntry.owner_id == uid)
 
     total_active     = pq.count()
     overdue_pipeline = pq.filter(PipelineEntry.fob_date < today).count()
 
-    val_q = db.query(func.sum(PipelineEntry.potential_value)).filter(PipelineEntry.status.in_(ACTIVE_STATUSES))
+    # Weighted pipeline value: potential_value x (stage_probability / 100)
+    val_entries = db.query(PipelineEntry.status, PipelineEntry.potential_value)\
+        .filter(PipelineEntry.status.in_(active_stage_names))
     if not is_admin:
-        val_q = val_q.filter(PipelineEntry.owner_id == uid)
-    total_pipeline_value = val_q.scalar() or 0
+        val_entries = val_entries.filter(PipelineEntry.owner_id == uid)
+    total_pipeline_value = sum(
+        (row.potential_value or 0) * stage_prob_map.get(row.status, 0) / 100
+        for row in val_entries.all()
+    )
 
-    # ── Commission due (via order owner) ─────────────────────────────────────
+    # ── Commission due (via order owner) ──────────────────────────────────────
     comm_q = db.query(func.sum(Order.net_commission)).filter(Order.status != "paid")
     if not is_admin:
         comm_q = comm_q.filter(Order.owner_id == uid)
@@ -50,7 +53,7 @@ def get_dashboard(db: Session = Depends(get_db), current_user: User = Depends(ge
     sq = (db.query(PipelineEntry.status,
                    func.count(PipelineEntry.id).label("cnt"),
                    func.sum(PipelineEntry.potential_value).label("val"))
-          .filter(PipelineEntry.status.in_(ACTIVE_STATUSES)))
+          .filter(PipelineEntry.status.in_(active_stage_names)))
     if not is_admin:
         sq = sq.filter(PipelineEntry.owner_id == uid)
     stage_rows = sq.group_by(PipelineEntry.status).order_by(func.count(PipelineEntry.id).desc()).all()
@@ -63,7 +66,7 @@ def get_dashboard(db: Session = Depends(get_db), current_user: User = Depends(ge
         tq = tq.filter(ContactTask.assigned_to_id == uid)
     today_tasks = tq.order_by(ContactTask.due_date).limit(10).all()
 
-    # ── Team workload (admin only shows all users; others show just themselves) ─
+    # ── Team workload ──────────────────────────────────────────────────────────
     if is_admin:
         wl_users = db.query(User).filter(User.is_active == True).all()
         tt_rows = (db.query(ContactTask.assigned_to_id, func.count(ContactTask.id).label("cnt"))
@@ -109,7 +112,8 @@ def get_dashboard(db: Session = Depends(get_db), current_user: User = Depends(ge
             for e in recent_emails
         ],
         "pipeline_by_stage": [
-            {"status": r.status, "count": r.cnt, "value": float(r.val or 0)}
+            {"status": r.status, "count": r.cnt, "value": float(r.val or 0),
+             "probability": stage_prob_map.get(r.status, 0)}
             for r in stage_rows
         ],
         "today_actions": [

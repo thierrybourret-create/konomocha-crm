@@ -651,3 +651,82 @@ def my_bonus(db: Session = Depends(get_db), current_user=Depends(get_current_use
         "next_quarter_pipeline": round(nq_pipeline, 2),
     }
 
+
+@router.get("/bonus-summary")
+def bonus_summary(
+    quarter: str = None,
+    fy: int = None,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from datetime import date as _date
+    from app.models.models import Order, User, Contact, Brand
+    from app.constants import quarter_of, quarter_label, quarter_date_range
+    if current_user.role != 'admin':
+        raise HTTPException(status_code=403, detail="Admin only")
+    today = _date.today()
+    if fy is None or quarter is None:
+        fsy, q_num = quarter_of(today)
+        if fy is None:
+            fy = fsy
+        if quarter is None:
+            quarter = f"Q{q_num}"
+    q_num = int(quarter[1])  # e.g. "Q1" -> 1
+    q_start, q_end = quarter_date_range(fy, q_num)
+    VISIBLE_STATUSES = ['shipped', 'fully_paid', 'commission_invoiced', 'commission_paid', 'bonus_paid']
+    staff_users = db.query(User).filter(
+        User.role != 'admin',
+        User.is_active == True,
+    ).all()
+    staff_result = []
+    grand_earned = grand_paid = grand_outstanding = 0.0
+    for user in staff_users:
+        orders = db.query(Order).options(
+            joinedload(Order.contact),
+            joinedload(Order.brand),
+        ).filter(
+            Order.owner_id == user.id,
+            Order.status.in_(VISIBLE_STATUSES),
+        ).all()
+        order_list = []
+        total_bonus_earned = 0.0
+        total_bonus_paid = 0.0
+        for o in orders:
+            bonus = float(o.bonus_amount or 0)
+            net = float(o.net_commission or 0)
+            bonus_paid_flag = o.bonus_paid_date is not None
+            order_list.append({
+                "order_id":            o.id,
+                "contact_name":        o.contact.name if o.contact else None,
+                "brand_name":          o.brand.name   if o.brand   else None,
+                "net_commission":      net,
+                "bonus_amount":        bonus,
+                "status":              o.status,
+                "bonus_paid":          bonus_paid_flag,
+                "commission_paid_date": o.commission_paid_date.isoformat() if o.commission_paid_date else None,
+                "bonus_paid_date":     o.bonus_paid_date.isoformat()       if o.bonus_paid_date      else None,
+            })
+            if o.status in ('commission_paid', 'bonus_paid'):
+                total_bonus_earned += bonus
+            if bonus_paid_flag:
+                total_bonus_paid += bonus
+        total_bonus_outstanding = total_bonus_earned - total_bonus_paid
+        grand_earned      += total_bonus_earned
+        grand_paid        += total_bonus_paid
+        grand_outstanding += total_bonus_outstanding
+        staff_result.append({
+            "owner_id":              user.id,
+            "owner_name":            user.name,
+            "orders":                order_list,
+            "total_bonus_earned":    round(total_bonus_earned, 2),
+            "total_bonus_paid":      round(total_bonus_paid, 2),
+            "total_bonus_outstanding": round(total_bonus_outstanding, 2),
+        })
+    return {
+        "quarter":               quarter_label(fy, q_num),
+        "staff":                 staff_result,
+        "grand_total_earned":    round(grand_earned, 2),
+        "grand_total_paid":      round(grand_paid, 2),
+        "grand_total_outstanding": round(grand_outstanding, 2),
+    }
+

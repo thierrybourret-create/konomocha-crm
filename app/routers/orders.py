@@ -204,3 +204,29 @@ def delete_order(order_id: int, db: Session = Depends(get_db), current_user: Use
     db.delete(o)
     db.commit()
     return {"ok": True}
+
+
+class BonusPaidRequest(BaseModel):
+    order_ids: list
+
+
+@router.put("/mark-bonus-paid")
+def mark_bonus_paid(
+    data: BonusPaidRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role != 'admin':
+        raise HTTPException(status_code=403, detail="Admin only")
+    from datetime import date as _date
+    today = _date.today()
+    updated = 0
+    for oid in data.order_ids:
+        o = db.query(Order).filter(Order.id == oid, Order.status == 'commission_paid').first()
+        if o:
+            o.status = 'bonus_paid'
+            o.bonus_paid_date = today
+            updated += 1
+    db.commit()
+    return {"updated": updated}
+

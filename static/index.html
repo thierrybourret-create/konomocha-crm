@@ -991,6 +991,21 @@
         </div>
 
         <!-- Agent bonus widget (Zeal / Erna only) -->
+        <!-- Admin bonus widget (Thierry only) -->
+        <div id="admin-bonus-widget" style="display:none;margin-bottom:20px">
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <div class="card-title" id="admin-bonus-title">Staff Bonus</div>
+                <div class="card-sub" id="admin-bonus-sub">Current quarter</div>
+              </div>
+            </div>
+            <div class="card-body" id="admin-bonus-body" style="padding:0 20px 16px">
+              <div style="color:var(--warm-grey);font-size:13px">Loading…</div>
+            </div>
+          </div>
+        </div>
+
         <div id="agent-bonus-widget" style="display:none;margin-bottom:20px">
           <div class="card">
             <div class="card-head">
@@ -1605,54 +1620,7 @@
           </div>
         </div>
 
-      
-<!-- Stage Management -->
-<div class="card" style="margin-top:16px">
-  <div style="font-weight:600;font-size:15px;margin-bottom:12px">Stage Management</div>
-
-  <!-- Pipeline Stages -->
-  <div style="font-weight:500;margin-bottom:8px;color:var(--navy)">Pipeline Stages</div>
-  <table style="width:100%;border-collapse:collapse;margin-bottom:16px" id="tbl-pipeline-stages">
-    <thead>
-      <tr style="background:var(--warm-grey-light,#f5f5f2);font-size:12px;color:var(--warm-grey)">
-        <th style="padding:6px 8px;text-align:left">Stage Name</th>
-        <th style="padding:6px 8px;text-align:center;width:80px">Probability %</th>
-        <th style="padding:6px 8px;text-align:center;width:60px">Position</th>
-        <th style="padding:6px 8px;text-align:center;width:60px"></th>
-      </tr>
-    </thead>
-    <tbody id="tbody-pipeline-stages"></tbody>
-    <tfoot>
-      <tr>
-        <td colspan="4" style="padding:6px 0">
-          <button onclick="addStage('pipeline')" style="font-size:12px;padding:4px 10px;border:1px dashed var(--warm-grey);background:none;cursor:pointer;border-radius:4px">+ Add Pipeline Stage</button>
-        </td>
-      </tr>
-    </tfoot>
-  </table>
-
-  <!-- Order Stages -->
-  <div style="font-weight:500;margin-bottom:8px;color:var(--navy)">Order Stages</div>
-  <table style="width:100%;border-collapse:collapse" id="tbl-order-stages">
-    <thead>
-      <tr style="background:var(--warm-grey-light,#f5f5f2);font-size:12px;color:var(--warm-grey)">
-        <th style="padding:6px 8px;text-align:left">Stage Key</th>
-        <th style="padding:6px 8px;text-align:left">Display Label</th>
-        <th style="padding:6px 8px;text-align:center;width:80px">Probability %</th>
-        <th style="padding:6px 8px;text-align:center;width:60px">Position</th>
-        <th style="padding:6px 8px;text-align:center;width:60px"></th>
-      </tr>
-    </thead>
-    <tbody id="tbody-order-stages"></tbody>
-    <tfoot>
-      <tr>
-        <td colspan="5" style="padding:6px 0">
-          <button onclick="addStage('order')" style="font-size:12px;padding:4px 10px;border:1px dashed var(--warm-grey);background:none;cursor:pointer;border-radius:4px">+ Add Order Stage</button>
-        </td>
-      </tr>
-    </tfoot>
-  </table>
-</div>
+  
 </div>
     </section>
 
@@ -2827,6 +2795,68 @@ async function loadMyBonus() {
   }
 }
 
+// ---- Admin Bonus Widget ----
+async function loadAdminBonusWidget() {
+  const d = await apiFetch('/reports/bonus-summary');
+  const widget = document.getElementById('admin-bonus-widget');
+  const body = document.getElementById('admin-bonus-body');
+  if (!d || !widget || !body) return;
+  document.getElementById('admin-bonus-title').textContent = 'Staff Bonus — ' + (d.quarter||'');
+  document.getElementById('admin-bonus-sub').textContent = 'Outstanding: $' + fmtShort(d.grand_total_outstanding||0) + '  ·  Paid: $' + fmtShort(d.grand_total_paid||0);
+  if (!d.staff || !d.staff.length) { body.innerHTML = '<div style="padding:12px 0;color:var(--warm-grey);font-size:13px">No bonus data this quarter.</div>'; return; }
+  var STATUS_COLOR = {shipped:'amber',fully_paid:'amber',commission_invoiced:'amber',commission_paid:'green',bonus_paid:'grey'};
+  var STATUS_LABEL = {shipped:'Shipped',fully_paid:'Fully Paid',commission_invoiced:'Comm. Invoiced',commission_paid:'Comm. Paid',bonus_paid:'Bonus Paid'};
+  var html = '';
+  d.staff.forEach(function(member) {
+    if (!member.orders.length) return;
+    html += '<div style="margin-bottom:16px">'
+      + '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey);padding:6px 0 4px;border-bottom:1px solid var(--line);margin-bottom:6px">' + escHtml(member.owner_name) + '</div>'
+      + '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+      + '<thead><tr style="color:var(--warm-grey);font-size:11px">'
+      + '<th style="text-align:left;padding:3px 0">Contact</th>'
+      + '<th style="text-align:left;padding:3px 0">Brand</th>'
+      + '<th style="text-align:right;padding:3px 0">Net Comm.</th>'
+      + '<th style="text-align:right;padding:3px 0">Bonus</th>'
+      + '<th style="text-align:center;padding:3px 0">Status</th>'
+      + '<th style="text-align:center;padding:3px 0">Paid</th>'
+      + '</tr></thead><tbody>'
+      + member.orders.map(function(o) {
+          var pc = STATUS_COLOR[o.status] || 'blue';
+          var rowStyle = o.status === 'bonus_paid' ? 'color:var(--warm-grey)' : '';
+          return '<tr style="border-bottom:1px solid var(--line);' + rowStyle + '">'
+            + '<td style="padding:5px 0">' + escHtml(o.contact_name||'—') + '</td>'
+            + '<td style="padding:5px 0">' + escHtml(o.brand_name||'—') + '</td>'
+            + '<td style="text-align:right;padding:5px 0">' + fmtVal(o.net_commission) + '</td>'
+            + '<td style="text-align:right;padding:5px 0;font-weight:700;color:#8E44AD">' + fmtVal(o.bonus_amount) + '</td>'
+            + '<td style="text-align:center;padding:5px 0"><span class="pill ' + pc + '" style="font-size:10px">' + escHtml(STATUS_LABEL[o.status]||o.status) + '</span></td>'
+            + '<td style="text-align:center;padding:5px 0">' + (o.bonus_paid ? '<span class="pill green" style="font-size:10px">Paid</span>' : '<span class="pill grey" style="font-size:10px">No</span>') + '</td>'
+            + '</tr>';
+        }).join('')
+      + '</tbody></table>'
+      + '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:12px">'
+      + '<span>Earned: <b style="color:#8E44AD">$' + fmtShort(member.total_bonus_earned||0) + '</b>  ·  Paid: <b style="color:var(--st-green-fg)">$' + fmtShort(member.total_bonus_paid||0) + '</b>  ·  Outstanding: <b>$' + fmtShort(member.total_bonus_outstanding||0) + '</b></span>'
+      + '<button class="btn btn-secondary" style="font-size:11px;padding:3px 10px" onclick="markBonusPaid(' + member.owner_id + ')">Mark Bonus Paid</button>'
+      + '</div></div>';
+  });
+  html += '<div style="padding-top:10px;border-top:2px solid var(--line);font-size:13px;font-weight:700">'
+    + 'Total outstanding: <span style="color:#8E44AD">$' + fmtShort(d.grand_total_outstanding||0) + '</span>'
+    + '  ·  Total paid: <span style="color:var(--st-green-fg)">$' + fmtShort(d.grand_total_paid||0) + '</span>'
+    + '</div>';
+  body.innerHTML = html;
+}
+
+async function markBonusPaid(ownerId) {
+  const d = await apiFetch('/reports/bonus-summary');
+  if (!d) return;
+  var member = d.staff.find(function(s){ return s.owner_id === ownerId; });
+  if (!member) return;
+  var ids = member.orders.filter(function(o){ return o.status === 'commission_paid' && !o.bonus_paid; }).map(function(o){ return o.order_id; });
+  if (!ids.length) { alert('No commission_paid orders to mark.'); return; }
+  if (!confirm('Mark ' + ids.length + ' order(s) as Bonus Paid for ' + member.owner_name + '?')) return;
+  var r = await apiFetch('/orders/mark-bonus-paid', {method:'PUT', body:JSON.stringify({order_ids:ids})});
+  if (r) { showToast(r.updated + ' order(s) marked as Bonus Paid'); loadAdminBonusWidget(); }
+}
+
 // ---- Commission Forecast Report ----
 async function loadCommissionForecast() {
   const overlay = document.getElementById('report-overlay');
@@ -2958,100 +2988,6 @@ async function markAllBonusPaid(orderIds) {
   }
   showToast(done+' order(s) marked as Bonus Paid');
   loadBonusReportData();
-}
-
-function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
-// ── Stage Management ─────────────────────────────────────────────────────────
-async function loadStages() {
-  var r = await fetch('/crm/api/admin/stages', {headers:{Authorization:'Bearer '+TOKEN}});
-  if (!r.ok) return;
-  var d = await r.json();
-  renderStageTable('pipeline', d.pipeline || []);
-  renderStageTable('order', d.order || []);
-}
-
-function renderStageTable(type, stages) {
-  var tbody = document.getElementById('tbody-' + type + '-stages');
-  if (!tbody) return;
-  tbody.innerHTML = '';
-  stages.sort(function(a,b){ return a.position - b.position; });
-  stages.forEach(function(s) {
-    var tr = document.createElement('tr');
-    tr.style.borderBottom = '1px solid #eee';
-    // Name cell — DOM-based to avoid quote nesting in onchange
-    var nameInp = document.createElement('input');
-    nameInp.type = 'text'; nameInp.value = s.name || '';
-    nameInp.style.cssText = 'width:100%;border:1px solid #ddd;border-radius:3px;padding:3px 6px;font-size:13px';
-    nameInp.onchange = (function(sid){ return function(){ updateStageField(sid, 'name', this.value); }; })(s.id);
-    var nameTd = document.createElement('td'); nameTd.style.padding = '5px 8px';
-    nameTd.appendChild(nameInp); tr.appendChild(nameTd);
-    // Label cell (order stages only)
-    if (type === 'order') {
-      var labelInp = document.createElement('input');
-      labelInp.type = 'text'; labelInp.value = s.label || '';
-      labelInp.style.cssText = 'width:100%;border:1px solid #ddd;border-radius:3px;padding:3px 6px;font-size:13px';
-      labelInp.onchange = (function(sid){ return function(){ updateStageField(sid, 'label', this.value); }; })(s.id);
-      var labelTd = document.createElement('td'); labelTd.style.padding = '5px 8px';
-      labelTd.appendChild(labelInp); tr.appendChild(labelTd);
-    }
-    // Probability cell
-    var probInp = document.createElement('input');
-    probInp.type = 'number'; probInp.min = '0'; probInp.max = '100';
-    probInp.value = s.probability != null ? s.probability : 0;
-    probInp.style.cssText = 'width:60px;text-align:center;border:1px solid #ddd;border-radius:3px;padding:3px 4px;font-size:13px';
-    probInp.onchange = (function(sid){ return function(){ updateStageField(sid, 'probability', parseInt(this.value)); }; })(s.id);
-    var probTd = document.createElement('td'); probTd.style.cssText = 'padding:5px 8px;text-align:center';
-    probTd.appendChild(probInp); tr.appendChild(probTd);
-    // Position cell
-    var posInp = document.createElement('input');
-    posInp.type = 'number'; posInp.min = '0'; posInp.value = s.position;
-    posInp.style.cssText = 'width:50px;text-align:center;border:1px solid #ddd;border-radius:3px;padding:3px 4px;font-size:13px';
-    posInp.onchange = (function(sid){ return function(){ updateStageField(sid, 'position', parseInt(this.value)); }; })(s.id);
-    var posTd = document.createElement('td'); posTd.style.cssText = 'padding:5px 8px;text-align:center';
-    posTd.appendChild(posInp); tr.appendChild(posTd);
-    // Delete button
-    var delBtn = document.createElement('button');
-    delBtn.innerHTML = '&#x2715;'; delBtn.title = 'Delete';
-    delBtn.style.cssText = 'background:none;border:none;cursor:pointer;color:#c0392b;font-size:14px';
-    delBtn.onclick = (function(sid){ return function(){ deleteStage(sid); }; })(s.id);
-    var delTd = document.createElement('td'); delTd.style.cssText = 'padding:5px 8px;text-align:center';
-    delTd.appendChild(delBtn); tr.appendChild(delTd);
-    tbody.appendChild(tr);
-  });
-}
-
-async function updateStageField(id, field, value) {
-  var body = {};
-  body[field] = value;
-  var r = await fetch('/crm/api/admin/stages/' + id, {
-    method: 'PUT',
-    headers: {Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json'},
-    body: JSON.stringify(body)
-  });
-  if (!r.ok) { alert('Save failed'); }
-}
-
-async function deleteStage(id) {
-  if (!confirm('Delete this stage?')) return;
-  var r = await fetch('/crm/api/admin/stages/' + id, {
-    method: 'DELETE',
-    headers: {Authorization: 'Bearer ' + TOKEN}
-  });
-  if (r.ok) { loadStages(); } else { alert('Delete failed'); }
-}
-
-async function addStage(type) {
-  var name = prompt(type === 'pipeline' ? 'Stage name (e.g. "Follow Up")' : 'Stage key (e.g. "awaiting_deposit")');
-  if (!name || !name.trim()) return;
-  var label = type === 'order' ? (prompt('Display label (e.g. "Awaiting Deposit")') || name) : name;
-  var body = {stage_type: type, name: name.trim(), label: label.trim(), probability: 0};
-  var r = await fetch('/crm/api/admin/stages', {
-    method: 'POST',
-    headers: {Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json'},
-    body: JSON.stringify(body)
-  });
-  if (r.ok) { loadStages(); } else { alert('Create failed'); }
 }
 
 // ---- Reports ----
@@ -3913,8 +3849,8 @@ async function loadAdmin() {
     await loadAdminUsers();
   }
   await loadBrands();
+  await loadStageProbs();
   renderRefLists();
-  await loadStages();
 }
 
 async function loadAdminUsers() {
@@ -3932,6 +3868,23 @@ async function loadAdminUsers() {
     </tr>`).join('');
 }
 
+var _stageProbs = {};
+var _stageList = {pipeline: [], order: []};
+async function loadStageProbs() {
+  var r = await fetch('/crm/api/admin/stages', {headers:{Authorization:'Bearer '+TOKEN}});
+  if (!r.ok) return;
+  var d = await r.json();
+  _stageProbs = {};
+  _stageList = {pipeline: d.pipeline||[], order: d.order||[]};
+  (d.pipeline||[]).concat(d.order||[]).forEach(function(s){ _stageProbs[s.name] = s; });
+}
+async function updateStageProb(id, value) {
+  await fetch('/crm/api/admin/stages/' + id, {
+    method: 'PUT',
+    headers: {Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json'},
+    body: JSON.stringify({probability: value})
+  });
+}
 function renderRefLists() {
   const renderList = (elId, items, type) => {
     const el=document.getElementById(elId); if(!el) return;
@@ -3941,29 +3894,59 @@ function renderRefLists() {
         <button onclick="removeRefItem('${type}',${i})" style="color:var(--accent-coral);font-size:12px;background:none;border:none;cursor:pointer">Remove</button>
       </div>`).join('');
   };
+  const renderStatusList = (elId, items, type) => {
+    const el=document.getElementById(elId); if(!el) return;
+    el.innerHTML = items.map((item,i)=>{
+      const s = _stageProbs[item];
+      const probHtml = s
+        ? `<input type="number" min="0" max="100" value="${s.probability||0}" data-sid="${s.id}" style="width:50px;text-align:center;border:1px solid var(--line);border-radius:4px;padding:2px 4px;font-size:12px" onchange="updateStageProb(parseInt(this.dataset.sid),parseInt(this.value))">%`
+        : `<span style="color:var(--warm-grey);font-size:12px">—</span>`;
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line)"><span style="font-size:13px;flex:1">${item}</span><div style="display:flex;align-items:center;gap:10px">${probHtml}<button onclick="removeRefItem('${type}',${i})" style="color:var(--accent-coral);font-size:12px;background:none;border:none;cursor:pointer">Remove</button></div></div>`;
+    }).join('');
+  };
   renderList('admin-regions-list',  getRegions(),   'region');
   renderList('admin-tags-list',     getTags(),      'tag');
   renderList('admin-countries-list',getCountries(), 'country');
-  renderList('admin-statuses-list', getPipelineStatuses(), 'status');
-  renderList('admin-order-statuses-list', getOrderStatuses(), 'order_status');
+  renderDbStageList('admin-statuses-list', 'pipeline');
+  renderDbStageList('admin-order-statuses-list', 'order');
 }
 
+function renderDbStageList(elId, stageType) {
+  const el = document.getElementById(elId); if (!el) return;
+  const stages = (_stageList[stageType] || []).slice().sort((a,b)=>a.position-b.position);
+  el.innerHTML = stages.map(s =>
+    `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line)">
+      <span style="font-size:13px;flex:1">${s.label||s.name}</span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <input type="number" min="0" max="100" value="${s.probability||0}" data-sid="${s.id}" style="width:50px;text-align:center;border:1px solid var(--line);border-radius:4px;padding:2px 4px;font-size:12px" onchange="updateStageProb(parseInt(this.dataset.sid),parseInt(this.value))">%
+        <button onclick="deleteStageById(${s.id})" style="color:var(--accent-coral);font-size:12px;background:none;border:none;cursor:pointer">Remove</button>
+      </div></div>`
+  ).join('');
+}
+async function deleteStageById(id) {
+  if (!confirm('Remove this stage?')) return;
+  await fetch('/crm/api/admin/stages/'+id, {method:'DELETE', headers:{Authorization:'Bearer '+TOKEN}});
+  await loadStageProbs(); renderRefLists();
+}
 function addRefItem(type) {
   const el = document.getElementById('new-'+type+'-input');
   const val = el.value.trim(); if(!val) return;
-  if (type==='region') { const r=getRegions(); if(!r.includes(val)){r.push(val);r.sort();saveRegions(r);} }
-  if (type==='tag')    { const t=getTags();    if(!t.includes(val)){t.push(val);t.sort();saveTags(t);}    }
-  if (type==='country'){ const c=getCountries();if(!c.includes(val)){c.push(val);c.sort();saveCountries(c);} }
-  if (type==='status') { const s=getPipelineStatuses();if(!s.includes(val)){s.push(val);savePipelineStatuses(s);} }
-  if (type==='order_status') { const el2=document.getElementById('new-order-status-input'); const s=getOrderStatuses();if(!s.includes(val)){s.push(val);saveOrderStatuses(s);} if(el2)el2.value=''; renderRefLists(); return; }
-  el.value=''; renderRefLists(); populateFilterDropdowns();
+  if (type==='region') { const r=getRegions(); if(!r.includes(val)){r.push(val);r.sort();saveRegions(r);} el.value=''; renderRefLists(); populateFilterDropdowns(); return; }
+  if (type==='tag')    { const t=getTags();    if(!t.includes(val)){t.push(val);t.sort();saveTags(t);}     el.value=''; renderRefLists(); populateFilterDropdowns(); return; }
+  if (type==='country'){ const c=getCountries();if(!c.includes(val)){c.push(val);c.sort();saveCountries(c);} el.value=''; renderRefLists(); populateFilterDropdowns(); return; }
+  // status + order_status → write to DB
+  const stageType = type==='status' ? 'pipeline' : 'order';
+  fetch('/crm/api/admin/stages', {
+    method:'POST',
+    headers:{Authorization:'Bearer '+TOKEN,'Content-Type':'application/json'},
+    body: JSON.stringify({stage_type:stageType, name:val, label:val, probability:0})
+  }).then(()=>loadStageProbs()).then(()=>{ renderRefLists(); populateFilterDropdowns(); });
+  el.value='';
 }
 function removeRefItem(type, idx) {
   if (type==='region') { const r=getRegions(); r.splice(idx,1); saveRegions(r); }
   if (type==='tag')    { const t=getTags();    t.splice(idx,1); saveTags(t);    }
   if (type==='country'){ const c=getCountries();c.splice(idx,1);saveCountries(c); }
-  if (type==='status') { const s=getPipelineStatuses();s.splice(idx,1);savePipelineStatuses(s); }
-  if (type==='order_status') { const s=getOrderStatuses();s.splice(idx,1);saveOrderStatuses(s); }
   renderRefLists(); populateFilterDropdowns();
 }
 

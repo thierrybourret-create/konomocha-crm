@@ -19,6 +19,7 @@ def email_to_dict(e: EmailLog):
         "body_snippet": e.body_snippet,
         "from_address": e.from_address,
         "to_address": e.to_address,
+        "bcc_address": e.bcc_address,
     }
 
 @router.get("")
@@ -48,6 +49,7 @@ class EmailCreate(_BM):
     body_snippet: _Opt[str] = None
     sent_at:      _Opt[str] = None
     raw_message_id: _Opt[str] = None
+    bcc_address:    _Opt[str] = None
 
 @router.post("")
 def log_email(data: EmailCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -76,9 +78,69 @@ def log_email(data: EmailCreate, db: Session = Depends(get_db), current_user: Us
         body_snippet=data.body_snippet,
         sent_at=sent,
         raw_message_id=data.raw_message_id,
+        bcc_address=data.bcc_address,
         logged_by_id=current_user.id,
     )
     db.add(log)
     db.commit()
     db.refresh(log)
     return {**email_to_dict(log), "contact_created": contact is not None and contact.source == "email_auto"}
+
+
+INBOUND_TOKEN = 'e7038dae70931811874e2f8c5335b3717c99ce205f7796e29e4ed3113aea3bc8'
+
+from fastapi import Request as _Request
+
+@router.post("/inbound")
+async def receive_inbound_email(request: _Request, db: Session = Depends(get_db)):
+    """Called by the Postfix pipe script when a BCC email arrives."""
+    token = request.headers.get('X-Inbound-Token', '')
+    if token != INBOUND_TOKEN:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    try:
+        data = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
+    direction = data.get('direction', 'outbound')
+    if direction not in ('inbound', 'outbound'):
+        direction = 'outbound'
+
+    from_address = data.get('from_address')
+    to_address   = data.get('to_address')
+
+    # Auto-match or auto-create contact from the customer address
+    # For outbound BCC: customer is the To address
+    match_addr = to_address if direction == 'outbound' else from_address
+    contact = None
+    if match_addr:
+        contact = db.query(Contact).filter(Contact.email == match_addr).first()
+        if not contact:
+            raw_name = match_addr.split('@')[0].replace('.', ' ').replace('_', ' ').title()
+            contact = Contact(name=raw_name or match_addr, email=match_addr, source='email_auto')
+            db.add(contact)
+            db.flush()
+
+    sent = _dt.utcnow()
+    sent_raw = data.get('sent_at')
+    if sent_raw:
+        try:
+            sent = _dt.fromisoformat(sent_raw.replace('Z', '+00:00'))
+        except Exception:
+            pass
+
+    log = EmailLog(
+        contact_id=contact.id if contact else None,
+        direction=direction,
+        from_address=from_address,
+        to_address=to_address,
+        subject=data.get('subject'),
+        body_snippet=data.get('body_snippet'),
+        sent_at=sent,
+        logged_by_id=None,
+    )
+    db.add(log)
+    db.commit()
+    return {"ok": True, "contact_id": contact.id if contact else None}
+

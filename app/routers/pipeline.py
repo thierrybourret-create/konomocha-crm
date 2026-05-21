@@ -50,7 +50,7 @@ def list_pipeline(
     sort_by: Optional[str] = Query("updated_at"),
     sort_dir: Optional[str] = Query("desc"),
     page: int = Query(1, ge=1),
-    per_page: int = Query(100, ge=1, le=500),
+    per_page: int = Query(100, ge=1, le=5000),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):

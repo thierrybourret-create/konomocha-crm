@@ -1,10 +1,59 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+### Patch models.py — remove OrderStatus enum, add date columns, change status to String ###
+with open('/home/thierry/konomocha-crm/app/models/models.py', encoding='utf-8') as f:
+    m = f.read()
+
+# Remove OrderStatus enum
+old_enum = (
+    'class OrderStatus(str, enum.Enum):\n'
+    '    confirmed = "Confirmed"\n'
+    '    invoiced  = "Invoiced"\n'
+    '    paid      = "Paid"\n'
+    '\n'
+)
+if old_enum in m:
+    m = m.replace(old_enum, '')
+    print('OK: OrderStatus enum removed')
+else:
+    print('NOT FOUND: OrderStatus enum (may already be removed)')
+
+# Update Order model body
+old_cols = (
+    '    gross_commission_rate  = Column(Numeric(5, 2), nullable=False)\n'
+    '    testing_cost_deduction = Column(Numeric(12, 2), default=0)\n'
+    '    net_commission         = Column(Numeric(12, 2))\n'
+    '    status                 = Column(SAEnum(OrderStatus), default=OrderStatus.confirmed)\n'
+    '    notes                  = Column(Text)\n'
+)
+new_cols = (
+    '    po_date                = Column(Date)\n'
+    '    pi_date                = Column(Date)\n'
+    '    deposit_date           = Column(Date)\n'
+    '    fob_date               = Column(Date)\n'
+    '    payment_date           = Column(Date)\n'
+    '    gross_commission_rate  = Column(Numeric(12, 2), default=0)\n'
+    '    testing_cost_deduction = Column(Numeric(12, 2), default=0)\n'
+    '    net_commission         = Column(Numeric(12, 2))\n'
+    '    status                 = Column(String(100), default="PO Received")\n'
+    '    notes                  = Column(Text)\n'
+)
+if old_cols in m:
+    m = m.replace(old_cols, new_cols)
+    print('OK: Order model columns updated')
+else:
+    print('NOT FOUND: Order model columns')
+
+with open('/home/thierry/konomocha-crm/app/models/models.py', 'w', encoding='utf-8') as f:
+    f.write(m)
+print('models.py saved')
+
+### Patch orders.py ###
+ORDERS_PY = '''from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional
 from datetime import date
 from decimal import Decimal
 from app.database import get_db
-from app.models.models import Order, User, Contact
+from app.models.models import Order, User
 from app.auth import get_current_user, require_admin
 from pydantic import BaseModel
 
@@ -25,7 +74,6 @@ class OrderCreate(BaseModel):
     payment_date: Optional[date] = None
     status: str = "PO Received"
     notes: Optional[str] = None
-    owner_id: Optional[int] = None
 
 def compute_net(commission_value, testing_cost):
     return (Decimal(str(commission_value)) - Decimal(str(testing_cost))).quantize(Decimal("0.01"))
@@ -51,8 +99,6 @@ def order_to_dict(o: Order):
         "payment_date": o.payment_date.isoformat() if o.payment_date else None,
         "status": o.status,
         "notes": o.notes,
-        "owner_id":   o.owner_id,
-        "owner_name": o.owner.name if o.owner else None,
         "created_at": o.created_at.isoformat() if o.created_at else None,
     }
 
@@ -60,17 +106,12 @@ def order_to_dict(o: Order):
 def list_orders(
     brand_id: Optional[int] = Query(None),
     status: Optional[str] = Query(None),
-    owner_id: Optional[int] = Query(None),
     page: int = Query(1, ge=1),
-    per_page: int = Query(50, ge=1, le=5000),
+    per_page: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(require_admin)
 ):
-    q = db.query(Order).options(joinedload(Order.contact), joinedload(Order.brand), joinedload(Order.owner))
-    if getattr(current_user, "role", None) != "admin":
-        q = q.filter(Order.owner_id == current_user.id)
-    elif owner_id:
-        q = q.filter(Order.owner_id == owner_id)
+    q = db.query(Order).options(joinedload(Order.contact), joinedload(Order.brand))
     if brand_id:
         q = q.filter(Order.brand_id == brand_id)
     if status:
@@ -82,10 +123,7 @@ def list_orders(
 @router.post("")
 def create_order(data: OrderCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     net = compute_net(data.gross_commission_rate, data.testing_cost_deduction)
-    d = data.dict()
-    if not d.get("owner_id"):
-        d["owner_id"] = current_user.id
-    o = Order(**d, net_commission=net)
+    o = Order(**data.dict(), net_commission=net)
     db.add(o)
     db.commit()
     db.refresh(o)
@@ -101,7 +139,6 @@ def update_order(order_id: int, data: OrderCreate, db: Session = Depends(get_db)
     o.net_commission = compute_net(o.gross_commission_rate, o.testing_cost_deduction)
     db.commit()
     db.refresh(o)
-    db.refresh(o, attribute_names=["owner"])
     return order_to_dict(o)
 
 @router.delete("/{order_id}")
@@ -112,3 +149,8 @@ def delete_order(order_id: int, db: Session = Depends(get_db), current_user: Use
     db.delete(o)
     db.commit()
     return {"ok": True}
+'''
+
+with open('/home/thierry/konomocha-crm/app/routers/orders.py', 'w', encoding='utf-8') as f:
+    f.write(ORDERS_PY)
+print('orders.py saved')

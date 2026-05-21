@@ -17,6 +17,7 @@ class ContactCreate(BaseModel):
     company: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    job_title: Optional[str] = None
     country: Optional[str] = None
     address: Optional[str] = None
     tags: Optional[str] = None
@@ -36,6 +37,7 @@ def contact_to_dict(c):
         "company": c.company,
         "email": c.email,
         "phone": c.phone,
+        "job_title": c.job_title or "",
         "country": c.country,
         "address": c.address,
         "tags": c.tags,
@@ -107,7 +109,7 @@ def get_contact(contact_id: int, db: Session = Depends(get_db), current_user: Us
 def create_contact(data: ContactCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     name = ((data.first_name or "") + " " + (data.last_name or "")).strip() or data.name or "Unknown"
     c = Contact(name=name, company=data.company, email=data.email, phone=data.phone,
-                country=data.country, address=data.address, tags=data.tags, notes=data.notes,
+                job_title=data.job_title, country=data.country, address=data.address, tags=data.tags, notes=data.notes,
                 owner_id=data.owner_id, source="manual")
     db.add(c)
     db.commit()
@@ -123,7 +125,7 @@ def update_contact(contact_id: int, data: ContactUpdate, db: Session = Depends(g
         c.name = ((data.first_name or "") + " " + (data.last_name or "")).strip() or c.name
     elif data.name:
         c.name = data.name
-    for k in ("company", "email", "phone", "country", "address", "tags", "notes", "owner_id"):
+    for k in ("company", "email", "phone", "job_title", "country", "address", "tags", "notes", "owner_id"):
         v = getattr(data, k)
         if v is not None:
             setattr(c, k, v)
@@ -133,8 +135,6 @@ def update_contact(contact_id: int, data: ContactUpdate, db: Session = Depends(g
 
 @router.delete("/{contact_id}")
 def delete_contact(contact_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
     c = db.query(Contact).filter(Contact.id == contact_id).first()
     if not c:
         raise HTTPException(status_code=404, detail="Not found")
@@ -265,6 +265,83 @@ def create_task(contact_id: int, data: TaskCreate, db: Session = Depends(get_db)
     return {"id": t.id, "title": t.title, "due_date": t.due_date.isoformat() if t.due_date else None,
             "completed": t.completed, "assigned_to": t.assigned_to.name if t.assigned_to else None,
             "created_by": current_user.name, "created_at": t.created_at.isoformat()}
+
+
+class MergeRequest(BaseModel):
+    duplicate_id: int
+
+@router.get("/{master_id}/merge-preview/{dup_id}")
+def merge_preview(
+    master_id: int, dup_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if master_id == dup_id:
+        raise HTTPException(status_code=400, detail="Cannot merge a contact with itself")
+    from app.models.models import PipelineEntry, EmailLog, Order, ContactNote, ContactAttachment, ContactTask
+    master = db.query(Contact).filter(Contact.id == master_id).first()
+    dup    = db.query(Contact).filter(Contact.id == dup_id).first()
+    if not master or not dup:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    return {
+        "master_name": master.name,
+        "dup_name":    dup.name,
+        "pipeline":    db.query(PipelineEntry).filter(PipelineEntry.contact_id == dup_id).count(),
+        "emails":      db.query(EmailLog).filter(EmailLog.contact_id == dup_id).count(),
+        "orders":      db.query(Order).filter(Order.contact_id == dup_id).count(),
+        "notes":       db.query(ContactNote).filter(ContactNote.contact_id == dup_id).count(),
+        "tasks":       db.query(ContactTask).filter(ContactTask.contact_id == dup_id).count(),
+        "attachments": db.query(ContactAttachment).filter(ContactAttachment.contact_id == dup_id).count(),
+    }
+
+@router.post("/{master_id}/merge")
+def merge_contacts(
+    master_id: int, data: MergeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    dup_id = data.duplicate_id
+    if master_id == dup_id:
+        raise HTTPException(status_code=400, detail="Cannot merge a contact with itself")
+    master = db.query(Contact).filter(Contact.id == master_id).first()
+    dup    = db.query(Contact).filter(Contact.id == dup_id).first()
+    if not master or not dup:
+        raise HTTPException(status_code=404, detail="Contact not found")
+
+    from app.models.models import PipelineEntry, EmailLog, Order, ContactNote, ContactAttachment, ContactTask
+    import shutil, os as _os
+
+    # Move all FK-linked records to master
+    db.query(PipelineEntry).filter(PipelineEntry.contact_id == dup_id).update({"contact_id": master_id})
+    db.query(EmailLog).filter(EmailLog.contact_id == dup_id).update({"contact_id": master_id})
+    db.query(Order).filter(Order.contact_id == dup_id).update({"contact_id": master_id})
+    db.query(ContactNote).filter(ContactNote.contact_id == dup_id).update({"contact_id": master_id})
+    db.query(ContactTask).filter(ContactTask.contact_id == dup_id).update({"contact_id": master_id})
+
+    # Attachments: move DB rows + files on disk
+    UPLOAD_DIR = "/home/thierry/konomocha-crm/uploads"
+    atts = db.query(ContactAttachment).filter(ContactAttachment.contact_id == dup_id).all()
+    if atts:
+        master_dir = _os.path.join(UPLOAD_DIR, str(master_id))
+        dup_dir    = _os.path.join(UPLOAD_DIR, str(dup_id))
+        _os.makedirs(master_dir, exist_ok=True)
+        for att in atts:
+            src = _os.path.join(dup_dir, att.stored_name)
+            dst = _os.path.join(master_dir, att.stored_name)
+            if _os.path.exists(src):
+                shutil.move(src, dst)
+        db.query(ContactAttachment).filter(ContactAttachment.contact_id == dup_id).update({"contact_id": master_id})
+
+    # Try to remove the now-empty dup upload dir
+    dup_dir = _os.path.join(UPLOAD_DIR, str(dup_id))
+    if _os.path.exists(dup_dir):
+        try: _os.rmdir(dup_dir)
+        except: pass
+
+    db.delete(dup)
+    db.commit()
+    db.refresh(master)
+    return {"ok": True, "master": contact_to_dict(master)}
 
 @router.put("/{contact_id}/tasks/{task_id}")
 def update_task(contact_id: int, task_id: int, data: dict, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

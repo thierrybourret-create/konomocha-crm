@@ -50,6 +50,7 @@ class Contact(Base):
     company    = Column(String(255), index=True)
     email      = Column(String(255), index=True)
     phone      = Column(String(50))
+    job_title  = Column(String(255))
     country    = Column(String(100))
     address    = Column(Text)
     tags       = Column(String(500))
@@ -104,6 +105,7 @@ class EmailLog(Base):
     from_address   = Column(String(255))
     to_address     = Column(String(255))
     raw_message_id = Column(String(255))
+    bcc_address    = Column(String(255))
     logged_by_id   = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at     = Column(DateTime(timezone=True), server_default=func.now())
     contact   = relationship("Contact", back_populates="email_logs")
@@ -129,8 +131,10 @@ class Order(Base):
     notes                  = Column(Text)
     created_at             = Column(DateTime(timezone=True), server_default=func.now())
     updated_at             = Column(DateTime(timezone=True), onupdate=func.now())
-    contact = relationship("Contact", back_populates="orders")
-    brand   = relationship("Brand",   back_populates="orders")
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    contact  = relationship("Contact", back_populates="orders")
+    brand    = relationship("Brand",   back_populates="orders")
+    owner    = relationship("User",    foreign_keys=[owner_id])
 
 class ContactNote(Base):
     __tablename__ = "contact_notes"

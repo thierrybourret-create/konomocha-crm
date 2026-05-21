@@ -83,6 +83,7 @@ def import_lacrm(filepath):
                     company=col(row, 'Company Name'),
                     email=col(row, 'Primary Email'),
                     phone=phone,
+                    job_title=col(row, 'Job Title'),
                     country=country,
                     address=address,
                     tags=tags,

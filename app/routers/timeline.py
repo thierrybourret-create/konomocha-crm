@@ -29,6 +29,7 @@ def get_timeline(
     current_user: User = Depends(get_current_user),
 ):
     events = []
+    contact_obj = None
 
     # ── Pipeline entries ───────────────────────────────────────────────────
     pipeline_entries = (

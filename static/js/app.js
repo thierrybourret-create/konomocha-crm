@@ -1021,23 +1021,40 @@ function ndContactSearch() {
   var dd  = document.getElementById('nd-contact-dropdown');
   if (!inp || !hid || !dd) return;
   hid.value = '';
-  var q = inp.value.toLowerCase().trim();
-  if (!q) { dd.style.display = 'none'; return; }
+  var q = inp.value.trim();
+  if (q.length < 1) { dd.style.display = 'none'; return; }
   // position fixed to escape overflow:auto modal container
   var rect = inp.getBoundingClientRect();
   dd.style.top   = (rect.bottom + 4) + 'px';
   dd.style.left  = rect.left + 'px';
   dd.style.width = rect.width + 'px';
-  var matches = (window._ndContacts||[]).filter(function(c){
-    return (c.name||'').toLowerCase().includes(q) || (c.company||'').toLowerCase().includes(q);
-  }).slice(0, 25);
-  if (!matches.length) { dd.innerHTML='<div style="padding:10px 12px;font-size:13px;color:var(--warm-grey)">No results</div>'; dd.style.display=''; return; }
-  dd.innerHTML = matches.map(function(c){
-    var lbl = escHtml(c.name + (c.company&&c.company!==c.name?' — '+c.company:''));
-    return '<div onclick="ndContactSelect('+c.id+')" style="padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--line)" '
-      +'onmouseenter="this.style.background=\'var(--off-white)\'" onmouseleave="this.style.background=\'\'">'+lbl+'</div>';
-  }).join('');
+  dd.innerHTML = '<div style="padding:10px 12px;font-size:13px;color:var(--warm-grey)">Searching…</div>';
   dd.style.display = '';
+  clearTimeout(window._ndTimer);
+  window._ndTimer = setTimeout(function() {
+    fetch(API + '/contacts?source=contacts&per_page=25&search=' + encodeURIComponent(q), {
+      headers: { Authorization: 'Bearer ' + TOKEN }
+    }).then(function(r){ return r.json(); }).then(function(d) {
+      var dd2 = document.getElementById('nd-contact-dropdown');
+      if (!dd2 || dd2.style.display === 'none') return;
+      var matches = d.results || [];
+      if (!matches.length) {
+        dd2.innerHTML = '<div style="padding:10px 12px;font-size:13px;color:var(--warm-grey)">No results for "' + escHtml(q) + '"</div>';
+        return;
+      }
+      dd2.innerHTML = matches.map(function(c) {
+        var name = escHtml(c.name||'');
+        var co   = (c.company&&c.company!==c.name) ? ' <span style="color:var(--warm-grey)">— ' + escHtml(c.company) + '</span>' : '';
+        return '<div onclick="ndContactSelect(' + c.id + ',\'' + escHtml((c.name||'') + (c.company&&c.company!==c.name?' — '+c.company:'')).replace(/'/g,"&#39;") + '\')" '
+          + 'style="padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--line)" '
+          + 'onmouseenter="this.style.background=\'var(--off-white)\'" onmouseleave="this.style.background=\'\'">'
+          + name + co + '</div>';
+      }).join('');
+    }).catch(function() {
+      var dd2 = document.getElementById('nd-contact-dropdown');
+      if (dd2) dd2.innerHTML = '<div style="padding:10px 12px;font-size:13px;color:var(--accent-coral)">Search failed</div>';
+    });
+  }, 250);
 }
 document.addEventListener('click', function(ev) {
   var dd  = document.getElementById('nd-contact-dropdown');
@@ -1047,28 +1064,24 @@ document.addEventListener('click', function(ev) {
   }
 });
 
-function ndContactSelect(id) {
-  var c = (window._ndContacts||[]).find(function(x){ return x.id===id; });
-  if (!c) return;
-  var lbl = c.name + (c.company&&c.company!==c.name?' — '+c.company:'');
+function ndContactSelect(id, lbl) {
   var inp = document.getElementById('nd-contact-search');
   var hid = document.getElementById('nd-contact-id');
   var dd  = document.getElementById('nd-contact-dropdown');
-  if (inp) inp.value = lbl;
+  if (inp) inp.value = lbl || '';
   if (hid) hid.value = id;
   if (dd)  dd.style.display = 'none';
 }
 
 async function openNewDealModal(preContactId) {
-  const [cData, bData, uData] = await Promise.all([apiFetch('/contacts?source=contacts&per_page=2000'), apiFetch('/brands'), apiFetch('/users')]);
-  window._ndContacts = cData?cData.results:[];
+  const [bData, uData] = await Promise.all([apiFetch('/brands'), apiFetch('/users')]);
   const brands=bData||[], users=uData||[];
   const statuses = getPipelineStatuses();
-  // pre-fill label if a contact was passed in
+  // pre-fill label if a contact id was passed in
   var preLabel = '';
   if (preContactId) {
-    var preC = window._ndContacts.find(function(c){ return c.id===preContactId; });
-    if (preC) preLabel = preC.name + (preC.company&&preC.company!==preC.name?' — '+preC.company:'');
+    var preC = await apiFetch('/contacts/' + preContactId);
+    if (preC) preLabel = (preC.name||'') + (preC.company&&preC.company!==preC.name?' — '+preC.company:'');
   }
   document.getElementById('modal-title').innerHTML = 'New Pipeline Entry';
   document.getElementById('modal-body').innerHTML = `

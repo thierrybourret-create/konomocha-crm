@@ -3247,11 +3247,11 @@ async function loadLostDealsReport() {
     + '</div>'
     + '<div style="padding:16px 24px;border-right:1px solid var(--line);min-width:110px">'
     + '<div style="font-size:11px;color:var(--warm-grey);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Win rate</div>'
-    + '<div style="font-size:26px;font-weight:700;color:"+winRateColor+'">' + (d.win_rate_pct||0) + '%</div>'
+    + '<div style="font-size:26px;font-weight:700;color:' + winRateColor + '">' + (d.win_rate_pct||0) + '%</div>'
     + '</div>'
     + '<div style="padding:16px 24px;min-width:110px">'
     + '<div style="font-size:11px;color:var(--warm-grey);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Loss rate</div>'
-    + '<div style="font-size:26px;font-weight:700;color:"+lossRateColor+'">' + (d.loss_rate_pct||0) + '%</div>'
+    + '<div style="font-size:26px;font-weight:700;color:' + lossRateColor + '">' + (d.loss_rate_pct||0) + '%</div>'
     + '</div>'
     + '</div>';
   var reasonsHtml = '';
@@ -3280,7 +3280,7 @@ async function loadLostDealsReport() {
       + '</tr></thead><tbody>'
       + d.by_owner.map(function(o) {
           var bar = '<div style="display:flex;height:6px;border-radius:3px;overflow:hidden;width:100px;background:var(--line)">'
-            + '<div style="background:#1A7F4B;width:"+o.win_rate_pct+'%></div>'
+            + '<div style="background:#1A7F4B;width:' + o.win_rate_pct + '%"></div>'
             + '</div>';
           return '<tr style="border-top:1px solid var(--line)">'
             + '<td style="padding:8px 12px;font-weight:500">' + escHtml(o.owner_name||'—') + '</td>'

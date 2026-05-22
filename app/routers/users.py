@@ -14,11 +14,25 @@ class UserCreate(BaseModel):
     email: str
     password: str
     role: UserRole = UserRole.agent
-    page_access: Optional[list] = None
+    role_id: Optional[int] = None
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    password: Optional[str] = None
+    role: Optional[UserRole] = None
     role_id: Optional[int] = None
 
 def user_to_dict(u: User):
-    return {"id": u.id, "name": u.name, "email": u.email, "role": u.role, "is_active": u.is_active}
+    crm = None
+    if u.crm_role:
+        perms = None
+        if u.crm_role.permissions:
+            try: perms = json.loads(u.crm_role.permissions)
+            except: pass
+        crm = {"id": u.crm_role.id, "name": u.crm_role.name, "permissions": perms}
+    return {"id": u.id, "name": u.name, "email": u.email, "role": u.role,
+            "is_active": u.is_active, "role_id": u.role_id, "crm_role": crm}
 
 @router.get("")
 def list_users(db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
@@ -28,48 +42,30 @@ def list_users(db: Session = Depends(get_db), current_user: User = Depends(requi
 def create_user(data: UserCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     if db.query(User).filter(User.email == data.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
-    u = User(name=data.name, email=data.email, hashed_password=hash_password(data.password), role=data.role,
-                page_access=json.dumps(data.page_access) if data.page_access is not None else None,
-                role_id=data.role_id)
-    db.add(u)
-    db.commit()
-    db.refresh(u)
+    u = User(name=data.name, email=data.email, hashed_password=hash_password(data.password),
+             role=data.role, role_id=data.role_id or None)
+    db.add(u); db.commit(); db.refresh(u)
     return user_to_dict(u)
-
-
-class UserUpdate(BaseModel):
-    name: Optional[str] = None
-    email: Optional[str] = None
-    password: Optional[str] = None
-    role: Optional[UserRole] = None
-    page_access: Optional[list] = None
-    role_id: Optional[int] = None
 
 @router.put("/{user_id}")
 def update_user(user_id: int, data: UserUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     u = db.query(User).filter(User.id == user_id).first()
-    if not u:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="User not found")
-    if data.name:  u.name  = data.name
-    if data.email: u.email = data.email
-    if data.role:  u.role  = data.role
+    if not u: raise HTTPException(status_code=404, detail="User not found")
+    if data.name:     u.name  = data.name
+    if data.email:    u.email = data.email
+    if data.role:     u.role  = data.role
     if data.password: u.hashed_password = hash_password(data.password)
-    if page_access in (data.model_fields_set if hasattr(data,model_fields_set) else vars(data)): u.page_access = json.dumps(data.page_access) if data.page_access else None
-    db.commit()
-    db.refresh(u)
+    fields = data.model_fields_set if hasattr(data, 'model_fields_set') else set(vars(data).keys())
+    if 'role_id' in fields:
+        u.role_id = data.role_id or None
+    db.commit(); db.refresh(u)
     return user_to_dict(u)
-
 
 @router.delete("/{user_id}")
 def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     if current_user.id == user_id:
-        from fastapi import HTTPException
         raise HTTPException(status_code=400, detail="Cannot delete your own account")
     u = db.query(User).filter(User.id == user_id).first()
-    if not u:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="User not found")
-    db.delete(u)
-    db.commit()
+    if not u: raise HTTPException(status_code=404, detail="User not found")
+    db.delete(u); db.commit()
     return {"ok": True}

@@ -116,8 +116,14 @@ def list_orders(
     current_user: User = Depends(get_current_user),
 ):
     q = _base_query(db).filter(Order.deleted_at.is_(None))
-    if current_user.role != "admin":
-        q = q.filter(Order.owner_id == current_user.id)
+    if str(current_user.role) != 'admin':
+        _p = None
+        if current_user.crm_role and current_user.crm_role.permissions:
+            try: import json as _j; _p = _j.loads(current_user.crm_role.permissions)
+            except: pass
+        _sc = (_p or {}).get('pages', {}).get('orders', 'own') if _p else 'own'
+        if _sc != 'all':
+            q = q.filter(Order.owner_id == current_user.id)
     elif owner_id:
         q = q.filter(Order.owner_id == owner_id)
     if status:

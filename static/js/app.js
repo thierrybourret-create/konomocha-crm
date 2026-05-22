@@ -50,7 +50,7 @@ async function login(email, password) {
   if (!r.ok) throw new Error('Bad credentials');
   const d = await r.json();
   TOKEN = d.access_token;
-  CURRENT_USER = { name: d.name, role: d.role };
+  CURRENT_USER = { name: d.name, role: d.role, crm_role: d.crm_role || null };
   localStorage.setItem('crm_token', TOKEN);
   localStorage.setItem('crm_user', JSON.stringify(CURRENT_USER));
 }
@@ -86,6 +86,7 @@ function showApp() {
   document.getElementById('user-role').textContent   = CURRENT_USER.role === 'admin' ? 'Administrator' : 'Agent';
   applyPageAccess();
   applyReportAccess();
+  applyAdminSectionAccess();
 }
 
 // ---- Navigation ----
@@ -109,42 +110,75 @@ function applyPageAccess() {
     document.getElementById('sb-body-admin').style.display = '';
     return;
   }
-  // Use role's page_access if assigned, else user's own page_access
-  var allowed = (CURRENT_USER.crm_role && CURRENT_USER.crm_role.page_access)
-    ? CURRENT_USER.crm_role.page_access
-    : CURRENT_USER.page_access; // null = all pages
-  var allPages = ['dashboard','contacts','companies','pipeline','orders','tasks','email','reports'];
-  allPages.forEach(function(page) {
-    var visible = !allowed || allowed.includes(page);
-    document.querySelectorAll('[data-view="' + page + '"]').forEach(function(el) {
-      el.style.display = visible ? '' : 'none';
+  var perms = (CURRENT_USER.crm_role && CURRENT_USER.crm_role.permissions) ? CURRENT_USER.crm_role.permissions : {};
+  var pages = perms.pages || {};
+
+  // Main nav: hide pages agent has no access to
+  ['dashboard','contacts','companies','pipeline','orders','tasks'].forEach(function(p) {
+    document.querySelectorAll('[data-view="' + p + '"]').forEach(function(el) {
+      el.style.display = (pages[p] === false) ? 'none' : '';
     });
-    if (page === 'orders' && !visible) {
-      var rrc = document.getElementById('rr-commission'); if(rrc) rrc.style.display='none';
-      var rrb = document.getElementById('rr-bonus'); if(rrb) rrb.style.display='none';
-    }
-    if (page === 'reports' && !visible) {
-      var rrDiv = document.querySelector('.rr-cards'); if(rrDiv) rrDiv.style.display='none';
-    }
   });
+
+  // Admin section visibility
+  var hasEmail   = pages.email   !== false;
+  var hasReports = pages.reports !== false;
+  var adminSecs  = Array.isArray(perms.admin) ? perms.admin : [];
+  var hasAdmin   = adminSecs.length > 0;
+  var showAdminNav = hasEmail || hasReports || hasAdmin;
+
+  document.getElementById('sb-hdr-admin').style.display = showAdminNav ? '' : 'none';
+  document.getElementById('sb-body-admin').style.display = showAdminNav ? '' : 'none';
+
+  var eBtn = document.querySelector('#sb-body-admin [data-view="email"]');
+  var rBtn = document.querySelector('#sb-body-admin [data-view="reports"]');
+  var aBtn = document.querySelector('#sb-body-admin [data-view="admin"]');
+  if (eBtn) eBtn.style.display = hasEmail   ? '' : 'none';
+  if (rBtn) rBtn.style.display = hasReports ? '' : 'none';
+  if (aBtn) aBtn.style.display = hasAdmin   ? '' : 'none';
+
+  // Trash: never for agents
+  var trash = document.getElementById('nav-trash');
+  if (trash) trash.style.display = 'none';
 }
 
 function applyReportAccess() {
-  if (!CURRENT_USER || CURRENT_USER.role === 'admin') return; // admin sees all
-  var allowed = CURRENT_USER.crm_role ? CURRENT_USER.crm_role.report_access : null;
-  if (!allowed) return; // null = see all reports
-  var rptIds = {'activity': 'rr-activity', 'audit': 'rr-audit', 'bonus': 'rr-bonus', 'commission': 'rr-commission', 'engagement': 'rr-engagement', 'quality': 'rr-quality', 'duplicates': 'rr-duplicates', 'lost_deals': 'rr-lost-deals', 'principal': 'rr-principal', 'tasks_report': 'rr-tasks'};
+  if (!CURRENT_USER || CURRENT_USER.role === 'admin') return;
+  var perms = (CURRENT_USER.crm_role && CURRENT_USER.crm_role.permissions) ? CURRENT_USER.crm_role.permissions : {};
+  var allowed = perms.report_access; // null = all
+  if (!allowed) return;
+  var rptIds = {'activity':'rr-activity','audit':'rr-audit','bonus':'rr-bonus','commission':'rr-commission','engagement':'rr-engagement','quality':'rr-quality','duplicates':'rr-duplicates','lost_deals':'rr-lost-deals','principal':'rr-principal','tasks_report':'rr-tasks'};
   Object.keys(rptIds).forEach(function(key) {
     var el = document.getElementById(rptIds[key]);
     if (el) el.style.display = allowed.includes(key) ? '' : 'none';
   });
 }
 
+function applyAdminSectionAccess() {
+  if (!CURRENT_USER || CURRENT_USER.role === 'admin') return;
+  var perms = (CURRENT_USER.crm_role && CURRENT_USER.crm_role.permissions) ? CURRENT_USER.crm_role.permissions : {};
+  var allowed = Array.isArray(perms.admin) ? perms.admin : [];
+  var map = {tags:'admin-tags-body', sources:'admin-sources-body', countries:'admin-countries-body', regions:'admin-regions-body'};
+  Object.keys(map).forEach(function(key) {
+    var el = document.getElementById(map[key]);
+    if (!el) return;
+    var card = el.closest ? el.closest('.card') : (el.parentElement && el.parentElement.parentElement);
+    if (card) card.style.display = allowed.includes(key) ? '' : 'none';
+  });
+  ['admin-brands-body','admin-order-statuses-body','admin-statuses-body','admin-close-reasons-body','admin-about-body'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    var card = el.closest ? el.closest('.card') : (el.parentElement && el.parentElement.parentElement);
+    if (card) card.style.display = 'none';
+  });
+  var uc = document.getElementById('admin-users-card');
+  if (uc) uc.style.display = 'none';
+}
+
 function canAccess(view) {
   if (!CURRENT_USER || CURRENT_USER.role === 'admin') return true;
-  var allowed = CURRENT_USER.page_access;
-  if (!allowed) return true;
-  return allowed.includes(view);
+  var perms = (CURRENT_USER.crm_role && CURRENT_USER.crm_role.permissions) ? CURRENT_USER.crm_role.permissions : {};
+  return (perms.pages || {})[view] !== false;
 }
 
 // ---- Helpers ----
@@ -2812,15 +2846,13 @@ function switchUserTab(tab) {
   var rb = document.getElementById('utab-roles');
   if (!up || !rp) return;
   if (tab === 'users') {
-    up.style.display = '';
-    rp.style.display = 'none';
+    up.style.display = ''; rp.style.display = 'none';
     ub.style.color = 'var(--logo-blue)'; ub.style.borderBottom = '2px solid var(--logo-blue)';
-    rb.style.color = 'var(--warm-grey)'; rb.style.borderBottom = 'none';
+    rb.style.color = 'var(--warm-grey)';  rb.style.borderBottom = 'none';
   } else {
-    up.style.display = 'none';
-    rp.style.display = '';
+    up.style.display = 'none'; rp.style.display = '';
     rb.style.color = 'var(--logo-blue)'; rb.style.borderBottom = '2px solid var(--logo-blue)';
-    ub.style.color = 'var(--warm-grey)'; ub.style.borderBottom = 'none';
+    ub.style.color = 'var(--warm-grey)';  ub.style.borderBottom = 'none';
   }
 }
 
@@ -2831,48 +2863,126 @@ async function loadAdminRoles() {
   var d = await apiFetch('/roles'); if (!d) return;
   _crmRoles = d;
   document.getElementById('admin-roles-tbody').innerHTML = d.length ? d.map(function(r) {
-    var pages = r.page_access ? r.page_access.join(', ') : 'All pages';
-    var rpts  = r.report_access ? r.report_access.length + ' report(s)' : 'All reports';
+    var p = r.permissions || {};
+    var pg = p.pages ? Object.entries(p.pages).filter(function(e){ return e[1] !== false; }).map(function(e){ return e[0]; }) : null;
+    var pgStr = pg ? (pg.length ? pg.join(', ') : 'None') : 'All pages';
+    var rptStr = p.report_access ? p.report_access.length + ' report(s)' : 'All reports';
     return '<tr>' +
       '<td style="font-weight:600">' + escHtml(r.name) + '</td>' +
-      '<td style="font-size:12px;color:var(--warm-grey)">' + escHtml(pages) + '</td>' +
-      '<td style="font-size:12px;color:var(--warm-grey)">' + escHtml(rpts) + '</td>' +
+      '<td style="font-size:12px;color:var(--warm-grey)">' + escHtml(pgStr) + '</td>' +
+      '<td style="font-size:12px;color:var(--warm-grey)">' + escHtml(rptStr) + '</td>' +
       '<td style="display:flex;gap:6px">' +
         '<button class="btn btn-secondary" style="padding:4px 10px;font-size:12px" onclick="openEditRoleModal(' + r.id + ')">Edit</button>' +
-        (r.user_count === 0 ? '<button class="btn btn-secondary" style="padding:4px 10px;font-size:12px;color:var(--accent-coral)" onclick="deleteRole(' + r.id + ',\'' + r.name.replace(/'/g,"\'") + '\')">Remove</button>' : '<span style="font-size:12px;color:var(--warm-grey);align-self:center">' + r.user_count + ' user(s)</span>') +
-      '</td>' +
-    '</tr>';
+        (r.user_count === 0
+          ? '<button class="btn btn-secondary" style="padding:4px 10px;font-size:12px;color:var(--accent-coral)" onclick="deleteRole(' + r.id + ',\'' + r.name.replace(/'/g, "\\'") + '\')">Remove</button>'
+          : '<span style="font-size:12px;color:var(--warm-grey);align-self:center">' + r.user_count + ' user(s)</span>') +
+      '</td></tr>';
   }).join('') : '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--warm-grey)">No roles yet</td></tr>';
 }
 
+function togglePageScope(key) {
+  var en = document.getElementById('pg-en-' + key);
+  var sc = document.getElementById('pg-scope-' + key);
+  if (sc) sc.style.display = (en && en.checked) ? '' : 'none';
+}
+
+function _collectPermissions(form) {
+  var fd = new FormData(form);
+  var pages = {};
+  ['dashboard','contacts','companies','pipeline','orders','tasks','email','reports'].forEach(function(p) {
+    if (!fd.get('pg_en_' + p)) { pages[p] = false; }
+    else if (p === 'email') { pages[p] = 'own'; }
+    else { pages[p] = fd.get('pg_scope_' + p) || 'all'; }
+  });
+  var ALL_RPTS = ['activity','audit','bonus','commission','engagement','quality','duplicates','lost_deals','principal','tasks_report'];
+  var selRpts = ALL_RPTS.filter(function(k) { return fd.get('rpt_' + k); });
+  return {
+    pages: pages,
+    report_access: selRpts.length === ALL_RPTS.length ? null : selRpts,
+    report_scope:  fd.get('rpt_scope') || 'all',
+    admin: ['tags','sources','countries','regions'].filter(function(k) { return fd.get('adm_' + k); }),
+  };
+}
+
 function _roleModalHtml(r) {
-  var allPages   = ['dashboard', 'contacts', 'companies', 'pipeline', 'orders', 'tasks', 'email', 'reports'];
-  var pageLabels = {dashboard:'Dashboard',contacts:'Contacts',companies:'Companies',pipeline:'Pipeline',orders:'Orders',tasks:'Tasks',email:'Emails',reports:'Reports'};
-  var allReports = ['activity', 'audit', 'bonus', 'commission', 'engagement', 'quality', 'duplicates', 'lost_deals', 'principal', 'tasks_report'];
-  var rptLabels  = {activity:'Activity Report',audit:'Audit Log',bonus:'Bonus Report',commission:'Commission Forecast',engagement:'Customer Engagement',quality:'Data Quality Audit',duplicates:'Duplicate Contacts',lost_deals:'Lost Deals',principal:'Principal Report',tasks_report:'Task Report'};
-  var pa = r && r.page_access;
-  var ra = r && r.report_access;
-  return '<div style="margin-bottom:14px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:8px">Page Access <span style="font-weight:400;text-transform:none;letter-spacing:0">(unchecked all = all pages)</span></label>' +
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px">' +
-    allPages.map(function(p) {
-      var checked = (!pa || pa.includes(p)) ? 'checked' : '';
-      return '<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" name="pg_' + p + '" value="' + p + '" ' + checked + ' style="cursor:pointer"> ' + pageLabels[p] + '</label>';
-    }).join('') +
-    '</div></div>' +
-    '<div style="margin-bottom:20px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:8px">Report Access <span style="font-weight:400;text-transform:none;letter-spacing:0">(unchecked all = all reports)</span></label>' +
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px">' +
-    allReports.map(function(k) {
-      var checked = (!ra || ra.includes(k)) ? 'checked' : '';
-      return '<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" name="rpt_' + k + '" value="' + k + '" ' + checked + ' style="cursor:pointer"> ' + rptLabels[k] + '</label>';
-    }).join('') +
-    '</div></div>';
+  var p = r && r.permissions ? r.permissions : {};
+  var pages    = p.pages || {};
+  var rptAcc   = p.report_access || null;
+  var rptScope = p.report_scope  || 'all';
+  var adminSec = p.admin || [];
+  var LBL = 'font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);margin-bottom:8px;display:block';
+
+  var PAGE_CFG = [
+    {key:'dashboard', label:'Dashboard'}, {key:'contacts',  label:'Contacts'},
+    {key:'companies', label:'Companies'}, {key:'pipeline',  label:'Pipeline'},
+    {key:'orders',    label:'Orders'},    {key:'tasks',     label:'Tasks'},
+    {key:'email',     label:'Email Log'}, {key:'reports',   label:'Reports'},
+  ];
+  var RPT_CFG = [
+    {key:'activity',     label:'Activity Report'},   {key:'audit',        label:'Audit Log'},
+    {key:'bonus',        label:'Bonus Report'},       {key:'commission',   label:'Commission Forecast'},
+    {key:'engagement',   label:'Customer Engagement'},{key:'quality',      label:'Data Quality Audit'},
+    {key:'duplicates',   label:'Duplicate Contacts'}, {key:'lost_deals',   label:'Lost Deals'},
+    {key:'principal',    label:'Principal Report'},   {key:'tasks_report', label:'Tasks Report'},
+  ];
+
+  // Page access table
+  var html = '<div style="margin-bottom:16px"><span style="' + LBL + '">Page Access</span>' +
+    '<table style="width:100%;border-collapse:collapse">';
+  PAGE_CFG.forEach(function(cfg) {
+    var scope = pages[cfg.key];
+    var en = scope !== false;
+    var isOwn = scope === 'own';
+    html += '<tr style="border-bottom:1px solid var(--line)">' +
+      '<td style="padding:7px 6px 7px 0;width:26px">' +
+        '<input type="checkbox" id="pg-en-' + cfg.key + '" name="pg_en_' + cfg.key + '"' + (en ? ' checked' : '') +
+        ' onchange="togglePageScope(\'' + cfg.key + '\')" style="cursor:pointer"></td>' +
+      '<td style="padding:7px 0;font-size:13px;width:115px">' +
+        '<label for="pg-en-' + cfg.key + '" style="cursor:pointer">' + cfg.label + '</label></td>' +
+      '<td id="pg-scope-' + cfg.key + '" style="padding:7px 0' + (en ? '' : ';display:none') + '">';
+    if (cfg.key === 'email') {
+      html += '<span style="font-size:12px;color:var(--warm-grey)">Own only (always)</span>';
+    } else {
+      html += '<label style="margin-right:14px;font-size:13px;cursor:pointer">' +
+        '<input type="radio" name="pg_scope_' + cfg.key + '" value="all"' + (!isOwn ? ' checked' : '') + '> All</label>' +
+        '<label style="font-size:13px;cursor:pointer">' +
+        '<input type="radio" name="pg_scope_' + cfg.key + '" value="own"' + (isOwn ? ' checked' : '') + '> Own</label>';
+    }
+    html += '</td></tr>';
+  });
+  html += '</table></div>';
+
+  // Report access
+  html += '<div style="margin-bottom:16px"><span style="' + LBL + '">Report Access</span>' +
+    '<div style="margin-bottom:8px;display:flex;align-items:center;gap:20px">' +
+    '<span style="font-size:13px;color:#555">Scope:</span>' +
+    '<label style="font-size:13px;cursor:pointer"><input type="radio" name="rpt_scope" value="all"' + (rptScope==='all'?' checked':'') + '> All records</label>' +
+    '<label style="font-size:13px;cursor:pointer"><input type="radio" name="rpt_scope" value="own"' + (rptScope==='own'?' checked':'') + '> Own records only</label>' +
+    '</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px">';
+  RPT_CFG.forEach(function(cfg) {
+    var ch = (!rptAcc || rptAcc.includes(cfg.key)) ? ' checked' : '';
+    html += '<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">' +
+      '<input type="checkbox" name="rpt_' + cfg.key + '" value="' + cfg.key + '"' + ch + ' style="cursor:pointer"> ' + cfg.label + '</label>';
+  });
+  html += '</div></div>';
+
+  // Admin sections
+  html += '<div style="margin-bottom:20px"><span style="' + LBL + '">Admin Sections</span>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px">';
+  [{key:'tags',label:'Tags'},{key:'sources',label:'Sources'},{key:'countries',label:'Countries'},{key:'regions',label:'Regions'}].forEach(function(a) {
+    var ch = adminSec.includes(a.key) ? ' checked' : '';
+    html += '<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer">' +
+      '<input type="checkbox" name="adm_' + a.key + '" value="' + a.key + '"' + ch + ' style="cursor:pointer"> ' + a.label + '</label>';
+  });
+  html += '</div><p style="font-size:11px;color:var(--warm-grey);margin:6px 0 0">Users &amp; Roles are always admin-only. Trash is never shown to agents.</p></div>';
+  return html;
 }
 
 function openNewRoleModal() {
   document.getElementById('modal-title').innerHTML = 'New Role';
   document.getElementById('modal-body').innerHTML =
     '<form onsubmit="saveNewRole(event)">' +
-    '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Role Name</label>' +
+    '<div style="margin-bottom:14px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Role Name</label>' +
     '<input name="name" required placeholder="e.g. Sales Rep" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>' +
     _roleModalHtml(null) +
     '<div id="nr-error" style="display:none;color:#B33A47;font-size:13px;margin-bottom:12px;padding:10px;background:#FAE3E5;border-radius:8px"></div>' +
@@ -2885,14 +2995,7 @@ function openNewRoleModal() {
 async function saveNewRole(e) {
   e.preventDefault();
   var fd = new FormData(e.target);
-  var name = fd.get('name');
-  var pages   = ['dashboard', 'contacts', 'companies', 'pipeline', 'orders', 'tasks', 'email', 'reports'].filter(function(p){ return fd.get('pg_'+p); });
-  var reports = ['activity', 'audit', 'bonus', 'commission', 'engagement', 'quality', 'duplicates', 'lost_deals', 'principal', 'tasks_report'].filter(function(k){ return fd.get('rpt_'+k); });
-  var r = await apiFetch('/roles', {method:'POST', body:JSON.stringify({
-    name: name,
-    page_access:   pages.length   < 8 ? pages   : null,
-    report_access: reports.length < 10 ? reports : null,
-  })});
+  var r = await apiFetch('/roles', {method:'POST', body:JSON.stringify({name: fd.get('name'), permissions: _collectPermissions(e.target)})});
   if (r) { document.getElementById('modal').style.display='none'; loadAdminRoles(); }
   else { document.getElementById('nr-error').textContent='Failed. Name may already exist.'; document.getElementById('nr-error').style.display='block'; }
 }
@@ -2903,7 +3006,7 @@ function openEditRoleModal(id) {
   document.getElementById('modal-title').innerHTML = 'Edit Role: ' + escHtml(r.name);
   document.getElementById('modal-body').innerHTML =
     '<form onsubmit="saveEditRole(event,' + id + ')">' +
-    '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Role Name</label>' +
+    '<div style="margin-bottom:14px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Role Name</label>' +
     '<input name="name" value="' + escHtml(r.name) + '" required style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>' +
     _roleModalHtml(r) +
     '<div id="er-error" style="display:none;color:#B33A47;font-size:13px;margin-bottom:12px;padding:10px;background:#FAE3E5;border-radius:8px"></div>' +
@@ -2916,15 +3019,8 @@ function openEditRoleModal(id) {
 async function saveEditRole(e, id) {
   e.preventDefault();
   var fd = new FormData(e.target);
-  var name = fd.get('name');
-  var pages   = ['dashboard', 'contacts', 'companies', 'pipeline', 'orders', 'tasks', 'email', 'reports'].filter(function(p){ return fd.get('pg_'+p); });
-  var reports = ['activity', 'audit', 'bonus', 'commission', 'engagement', 'quality', 'duplicates', 'lost_deals', 'principal', 'tasks_report'].filter(function(k){ return fd.get('rpt_'+k); });
   var btn = e.target.querySelector('[type=submit]'); btn.textContent='Saving…'; btn.disabled=true;
-  var r = await apiFetch('/roles/'+id, {method:'PUT', body:JSON.stringify({
-    name: name,
-    page_access:   pages.length   < 8 ? pages   : null,
-    report_access: reports.length < 10 ? reports : null,
-  })});
+  var r = await apiFetch('/roles/'+id, {method:'PUT', body:JSON.stringify({name: fd.get('name'), permissions: _collectPermissions(e.target)})});
   if (r) { document.getElementById('modal').style.display='none'; loadAdminRoles(); }
   else { document.getElementById('er-error').textContent='Failed.'; document.getElementById('er-error').style.display='block'; btn.textContent='Save Changes'; btn.disabled=false; }
 }
@@ -2933,7 +3029,7 @@ async function deleteRole(id, name) {
   if (!confirm('Delete role "' + name + '"?')) return;
   var r = await apiFetch('/roles/'+id, {method:'DELETE'});
   if (r) loadAdminRoles();
-  else showToast('Cannot delete — users may still be assigned to this role.');
+  else showToast('Cannot delete — users are still assigned to this role.');
 }
 
 async function loadAdminUsers() {

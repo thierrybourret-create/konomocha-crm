@@ -19,6 +19,13 @@ def list_tasks(
         joinedload(ContactTask.assigned_to),
         joinedload(ContactTask.created_by),
     )
+    if str(current_user.role) != 'admin':
+        _p = None
+        if current_user.crm_role and current_user.crm_role.permissions:
+            try: import json as _j; _p = _j.loads(current_user.crm_role.permissions)
+            except: pass
+        if (_p or {}).get('pages', {}).get('tasks') == 'own' and not assignee_me:
+            q = q.filter(ContactTask.assigned_to_id == current_user.id)
     if assignee_me:
         q = q.filter(ContactTask.assigned_to_id == current_user.id)
     if completed is not None:

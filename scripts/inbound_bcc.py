@@ -8,7 +8,7 @@ import urllib.request, urllib.error
 from datetime import datetime, timezone
 
 SECRET = 'e7038dae70931811874e2f8c5335b3717c99ce205f7796e29e4ed3113aea3bc8'
-API    = 'http://localhost:8001/api/emails/inbound'
+API    = 'http://localhost:8002/crm-staging/api/emails/inbound'
 
 def decode_header(value):
     if not value:

@@ -112,7 +112,14 @@ def list_pipeline(
         q = q.filter(PipelineEntry.status == status)
     if brand_id:
         q = q.filter(PipelineEntry.brand_id == brand_id)
-    if owner_id:
+    if str(current_user.role) != 'admin':
+        _p = None
+        if current_user.crm_role and current_user.crm_role.permissions:
+            try: import json as _j; _p = _j.loads(current_user.crm_role.permissions)
+            except: pass
+        if (_p or {}).get('pages', {}).get('pipeline') == 'own':
+            q = q.filter(PipelineEntry.owner_id == current_user.id)
+    elif owner_id:
         q = q.filter(PipelineEntry.owner_id == owner_id)
     if contact_id:
         q = q.filter(PipelineEntry.contact_id == contact_id)

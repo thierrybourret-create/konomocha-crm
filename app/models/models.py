@@ -37,6 +37,7 @@ class CRMRole(Base):
     name         = Column(String(100), nullable=False, unique=True)
     page_access  = Column(Text, nullable=True)
     report_access= Column(Text, nullable=True)
+    permissions  = Column(Text, nullable=True)
     created_at   = Column(DateTime(timezone=True), server_default=func.now())
     users        = relationship("User", back_populates="crm_role")
 

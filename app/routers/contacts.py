@@ -156,6 +156,13 @@ def list_contacts(
         sort_col = sort_col.desc()
     q = q.order_by(sort_col)
 
+    if str(current_user.role) != 'admin':
+        _p = None
+        if current_user.crm_role and current_user.crm_role.permissions:
+            try: import json as _j; _p = _j.loads(current_user.crm_role.permissions)
+            except: pass
+        if (_p or {}).get('pages', {}).get('contacts') == 'own':
+            q = q.filter(Contact.owner_id == current_user.id)
     total = q.count()
     results = q.offset((page - 1) * per_page).limit(per_page).all()
     return {

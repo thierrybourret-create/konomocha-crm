@@ -33,6 +33,8 @@ def list_emails(
     q = db.query(EmailLog).options(joinedload(EmailLog.contact))
     if contact_id:
         q = q.filter(EmailLog.contact_id == contact_id)
+    if str(current_user.role) != 'admin':
+        q = q.filter(EmailLog.logged_by_id == current_user.id)
     total = q.count()
     emails = q.order_by(EmailLog.sent_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
     return {"total": total, "results": [email_to_dict(e) for e in emails]}

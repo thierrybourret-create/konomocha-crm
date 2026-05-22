@@ -88,7 +88,9 @@ app.include_router(admin_stages_router, prefix="/api")
 app.include_router(trash.router)
 app.include_router(audit_router)
 from app.routers.timeline import router as timeline_router
+from app.routers.search   import router as search_router
 app.include_router(timeline_router)
+app.include_router(search_router)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 

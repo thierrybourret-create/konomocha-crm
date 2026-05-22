@@ -3434,3 +3434,107 @@ async function hardDeleteTrashItem(itemType, itemId) {
   }
 }
 
+// ── Global Search ──────────────────────────────────────────────────────────
+var _gsTimer = null;
+
+function globalSearchInput() {
+  clearTimeout(_gsTimer);
+  var inp = document.getElementById('global-search-input');
+  var box = document.getElementById('global-search-results');
+  var q = (inp ? inp.value : '').trim();
+  if (!q) { if (box) box.style.display = 'none'; return; }
+  _gsTimer = setTimeout(function() { runGlobalSearch(q); }, 220);
+}
+
+function globalSearchKey(e) {
+  if (e.key === 'Escape') {
+    var box = document.getElementById('global-search-results');
+    if (box) box.style.display = 'none';
+    document.getElementById('global-search-input')?.blur();
+  }
+}
+
+document.addEventListener('keydown', function(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+    e.preventDefault();
+    var inp = document.getElementById('global-search-input');
+    if (inp) { inp.focus(); inp.select(); }
+  }
+});
+
+document.addEventListener('click', function(e) {
+  var wrap = document.getElementById('global-search-wrap');
+  var box  = document.getElementById('global-search-results');
+  if (box && wrap && !wrap.contains(e.target)) box.style.display = 'none';
+});
+
+async function runGlobalSearch(q) {
+  var inp = document.getElementById('global-search-input');
+  var box = document.getElementById('global-search-results');
+  if (!box) return;
+
+  // Position dropdown under the input
+  var rect = inp ? inp.getBoundingClientRect() : null;
+  if (rect) {
+    box.style.top  = (rect.bottom + 6) + 'px';
+    box.style.left = Math.max(8, rect.right - 420) + 'px';
+  }
+  box.style.display = '';
+  box.innerHTML = '<div style="padding:16px;font-size:13px;color:var(--warm-grey)">Searching…</div>';
+
+  var d = await apiFetch('/search?q=' + encodeURIComponent(q) + '&limit=6');
+  if (!d) {
+    box.innerHTML = '<div style="padding:16px;font-size:13px;color:#B33A47">Search failed.</div>';
+    return;
+  }
+
+  var total = (d.contacts||[]).length + (d.pipeline||[]).length + (d.orders||[]).length;
+  if (!total) {
+    box.innerHTML = '<div style="padding:20px;text-align:center;font-size:13px;color:var(--warm-grey)">No results for <strong>' + escHtml(q) + '</strong></div>';
+    return;
+  }
+
+  var html = '';
+
+  function section(title, color, rows) {
+    if (!rows.length) return '';
+    return '<div style="padding:8px 14px 4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:' + color + '">' + title + '</div>'
+      + rows.join('') + '<div style="height:1px;background:var(--line);margin:4px 0"></div>';
+  }
+
+  function row(onclick, line1, line2) {
+    return '<div onclick="' + onclick + ';document.getElementById('global-search-results').style.display='none';document.getElementById('global-search-input').value='';" '
+      + 'style="padding:9px 14px;cursor:pointer;transition:background .1s" '
+      + 'onmouseover="this.style.background='var(--off-white)'" onmouseout="this.style.background=''">'
+      + '<div style="font-size:13px;font-weight:600;color:var(--navy)">' + line1 + '</div>'
+      + (line2 ? '<div style="font-size:12px;color:var(--warm-grey);margin-top:1px">' + line2 + '</div>' : '')
+      + '</div>';
+  }
+
+  html += section('Contacts', 'var(--logo-blue)', (d.contacts||[]).map(function(c) {
+    return row(
+      'openContactDetail(' + c.id + ')',
+      escHtml(c.name),
+      [c.company, c.email].filter(Boolean).map(escHtml).join(' · ')
+    );
+  }));
+
+  html += section('Pipeline', '#7C3AED', (d.pipeline||[]).map(function(p) {
+    return row(
+      'showPage('pipeline')',
+      escHtml(p.contact) + (p.brand ? ' — ' + escHtml(p.brand) : ''),
+      escHtml(p.status) + ' · $' + p.value
+    );
+  }));
+
+  html += section('Orders', '#059669', (d.orders||[]).map(function(o) {
+    return row(
+      'showPage('orders')',
+      escHtml(o.contact) + (o.brand ? ' — ' + escHtml(o.brand) : ''),
+      escHtml(o.status) + ' · $' + o.value
+    );
+  }));
+
+  box.innerHTML = html;
+}
+

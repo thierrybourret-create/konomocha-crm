@@ -1526,7 +1526,10 @@ function togglePrincipalPicker() {
 
 function onPipelineStatusChange(val) {
   var wrap = document.getElementById('pe-close-reason-wrap');
-  if (wrap) wrap.style.display = isLostStatus(val) ? '' : 'none';
+  var sel  = document.getElementById('pe-close-reason');
+  var lost = isLostStatus(val);
+  if (wrap) wrap.style.display = lost ? '' : 'none';
+  if (sel)  sel.required = lost;
 }
 
 function buildCloseReasonSelect(currentVal) {

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_
 from app.database import get_db
 from app.models.models import (
-    PipelineEntry, Order, EmailLog, ContactNote, ContactTask, AuditLog, User
+    PipelineEntry, Order, EmailLog, ContactNote, ContactTask, AuditLog, User, Contact
 )
 from app.auth import get_current_user
 
@@ -158,6 +158,19 @@ def get_timeline(
             "detail":    (n.body or "")[:200],
             "actor":     n.author.name if n.author else None,
             "entity_id": n.id,
+        })
+
+    # ── Imported note (contact.notes field — historical data) ──────────────
+    contact_obj = db.query(Contact).filter(Contact.id == contact_id).first()
+    if contact_obj and contact_obj.notes:
+        events.append({
+            "type":      "note",
+            "timestamp": None,
+            "icon":      "note",
+            "title":     "Imported note",
+            "detail":    (contact_obj.notes or "")[:300],
+            "actor":     None,
+            "entity_id": None,
         })
 
     # ── Tasks ─────────────────────────────────────────────────────────────

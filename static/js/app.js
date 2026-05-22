@@ -1023,6 +1023,11 @@ function ndContactSearch() {
   hid.value = '';
   var q = inp.value.toLowerCase().trim();
   if (!q) { dd.style.display = 'none'; return; }
+  // position fixed to escape overflow:auto modal container
+  var rect = inp.getBoundingClientRect();
+  dd.style.top   = (rect.bottom + 4) + 'px';
+  dd.style.left  = rect.left + 'px';
+  dd.style.width = rect.width + 'px';
   var matches = (window._ndContacts||[]).filter(function(c){
     return (c.name||'').toLowerCase().includes(q) || (c.company||'').toLowerCase().includes(q);
   }).slice(0, 25);
@@ -1034,6 +1039,14 @@ function ndContactSearch() {
   }).join('');
   dd.style.display = '';
 }
+document.addEventListener('click', function(ev) {
+  var dd  = document.getElementById('nd-contact-dropdown');
+  var inp = document.getElementById('nd-contact-search');
+  if (dd && inp && !inp.contains(ev.target) && !dd.contains(ev.target)) {
+    dd.style.display = 'none';
+  }
+});
+
 function ndContactSelect(id) {
   var c = (window._ndContacts||[]).find(function(x){ return x.id===id; });
   if (!c) return;
@@ -1064,7 +1077,7 @@ async function openNewDealModal(preContactId) {
         <div style="position:relative">
           <input id="nd-contact-search" placeholder="Type name or company…" autocomplete="off" oninput="ndContactSearch()" onfocus="ndContactSearch()" value="${escHtml(preLabel)}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;box-sizing:border-box"/>
           <input type="hidden" name="contact_id" id="nd-contact-id" value="${preContactId||''}"/>
-          <div id="nd-contact-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--white);border:1px solid var(--line);border-radius:8px;z-index:200;max-height:220px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,0.12)"></div>
+          <div id="nd-contact-dropdown" style="display:none;position:fixed;background:var(--white);border:1px solid var(--line);border-radius:8px;z-index:2000;max-height:220px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,0.12)"></div>
         </div></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
         <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Brand *</label>

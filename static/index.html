@@ -4449,8 +4449,8 @@ function renderTrashTab() {
         '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey)">' + i.days_since + ' day' + (i.days_since!==1?'s':'') + ' ago</td>' +
         '<td style="padding:10px 12px;font-size:12px;color:' + (i.days_remaining <= 3 ? '#B33A47' : 'var(--warm-grey)') + '">' + i.days_remaining + ' day' + (i.days_remaining!==1?'s':'') + ' left</td>' +
         '<td style="padding:10px 12px;white-space:nowrap">' +
-          '<button onclick="restoreTrashItem('contact','+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;margin-right:4px">Restore</button>' +
-          '<button onclick="hardDeleteTrashItem('contact','+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;color:#B33A47">Delete</button>' +
+          '<button onclick="restoreTrashItem("contact",'+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;margin-right:4px">Restore</button>' +
+          '<button onclick="hardDeleteTrashItem("contact",'+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;color:#B33A47">Delete</button>' +
         '</td></tr>';
     });
     el.innerHTML = '<table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid var(--line)">' +
@@ -4470,8 +4470,8 @@ function renderTrashTab() {
         '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey)">' + i.days_since + ' day' + (i.days_since!==1?'s':'') + ' ago</td>' +
         '<td style="padding:10px 12px;font-size:12px;color:' + (i.days_remaining <= 3 ? '#B33A47' : 'var(--warm-grey)') + '">' + i.days_remaining + ' day' + (i.days_remaining!==1?'s':'') + ' left</td>' +
         '<td style="padding:10px 12px;white-space:nowrap">' +
-          '<button onclick="restoreTrashItem('pipeline','+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;margin-right:4px">Restore</button>' +
-          '<button onclick="hardDeleteTrashItem('pipeline','+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;color:#B33A47">Delete</button>' +
+          '<button onclick="restoreTrashItem("pipeline",'+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;margin-right:4px">Restore</button>' +
+          '<button onclick="hardDeleteTrashItem("pipeline",'+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;color:#B33A47">Delete</button>' +
         '</td></tr>';
     });
     el.innerHTML = '<table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid var(--line)">' +
@@ -4492,8 +4492,8 @@ function renderTrashTab() {
         '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey)">' + i.days_since + ' day' + (i.days_since!==1?'s':'') + ' ago</td>' +
         '<td style="padding:10px 12px;font-size:12px;color:' + (i.days_remaining <= 3 ? '#B33A47' : 'var(--warm-grey)') + '">' + i.days_remaining + ' day' + (i.days_remaining!==1?'s':'') + ' left</td>' +
         '<td style="padding:10px 12px;white-space:nowrap">' +
-          '<button onclick="restoreTrashItem('order','+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;margin-right:4px">Restore</button>' +
-          '<button onclick="hardDeleteTrashItem('order','+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;color:#B33A47">Delete</button>' +
+          '<button onclick="restoreTrashItem("order",'+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;margin-right:4px">Restore</button>' +
+          '<button onclick="hardDeleteTrashItem("order",'+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;color:#B33A47">Delete</button>' +
         '</td></tr>';
     });
     el.innerHTML = '<table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid var(--line)">' +
@@ -4512,8 +4512,8 @@ function renderTrashTab() {
         '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey)">' + i.days_since + ' day' + (i.days_since!==1?'s':'') + ' ago</td>' +
         '<td style="padding:10px 12px;font-size:12px;color:' + (i.days_remaining <= 3 ? '#B33A47' : 'var(--warm-grey)') + '">' + i.days_remaining + ' day' + (i.days_remaining!==1?'s':'') + ' left</td>' +
         '<td style="padding:10px 12px;white-space:nowrap">' +
-          '<button onclick="restoreTrashItem('contact_note','+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;margin-right:4px">Restore</button>' +
-          '<button onclick="hardDeleteTrashItem('contact_note','+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;color:#B33A47">Delete</button>' +
+          '<button onclick="restoreTrashItem("contact_note",'+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;margin-right:4px">Restore</button>' +
+          '<button onclick="hardDeleteTrashItem("contact_note",'+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;color:#B33A47">Delete</button>' +
         '</td></tr>';
     });
     var pNotes = (trashData.pipeline_notes || []).map(function(i) {
@@ -4524,8 +4524,8 @@ function renderTrashTab() {
         '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey)">' + i.days_since + ' day' + (i.days_since!==1?'s':'') + ' ago</td>' +
         '<td style="padding:10px 12px;font-size:12px;color:' + (i.days_remaining <= 3 ? '#B33A47' : 'var(--warm-grey)') + '">' + i.days_remaining + ' day' + (i.days_remaining!==1?'s':'') + ' left</td>' +
         '<td style="padding:10px 12px;white-space:nowrap">' +
-          '<button onclick="restoreTrashItem('pipeline_note','+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;margin-right:4px">Restore</button>' +
-          '<button onclick="hardDeleteTrashItem('pipeline_note','+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;color:#B33A47">Delete</button>' +
+          '<button onclick="restoreTrashItem("pipeline_note",'+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;margin-right:4px">Restore</button>' +
+          '<button onclick="hardDeleteTrashItem("pipeline_note",'+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;color:#B33A47">Delete</button>' +
         '</td></tr>';
     });
     var allRows = cNotes.concat(pNotes);

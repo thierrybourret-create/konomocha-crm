@@ -1475,6 +1475,14 @@
             <button class="btn btn-primary" onclick="event.stopPropagation();downloadPrincipalReport()">&#8595; Download Report</button>
           </div>
 
+          <div class="report-row" onclick="openReport('lost-deals')">
+            <div>
+              <div style="font-size:14px;font-weight:600;color:var(--navy)">Lost Deals</div>
+              <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">Pipeline entries closed, stalled or cancelled &#8212; grouped by close reason</div>
+            </div>
+            <span style="color:var(--logo-blue);font-size:20px;font-weight:300">&#8594;</span>
+          </div>
+
         </div>
       </div>
     </section>
@@ -1617,7 +1625,7 @@
             <div class="card-body" style="padding:24px 28px;line-height:1.8">
               <table style="border-collapse:collapse;font-size:13px;color:var(--navy)">
                 <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Application</td><td style="font-weight:600">Kizuna — Konomocha CRM</td></tr>
-                <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Version</td><td style="font-weight:600">v2.12</td></tr>
+                <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Version</td><td style="font-weight:600">v2.13</td></tr>
                 <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Last updated</td><td style="font-weight:600">21 May 2026</td></tr>
                 <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Developer</td><td style="font-weight:600">Thierry Bourret</td></tr>
                 <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Built with</td><td style="font-weight:600">FastAPI &middot; PostgreSQL &middot; Vanilla JS</td></tr>
@@ -1651,7 +1659,7 @@
 
 <script>
 // ============================================================
-// Kizuna (Konomocha CRM) v2.12
+// Kizuna (Konomocha CRM) v2.13
 // ============================================================
 
 const API = '/crm-staging/api';
@@ -1661,6 +1669,12 @@ let CURRENT_USER = JSON.parse(localStorage.getItem('crm_user') || 'null');
 // ---- Reference data (localStorage) ----
 const DEF_REGIONS   = ['Africa','Asia','Balkans','Eastern Europe','Europe','India','Middle East','North America','Oceania','South America'];
 const DEF_PIPELINE_STATUSES = ['Awaiting Feedback','Awaiting Info','Awaiting Samples','Catalogue Sent','Closed / No Action','Deposit Paid','Form Completed','In Progress','On Hold','Order Placed','Price List Sent','Quotation Sent','Samples Delivered','Samples Requested','Samples Sent','Stalled'];
+const DEF_LOST_STATUSES = ['Stalled', 'Closed / No Action', 'Cancelled'];
+function isLostStatus(st) {
+  var sp = _stageProbs && _stageProbs[st];
+  if (sp !== undefined && sp !== null) return (sp.probability || 0) === 0;
+  return DEF_LOST_STATUSES.indexOf(st) !== -1;
+}
 const DEF_ORDER_STATUSES = ['PO Received','PI Confirmed','Deposit Paid','Shipped','Payment Received','Cancelled'];
 const DEF_TAGS      = ['Agent','CloseOut','DND','Distributor','Manufacturer','Network','Principal','Retailer','Stationery'];
 const DEF_COUNTRIES = ['Afghanistan','Albania','Algeria','Angola','Argentina','Armenia','Australia','Austria','Azerbaijan','Bahrain','Bangladesh','Belarus','Belgium','Bosnia','Botswana','Brazil','Bulgaria','Cambodia','Canada','Chile','China','Colombia','Costa Rica','Croatia','Cyprus','Czech Republic','Denmark','Dominican Republic','Ecuador','Egypt','El Salvador','Estonia','Fiji','Finland','France','Georgia','Germany','Ghana','Gibraltar','Greece','Hong Kong','Hungary','Iceland','India','Indonesia','Iran','Iraq','Ireland','Israel','Italy','Jamaica','Japan','Jordan','Kazakhstan','Kenya','Korea','Kuwait','Latvia','Lebanon','Liechtenstein','Lithuania','Luxembourg','Macedonia','Madagascar','Malaysia','Malta','Mauritius','Mexico','Moldova','Mongolia','Morocco','Myanmar','Namibia','Netherlands','New Zealand','Nigeria','Norway','Oman','Pakistan','Palestine','Panama','Paraguay','Peru','Philippines','Poland','Portugal','Puerto Rico','Qatar','Romania','Russia','Saudi Arabia','Senegal','Serbia','Singapore','Slovakia','Slovenia','South Africa','South Korea','Spain','Sri Lanka','Sweden','Switzerland','Taiwan','Thailand','Trinidad and Tobago','Tunisia','Turkey','Ukraine','United Arab Emirates','United Kingdom','United States of America','Uruguay','Venezuela','Vietnam','Zimbabwe'];
@@ -2472,7 +2486,7 @@ function openPipelineDetail(id) {
     <form id="pe-edit-form" onsubmit="savePipelineEdit(event,${e.id})">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
         <div><label class="fl">Status</label>
-          <select name="status" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">
+          <select name="status" id="pe-status-select" onchange="onPipelineStatusChange(this.value)" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">
             ${statuses.map(s=>`<option${s===e.status?' selected':''}>${s}</option>`).join('')}
           </select></div>
         <div><label class="fl">Owner</label>
@@ -2488,6 +2502,8 @@ function openPipelineDetail(id) {
       </div>
       <div style="margin-bottom:12px"><label class="fl">Next Action</label>
         <input name="next_action" value="${(e.next_action||'').replace(/"/g,'&quot;')}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+      <div id="pe-close-reason-wrap" style="${isLostStatus(e.status)?'':'display:none'}"><label class="fl">Close Reason <span style="color:var(--warm-grey);font-weight:400">(optional)</span></label>
+        <input name="close_reason" id="pe-close-reason" placeholder="Why was this deal lost?" value="${(e.close_reason||'').replace(/"/g,'&quot;')}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
       <div id="pe-edit-error" style="display:none;color:#B33A47;font-size:13px;margin-bottom:12px;padding:10px;background:#FAE3E5;border-radius:8px"></div>
     </form>
     <div style="border-top:1px solid var(--line);padding-top:16px;margin-top:4px">
@@ -2514,15 +2530,20 @@ async function savePipelineEdit(evt, id) {
   evt.preventDefault();
   const e = pipelineData.find(x=>x.id===id); if(!e) return;
   const fd = new FormData(evt.target);
+  const newStatus = fd.get('status');
+  const closeReasonRaw = fd.get('close_reason');
   const payload = {
     contact_id:      e.contact_id,
     brand_id:        e.brand_id,
-    status:          fd.get('status'),
+    status:          newStatus,
     potential_value: parseFloat(fd.get('potential_value'))||0,
     next_action:     fd.get('next_action')||null,
     fob_date:        fd.get('fob_date')||null,
     owner_id:        parseInt(fd.get('owner_id')),
   };
+  if (isLostStatus(newStatus) && closeReasonRaw !== null) {
+    payload.close_reason = closeReasonRaw.trim() || null;
+  }
   const btn = document.querySelector('#modal-footer .btn-primary');
   if (btn) { btn.textContent='Saving…'; btn.disabled=true; }
   const result = await apiFetch('/pipeline/'+id, {method:'PUT', body:JSON.stringify(payload)});
@@ -3021,6 +3042,12 @@ let qFilter = 'all', qCurrentPage = 1, qPerPage = 50;
 
 
 function openReport(type) {
+  if (type === 'lost-deals') {
+    var overlay = document.getElementById('report-overlay');
+    if (overlay) overlay.style.display = 'flex';
+    loadLostDealsReport();
+    return;
+  }
   const overlay = document.getElementById('report-overlay');
   const title   = document.getElementById('report-overlay-title');
   const body    = document.getElementById('report-overlay-body');
@@ -3150,10 +3177,103 @@ function togglePrincipalPicker() {
   if (!isOpen) populatePrincipalBrands();
 }
 
+function onPipelineStatusChange(val) {
+  var wrap = document.getElementById('pe-close-reason-wrap');
+  if (wrap) wrap.style.display = isLostStatus(val) ? '' : 'none';
+}
+
 async function loadReports() {
   var u = JSON.parse(localStorage.getItem('crm_user')||'{}');
   var ra = document.getElementById('rr-activity');
   if (ra) ra.style.display = (u.role==='admin') ? '' : 'none';
+}
+
+async function loadLostDealsReport() {
+  var body = document.getElementById('report-overlay-body');
+  var title = document.getElementById('report-overlay-title');
+  if (title) title.textContent = 'Lost Deals';
+  if (!body) return;
+  body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--warm-grey)">Loading…</div>';
+  var ownerEl = document.getElementById('ld-owner-filter');
+  var brandEl = document.getElementById('ld-brand-filter');
+  var fromEl  = document.getElementById('ld-date-from');
+  var toEl    = document.getElementById('ld-date-to');
+  var params = new URLSearchParams();
+  if (ownerEl && ownerEl.value) params.set('owner_id', ownerEl.value);
+  if (brandEl && brandEl.value) params.set('brand_id', brandEl.value);
+  if (fromEl  && fromEl.value)  params.set('date_from', fromEl.value);
+  if (toEl    && toEl.value)    params.set('date_to',   toEl.value);
+  var d = await apiFetch('/reports/lost-deals?' + params);
+  if (!d) { body.innerHTML='<div style="padding:40px;text-align:center;color:#B33A47">Failed to load.</div>'; return; }
+  var isAdmin = CURRENT_USER && CURRENT_USER.role === 'admin';
+  var users  = (window._crmUsers || []);
+  var brands = (window.allBrands || []);
+  var filters = '<div style="display:flex;flex-wrap:wrap;gap:10px;padding:16px 24px;border-bottom:1px solid var(--line);background:var(--off-white)">';
+  if (isAdmin) {
+    filters += '<div><label style="font-size:12px;color:var(--warm-grey);display:block;margin-bottom:4px">Owner</label>'
+      + '<select id="ld-owner-filter" onchange="loadLostDealsReport()" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;background:var(--white)">'
+      + '<option value="">All owners</option>'
+      + users.map(function(u){ return '<option value="' + u.id + '"' + ((ownerEl&&ownerEl.value==u.id)?' selected':'') + '>' + escHtml(u.name) + '</option>'; }).join('')
+      + '</select></div>';
+  }
+  filters += '<div><label style="font-size:12px;color:var(--warm-grey);display:block;margin-bottom:4px">Brand</label>'
+    + '<select id="ld-brand-filter" onchange="loadLostDealsReport()" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;background:var(--white)">'
+    + '<option value="">All brands</option>'
+    + brands.map(function(b){ return '<option value="' + b.id + '"' + ((brandEl&&brandEl.value==b.id)?' selected':'') + '>' + escHtml(b.name) + '</option>'; }).join('')
+    + '</select></div>';
+  filters += '<div><label style="font-size:12px;color:var(--warm-grey);display:block;margin-bottom:4px">Closed from</label>'
+    + '<input id="ld-date-from" type="date" value="' + ((fromEl&&fromEl.value)||'') + '" onchange="loadLostDealsReport()" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px"/></div>';
+  filters += '<div><label style="font-size:12px;color:var(--warm-grey);display:block;margin-bottom:4px">Closed to</label>'
+    + '<input id="ld-date-to" type="date" value="' + ((toEl&&toEl.value)||'') + '" onchange="loadLostDealsReport()" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px"/></div>';
+  filters += '</div>';
+  var summaryHtml = '<div style="display:flex;gap:32px;padding:16px 24px;border-bottom:1px solid var(--line)">'
+    + '<div><div style="font-size:12px;color:var(--warm-grey);margin-bottom:2px">Total lost deals</div>'
+    + '<div style="font-size:22px;font-weight:700;color:var(--navy)">' + d.total + '</div></div>'
+    + '<div><div style="font-size:12px;color:var(--warm-grey);margin-bottom:2px">Total potential value</div>'
+    + '<div style="font-size:22px;font-weight:700;color:var(--navy)">' + fmtMoney(d.total_value) + '</div></div>'
+    + '</div>';
+  var reasonsHtml = '';
+  var reasonKeys = Object.keys(d.by_reason || {});
+  if (reasonKeys.length) {
+    reasonsHtml = '<div style="padding:16px 24px;border-bottom:1px solid var(--line)">'
+      + '<div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:10px">By Close Reason</div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:8px">'
+      + reasonKeys.map(function(r){
+          return '<span style="padding:4px 12px;border-radius:12px;font-size:12px;font-weight:500;background:#F0F4FF;border:1px solid #C7D2FF;color:#3B4FCF">'
+            + escHtml(r) + ' <b>' + d.by_reason[r] + '</b></span>';
+        }).join('')
+      + '</div></div>';
+  }
+  var tableHtml = '';
+  if (d.entries && d.entries.length) {
+    var isAdminCol = isAdmin ? '<th style="text-align:left;padding:10px 12px;font-weight:600;color:var(--navy)">Owner</th>' : '';
+    tableHtml = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'
+      + '<thead><tr style="background:var(--off-white)">'
+      + '<th style="text-align:left;padding:10px 12px;font-weight:600;color:var(--navy)">Contact / Company</th>'
+      + '<th style="text-align:left;padding:10px 12px;font-weight:600;color:var(--navy)">Brand</th>'
+      + '<th style="text-align:left;padding:10px 12px;font-weight:600;color:var(--navy)">Status</th>'
+      + '<th style="text-align:right;padding:10px 12px;font-weight:600;color:var(--navy)">Value</th>'
+      + '<th style="text-align:left;padding:10px 12px;font-weight:600;color:var(--navy)">Close Reason</th>'
+      + '<th style="text-align:left;padding:10px 12px;font-weight:600;color:var(--navy)">Closed</th>'
+      + isAdminCol + '</tr></thead><tbody>'
+      + d.entries.map(function(e, i) {
+          var adminCol = isAdmin ? '<td style="padding:10px 12px">' + escHtml(e.owner_name||'—') + '</td>' : '';
+          return '<tr style="border-top:1px solid var(--line)">'
+            + '<td style="padding:10px 12px"><div style="font-weight:500">' + escHtml(e.contact_name||'—') + '</div>'
+            + (e.contact_company ? '<div style="font-size:12px;color:var(--warm-grey)">' + escHtml(e.contact_company) + '</div>' : '')
+            + '</td>'
+            + '<td style="padding:10px 12px">' + escHtml(e.brand_name||'—') + '</td>'
+            + '<td style="padding:10px 12px"><span style="padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;background:#FEF2F2;border:1px solid #FCA5A5;color:#B33A47">' + escHtml(e.status||'') + '</span></td>'
+            + '<td style="padding:10px 12px;text-align:right;font-family:monospace">' + fmtMoney(e.potential_value) + '</td>'
+            + '<td style="padding:10px 12px">' + escHtml(e.close_reason||'—') + '</td>'
+            + '<td style="padding:10px 12px;color:var(--warm-grey);white-space:nowrap">' + (e.closed_at ? e.closed_at.substring(0,10) : '—') + '</td>'
+            + adminCol + '</tr>';
+        }).join('')
+      + '</tbody></table></div>';
+  } else {
+    tableHtml = '<div style="padding:40px;text-align:center;color:var(--warm-grey)">No lost deals found.</div>';
+  }
+  body.innerHTML = filters + summaryHtml + reasonsHtml + tableHtml;
 }
 
 function setQFilter(f) {

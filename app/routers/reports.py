@@ -730,3 +730,78 @@ def bonus_summary(
         "grand_total_outstanding": round(grand_outstanding, 2),
     }
 
+
+@router.get("/lost-deals")
+def lost_deals_report(
+    owner_id: Optional[int] = Query(None),
+    brand_id: Optional[int] = Query(None),
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    from app.routers.pipeline import get_db_probabilities
+    from sqlalchemy.orm import joinedload as _jl
+
+    probs = get_db_probabilities(db)
+    lost_statuses = [s for s, p in probs.items() if p == 0]
+
+    q = (
+        db.query(PipelineEntry)
+        .options(_jl(PipelineEntry.contact), _jl(PipelineEntry.brand), _jl(PipelineEntry.owner))
+        .filter(PipelineEntry.deleted_at.is_(None), PipelineEntry.status.in_(lost_statuses))
+    )
+
+    if current_user.role != "admin":
+        q = q.filter(PipelineEntry.owner_id == current_user.id)
+    if owner_id:
+        q = q.filter(PipelineEntry.owner_id == owner_id)
+    if brand_id:
+        q = q.filter(PipelineEntry.brand_id == brand_id)
+    if date_from:
+        try:
+            from datetime import datetime as _dt
+            q = q.filter(PipelineEntry.closed_at >= _dt.fromisoformat(date_from))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            from datetime import datetime as _dt
+            from datetime import timedelta as _td
+            q = q.filter(PipelineEntry.closed_at < _dt.fromisoformat(date_to) + _td(days=1))
+        except ValueError:
+            pass
+
+    q = q.order_by(PipelineEntry.closed_at.desc().nullslast(), PipelineEntry.updated_at.desc())
+    entries = q.all()
+
+    by_reason = {}
+    for e in entries:
+        reason = (e.close_reason or "").strip() or "No reason given"
+        by_reason.setdefault(reason, []).append(e)
+
+    total_value = sum(float(e.potential_value or 0) for e in entries)
+
+    return {
+        "total": len(entries),
+        "total_value": round(total_value, 2),
+        "entries": [
+            {
+                "id":              e.id,
+                "contact_name":    e.contact.name    if e.contact else None,
+                "contact_company": e.contact.company if e.contact else None,
+                "brand_name":      e.brand.name      if e.brand   else None,
+                "status":          e.status,
+                "potential_value": float(e.potential_value or 0),
+                "close_reason":    e.close_reason,
+                "closed_at":       e.closed_at.isoformat()  if e.closed_at  else None,
+                "owner_name":      e.owner.name      if e.owner   else None,
+                "updated_at":      e.updated_at.isoformat() if e.updated_at else None,
+            }
+            for e in entries
+        ],
+        "by_reason": {
+            reason: len(items)
+            for reason, items in sorted(by_reason.items(), key=lambda x: -len(x[1]))
+        },
+    }

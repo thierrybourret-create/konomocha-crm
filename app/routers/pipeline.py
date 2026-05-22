@@ -23,6 +23,7 @@ class PipelineCreate(BaseModel):
     fob_date: Optional[date] = None
     owner_id: int
     notes: Optional[str] = None
+    close_reason: Optional[str] = None
 
 
 def entry_to_dict(e: PipelineEntry, db: Session):
@@ -47,6 +48,8 @@ def entry_to_dict(e: PipelineEntry, db: Session):
         "owner_id": e.owner_id,
         "owner_name": e.owner.name if e.owner else None,
         "notes": e.notes,
+        "close_reason": e.close_reason,
+        "closed_at": e.closed_at.isoformat() if e.closed_at else None,
         "updated_at": e.updated_at.isoformat() if e.updated_at else None,
     }
 
@@ -161,6 +164,11 @@ def create_entry(data: PipelineCreate, db: Session = Depends(get_db), current_us
     if current_user.role == "agent" and data.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Agents can only create entries assigned to themselves")
     e = PipelineEntry(**data.dict())
+    probs = get_db_probabilities(db)
+    if probs.get(data.status, 1) == 0 and e.closed_at is None:
+        e.closed_at = datetime.utcnow()
+    if e.close_reason:
+        e.close_reason = e.close_reason.strip() or None
     db.add(e)
     db.commit()
     db.refresh(e)
@@ -174,8 +182,18 @@ def update_entry(entry_id: int, data: PipelineCreate, db: Session = Depends(get_
         raise HTTPException(status_code=404, detail="Entry not found")
     if current_user.role == "agent" and e.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="You can only edit your own entries")
-    for k, v in data.dict(exclude_unset=True).items():
+    update_data = data.dict(exclude_unset=True)
+    close_reason = update_data.pop("close_reason", None)
+    old_status = e.status
+    new_status = update_data.get("status", old_status)
+    for k, v in update_data.items():
         setattr(e, k, v)
+    probs = get_db_probabilities(db)
+    if probs.get(new_status, 1) == 0 and probs.get(old_status, 1) != 0:
+        if e.closed_at is None:
+            e.closed_at = datetime.utcnow()
+    if close_reason is not None:
+        e.close_reason = close_reason.strip() or None
     db.commit()
     db.refresh(e)
     return entry_to_dict(e, db)

@@ -91,6 +91,8 @@ class PipelineEntry(Base):
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
     updated_at      = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     deleted_at      = Column(DateTime(timezone=True), nullable=True, default=None)
+    close_reason    = Column(String(500), nullable=True)
+    closed_at       = Column(DateTime(timezone=True), nullable=True)
     contact     = relationship("Contact", back_populates="pipeline_entries")
     brand       = relationship("Brand",   back_populates="pipeline_entries")
     owner       = relationship("User",    back_populates="pipeline_entries")

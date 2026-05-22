@@ -1554,8 +1554,11 @@ function fmtDate(iso) {
 
 async function loadAuditReport(page) {
   page = page || 1;
-  var body = document.getElementById('report-body');
-  if (!body) return;
+  const overlay = document.getElementById('report-overlay');
+  const body    = document.getElementById('report-overlay-body');
+  if (!overlay || !body) return;
+  overlay.style.display = '';
+  document.getElementById('report-overlay-title').textContent = 'Audit Log';
 
   // capture filter values before wiping body
   var etEl   = document.getElementById('al-entity-type');

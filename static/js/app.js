@@ -518,6 +518,7 @@ async function openContactDetail(id) {
         `<button onclick="addContactTask(${id})" class="btn btn-primary" style="font-size:13px">Add Task</button>`+
       `</div>`+
     `</div>`+
+    `</div>`+
     `<div id="ctab-timeline-panel" style="display:none">`+
     `  <div id="contact-timeline-body" style="padding:8px 0"><div style="padding:40px;text-align:center;color:var(--warm-grey)">Loading…</div></div>`+
     `</div>`;

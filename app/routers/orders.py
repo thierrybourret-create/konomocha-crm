@@ -10,6 +10,7 @@ from app.auth import get_current_user, require_admin
 from app.constants import (ORDER_STATUSES, ORDER_STATUS_LABELS, ORDER_STATUS_DATES,
                             BONUS_RATE, COMMISSION_LAG_DAYS)
 from pydantic import BaseModel
+from app.audit import log_audit, diff_and_log, ORDER_TRACKED
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
@@ -155,6 +156,11 @@ def create_order(data: OrderCreate, db: Session = Depends(get_db), current_user:
     db.commit()
     db.refresh(o)
     db.refresh(o, attribute_names=["contact", "brand", "owner"])
+    log_audit(db, entity_type='order', entity_id=o.id,
+              contact_name=o.contact.name if o.contact else None,
+              brand_name=o.brand.name     if o.brand   else None,
+              action='created', user_id=current_user.id, user_name=current_user.name)
+    db.commit()
     return order_to_dict(o)
 
 
@@ -165,13 +171,23 @@ def update_order(order_id: int, data: OrderCreate, db: Session = Depends(get_db)
         raise HTTPException(status_code=404, detail="Order not found")
     if current_user.role != "admin" and o.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not your order")
-    for k, v in data.dict(exclude_unset=True).items():
+    _update = data.dict(exclude_unset=True)
+    _snap  = {f: getattr(o, f, None) for f in ORDER_TRACKED}
+    _cname = o.contact.name if o.contact else None
+    _bname = o.brand.name   if o.brand   else None
+    for k, v in _update.items():
         setattr(o, k, v)
     o.net_commission = compute_net(o.order_value, o.gross_commission_rate, o.testing_cost_deduction)
     owner = db.query(User).filter(User.id == o.owner_id).first() if o.owner_id else None
     o.bonus_amount = compute_bonus(o.net_commission, owner)
     db.commit()
     db.refresh(o)
+    diff_and_log(db, entity_type='order', entity_id=order_id,
+                 contact_name=_cname, brand_name=_bname,
+                 old_obj=type('S', (), _snap)(), new_data=_update,
+                 tracked_fields=ORDER_TRACKED,
+                 user_id=current_user.id, user_name=current_user.name)
+    db.commit()
     return order_to_dict(o)
 
 
@@ -186,6 +202,9 @@ def advance_status(order_id: int, data: OrderStatusUpdate, db: Session = Depends
         raise HTTPException(status_code=403, detail="Admin only for bonus_paid")
     if data.status not in ORDER_STATUSES:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {ORDER_STATUSES}")
+    _old_status = o.status
+    _cname = o.contact.name if o.contact else None
+    _bname = o.brand.name   if o.brand   else None
     o.status = data.status
     date_field = ORDER_STATUS_DATES.get(data.status)
     if date_field:
@@ -194,6 +213,12 @@ def advance_status(order_id: int, data: OrderStatusUpdate, db: Session = Depends
         o.bonus_paid_date = data.status_date or date.today()
     db.commit()
     db.refresh(o)
+    log_audit(db, entity_type='order', entity_id=order_id,
+              contact_name=_cname, brand_name=_bname,
+              action='updated', field_name='status',
+              old_value=_old_status, new_value=data.status,
+              user_id=current_user.id, user_name=current_user.name)
+    db.commit()
     return order_to_dict(o)
 
 
@@ -202,7 +227,12 @@ def delete_order(order_id: int, db: Session = Depends(get_db), current_user: Use
     o = db.query(Order).filter(Order.id == order_id, Order.deleted_at.is_(None)).first()
     if not o:
         raise HTTPException(status_code=404, detail="Order not found")
+    _cname = o.contact.name if o.contact else None
+    _bname = o.brand.name   if o.brand   else None
     o.deleted_at = datetime.utcnow()
+    log_audit(db, entity_type='order', entity_id=order_id,
+              contact_name=_cname, brand_name=_bname,
+              action='deleted', user_id=current_user.id, user_name=current_user.name)
     db.commit()
     return {"ok": True}
 

@@ -9,6 +9,7 @@ from app.database import get_db
 from app.models.models import PipelineEntry, Contact, Brand, User, PipelineNote
 from app.auth import get_current_user
 from app.constants import PIPELINE_PROBABILITIES, COMMISSION_LAG_DAYS
+from app.audit import log_audit, diff_and_log, PIPELINE_TRACKED
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/pipeline", tags=["pipeline"])
@@ -172,6 +173,12 @@ def create_entry(data: PipelineCreate, db: Session = Depends(get_db), current_us
     db.add(e)
     db.commit()
     db.refresh(e)
+    _cname = e.contact.name if e.contact else None
+    _bname = e.brand.name   if e.brand   else None
+    log_audit(db, entity_type='pipeline', entity_id=e.id,
+              contact_name=_cname, brand_name=_bname,
+              action='created', user_id=current_user.id, user_name=current_user.name)
+    db.commit()
     return entry_to_dict(e, db)
 
 
@@ -186,6 +193,10 @@ def update_entry(entry_id: int, data: PipelineCreate, db: Session = Depends(get_
     close_reason = update_data.pop("close_reason", None)
     old_status = e.status
     new_status = update_data.get("status", old_status)
+    # capture snapshot for audit diff
+    _snap = {f: getattr(e, f, None) for f in PIPELINE_TRACKED}
+    _cname = e.contact.name if e.contact else None
+    _bname = e.brand.name   if e.brand   else None
     for k, v in update_data.items():
         setattr(e, k, v)
     probs = get_db_probabilities(db)
@@ -196,6 +207,16 @@ def update_entry(entry_id: int, data: PipelineCreate, db: Session = Depends(get_
         e.close_reason = close_reason.strip() or None
     db.commit()
     db.refresh(e)
+    # build new_data including close_reason for diff
+    _new_data = dict(update_data)
+    if close_reason is not None:
+        _new_data['close_reason'] = close_reason
+    diff_and_log(db, entity_type='pipeline', entity_id=entry_id,
+                 contact_name=_cname, brand_name=_bname,
+                 old_obj=type('S', (), _snap)(), new_data=_new_data,
+                 tracked_fields=PIPELINE_TRACKED,
+                 user_id=current_user.id, user_name=current_user.name)
+    db.commit()
     return entry_to_dict(e, db)
 
 
@@ -206,7 +227,12 @@ def delete_entry(entry_id: int, db: Session = Depends(get_db), current_user: Use
     e = db.query(PipelineEntry).filter(PipelineEntry.id == entry_id, PipelineEntry.deleted_at.is_(None)).first()
     if not e:
         raise HTTPException(status_code=404, detail="Entry not found")
+    _cname = e.contact.name if e.contact else None
+    _bname = e.brand.name   if e.brand   else None
     e.deleted_at = datetime.utcnow()
+    log_audit(db, entity_type='pipeline', entity_id=entry_id,
+              contact_name=_cname, brand_name=_bname,
+              action='deleted', user_id=current_user.id, user_name=current_user.name)
     db.commit()
     return {"ok": True}
 

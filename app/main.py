@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from app.database import engine
 from app.models import models
 from app.routers import auth, contacts, brands, pipeline, orders, emails, users, dashboard, reports, tasks, trash
+from app.routers.audit import router as audit_router
 from app.logger import app_logger
 
 models.Base.metadata.create_all(bind=engine)
@@ -85,6 +86,7 @@ app.include_router(reports.router)
 app.include_router(tasks.router)
 app.include_router(admin_stages_router, prefix="/api")
 app.include_router(trash.router)
+app.include_router(audit_router)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 

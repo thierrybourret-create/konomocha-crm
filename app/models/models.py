@@ -208,3 +208,19 @@ class AppStage(Base):
     label       = Column(String, nullable=False)   # display label
     probability = Column(Integer, nullable=True)   # 0-100, null for order stages
     position    = Column(Integer, nullable=False, default=0)
+
+
+class AuditLog(Base):
+    __tablename__ = 'audit_log'
+    id           = Column(Integer, primary_key=True)
+    entity_type  = Column(String(50),  nullable=False)   # 'pipeline' | 'order'
+    entity_id    = Column(Integer,     nullable=False)
+    contact_name = Column(String(500), nullable=True)    # denormalized at log time
+    brand_name   = Column(String(255), nullable=True)    # denormalized at log time
+    action       = Column(String(50),  nullable=False)   # 'created' | 'updated' | 'deleted'
+    field_name   = Column(String(100), nullable=True)    # which field changed
+    old_value    = Column(Text,        nullable=True)
+    new_value    = Column(Text,        nullable=True)
+    user_id      = Column(Integer,     nullable=True)
+    user_name    = Column(String(200), nullable=True)    # denormalized
+    created_at   = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

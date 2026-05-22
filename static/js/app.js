@@ -1552,10 +1552,119 @@ function fmtDate(iso) {
   return d.slice(8,10) + '/' + d.slice(5,7) + '/' + d.slice(0,4);
 }
 
+async function loadAuditReport(page) {
+  page = page || 1;
+  var body = document.getElementById('report-body');
+  if (!body) return;
+
+  // capture filter values before wiping body
+  var etEl   = document.getElementById('al-entity-type');
+  var fromEl = document.getElementById('al-date-from');
+  var toEl   = document.getElementById('al-date-to');
+  var uEl    = document.getElementById('al-user-filter');
+
+  body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--warm-grey)">Loading…</div>';
+
+  var params = new URLSearchParams({ page, per_page: 100 });
+  if (etEl && etEl.value)   params.append('entity_type', etEl.value);
+  if (fromEl && fromEl.value) params.append('date_from', fromEl.value);
+  if (toEl && toEl.value)   params.append('date_to', toEl.value);
+  if (uEl && uEl.value)     params.append('user_id', uEl.value);
+
+  var resp = await fetch(API + '/audit-log?' + params, { headers: { Authorization: 'Bearer ' + TOKEN } });
+  var d = await resp.json();
+
+  // filters bar
+  var users = window._crmUsers || [];
+  var filters = '<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;padding:16px 24px;border-bottom:1px solid var(--line);background:var(--off-white)">';
+  filters += '<div><label style="font-size:12px;color:var(--warm-grey);display:block;margin-bottom:4px">Type</label>'
+    + '<select id="al-entity-type" onchange="loadAuditReport()" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;background:var(--white)">'
+    + '<option value="">All types</option>'
+    + '<option value="pipeline"' + ((etEl&&etEl.value==='pipeline')?' selected':'') + '>Pipeline</option>'
+    + '<option value="order"'    + ((etEl&&etEl.value==='order')   ?' selected':'') + '>Order</option>'
+    + '</select></div>';
+  filters += '<div><label style="font-size:12px;color:var(--warm-grey);display:block;margin-bottom:4px">User</label>'
+    + '<select id="al-user-filter" onchange="loadAuditReport()" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;background:var(--white)">'
+    + '<option value="">All users</option>'
+    + users.map(function(u){ return '<option value="' + u.id + '"' + ((uEl&&uEl.value==u.id)?' selected':'') + '>' + escHtml(u.name) + '</option>'; }).join('')
+    + '</select></div>';
+  filters += '<div><label style="font-size:12px;color:var(--warm-grey);display:block;margin-bottom:4px">From</label>'
+    + '<input id="al-date-from" type="date" value="' + ((fromEl&&fromEl.value)||'') + '" onchange="loadAuditReport()" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px"/></div>';
+  filters += '<div><label style="font-size:12px;color:var(--warm-grey);display:block;margin-bottom:4px">To</label>'
+    + '<input id="al-date-to" type="date" value="' + ((toEl&&toEl.value)||'') + '" onchange="loadAuditReport()" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px"/></div>';
+  filters += '</div>';
+
+  // build table
+  var rows = d.results || [];
+  var ACTION_LABEL = { created: 'Created', updated: 'Updated', deleted: 'Deleted' };
+  var TYPE_LABEL   = { pipeline: 'Pipeline', order: 'Order' };
+  var FIELD_LABEL  = {
+    status: 'Status', potential_value: 'Value', close_reason: 'Close reason',
+    owner_id: 'Owner', brand_id: 'Brand', fob_date: 'FOB date',
+    next_action: 'Next action', order_value: 'Order value',
+    gross_commission_rate: 'Commission %', testing_cost_deduction: 'Test deduction',
+    order_date: 'Order date', notes: 'Notes'
+  };
+
+  var tableHtml = '';
+  if (rows.length) {
+    tableHtml = '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      + '<thead><tr style="background:var(--off-white)">'
+      + '<th style="text-align:left;padding:10px 16px;border-bottom:2px solid var(--line);white-space:nowrap">Date / Time</th>'
+      + '<th style="text-align:left;padding:10px 16px;border-bottom:2px solid var(--line)">Type</th>'
+      + '<th style="text-align:left;padding:10px 16px;border-bottom:2px solid var(--line)">Contact</th>'
+      + '<th style="text-align:left;padding:10px 16px;border-bottom:2px solid var(--line)">Brand</th>'
+      + '<th style="text-align:left;padding:10px 16px;border-bottom:2px solid var(--line)">Action</th>'
+      + '<th style="text-align:left;padding:10px 16px;border-bottom:2px solid var(--line)">Field</th>'
+      + '<th style="text-align:left;padding:10px 16px;border-bottom:2px solid var(--line)">Old</th>'
+      + '<th style="text-align:left;padding:10px 16px;border-bottom:2px solid var(--line)">New</th>'
+      + '<th style="text-align:left;padding:10px 16px;border-bottom:2px solid var(--line)">User</th>'
+      + '</tr></thead><tbody>'
+      + rows.map(function(r, i) {
+          var bg   = i % 2 === 0 ? 'var(--white)' : 'var(--off-white)';
+          var dt   = fmtDate(r.created_at) + ' ' + (r.created_at||'').substring(11,16);
+          var aClr = r.action === 'deleted' ? 'var(--accent-coral)'
+                   : r.action === 'created' ? '#1A7F4B' : 'var(--navy)';
+          return '<tr style="background:' + bg + '">'
+            + '<td style="padding:9px 16px;border-bottom:1px solid var(--line);white-space:nowrap;color:var(--warm-grey)">' + escHtml(dt) + '</td>'
+            + '<td style="padding:9px 16px;border-bottom:1px solid var(--line)">' + escHtml(TYPE_LABEL[r.entity_type] || r.entity_type) + '</td>'
+            + '<td style="padding:9px 16px;border-bottom:1px solid var(--line)">' + escHtml(r.contact_name || '—') + '</td>'
+            + '<td style="padding:9px 16px;border-bottom:1px solid var(--line)">' + escHtml(r.brand_name   || '—') + '</td>'
+            + '<td style="padding:9px 16px;border-bottom:1px solid var(--line);font-weight:600;color:' + aClr + '">' + escHtml(ACTION_LABEL[r.action] || r.action) + '</td>'
+            + '<td style="padding:9px 16px;border-bottom:1px solid var(--line);color:var(--warm-grey)">' + escHtml(FIELD_LABEL[r.field_name] || r.field_name || '') + '</td>'
+            + '<td style="padding:9px 16px;border-bottom:1px solid var(--line);color:var(--accent-coral)">' + escHtml(r.old_value || '') + '</td>'
+            + '<td style="padding:9px 16px;border-bottom:1px solid var(--line);color:#1A7F4B">'           + escHtml(r.new_value || '') + '</td>'
+            + '<td style="padding:9px 16px;border-bottom:1px solid var(--line)">' + escHtml(r.user_name  || '—') + '</td>'
+            + '</tr>';
+        }).join('')
+      + '</tbody></table>';
+  } else {
+    tableHtml = '<div style="padding:40px;text-align:center;color:var(--warm-grey)">No audit entries found for the selected filters.</div>';
+  }
+
+  // pagination
+  var totalPages = Math.ceil((d.total || 0) / 100);
+  var pager = '';
+  if (totalPages > 1) {
+    pager = '<div style="padding:12px 24px;display:flex;gap:8px;align-items:center;border-top:1px solid var(--line)">';
+    if (page > 1) pager += '<button class="btn btn-secondary" onclick="loadAuditReport(' + (page-1) + ')" style="padding:4px 12px;font-size:13px">&#8592; Prev</button>';
+    pager += '<span style="font-size:13px;color:var(--warm-grey)">Page ' + page + ' of ' + totalPages + ' (' + (d.total||0) + ' entries)</span>';
+    if (page < totalPages) pager += '<button class="btn btn-secondary" onclick="loadAuditReport(' + (page+1) + ')" style="padding:4px 12px;font-size:13px">Next &#8594;</button>';
+    pager += '</div>';
+  }
+
+  body.innerHTML = filters
+    + '<div style="padding:12px 24px 4px;font-size:13px;color:var(--warm-grey)">' + (d.total||0) + ' entries</div>'
+    + '<div style="overflow-x:auto">' + tableHtml + '</div>'
+    + pager;
+}
+
 async function loadReports() {
   var u = JSON.parse(localStorage.getItem('crm_user')||'{}');
   var ra = document.getElementById('rr-activity');
   if (ra) ra.style.display = (u.role==='admin') ? '' : 'none';
+  var rau = document.getElementById('rr-audit');
+  if (rau) rau.style.display = (u.role==='admin') ? '' : 'none';
 }
 
 async function loadLostDealsReport() {

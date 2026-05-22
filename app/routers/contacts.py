@@ -1,10 +1,11 @@
 import os
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
 from typing import Optional
 from app.database import get_db
-from app.models.models import Contact, User
+from app.models.models import Contact, User, ContactNote
 from app.auth import get_current_user
 from pydantic import BaseModel
 
@@ -58,7 +59,7 @@ def list_contacts(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    q = db.query(Contact)
+    q = db.query(Contact).filter(Contact.deleted_at.is_(None))
 
     if source == "contacts":
         q = q.filter(Contact.source.in_(["lacrm_import", "manual"]))
@@ -100,7 +101,7 @@ def list_contacts(
 
 @router.get("/{contact_id}")
 def get_contact(contact_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    c = db.query(Contact).filter(Contact.id == contact_id).first()
+    c = db.query(Contact).filter(Contact.id == contact_id, Contact.deleted_at.is_(None)).first()
     if not c:
         raise HTTPException(status_code=404, detail="Not found")
     return contact_to_dict(c)
@@ -118,7 +119,7 @@ def create_contact(data: ContactCreate, db: Session = Depends(get_db), current_u
 
 @router.put("/{contact_id}")
 def update_contact(contact_id: int, data: ContactUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    c = db.query(Contact).filter(Contact.id == contact_id).first()
+    c = db.query(Contact).filter(Contact.id == contact_id, Contact.deleted_at.is_(None)).first()
     if not c:
         raise HTTPException(status_code=404, detail="Not found")
     if data.first_name is not None or data.last_name is not None:
@@ -135,10 +136,10 @@ def update_contact(contact_id: int, data: ContactUpdate, db: Session = Depends(g
 
 @router.delete("/{contact_id}")
 def delete_contact(contact_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    c = db.query(Contact).filter(Contact.id == contact_id).first()
+    c = db.query(Contact).filter(Contact.id == contact_id, Contact.deleted_at.is_(None)).first()
     if not c:
         raise HTTPException(status_code=404, detail="Not found")
-    db.delete(c)
+    c.deleted_at = datetime.utcnow()
     db.commit()
     return {"ok": True}
 
@@ -148,17 +149,18 @@ class NoteCreate(BaseModel):
 
 @router.get("/{contact_id}/notes")
 def get_contact_notes(contact_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    from app.models.models import ContactNote
-    contact = db.query(Contact).filter(Contact.id == contact_id).first()
+    contact = db.query(Contact).filter(Contact.id == contact_id, Contact.deleted_at.is_(None)).first()
     if not contact:
         raise HTTPException(status_code=404, detail="Not found")
-    notes = db.query(ContactNote).filter(ContactNote.contact_id == contact_id).order_by(ContactNote.created_at.desc()).all()
+    notes = db.query(ContactNote).filter(
+        ContactNote.contact_id == contact_id,
+        ContactNote.deleted_at.is_(None)
+    ).order_by(ContactNote.created_at.desc()).all()
     return [{"id": n.id, "body": n.body, "author_name": n.author.name, "created_at": n.created_at.isoformat()} for n in notes]
 
 @router.post("/{contact_id}/notes")
 def add_contact_note(contact_id: int, data: NoteCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    from app.models.models import ContactNote
-    contact = db.query(Contact).filter(Contact.id == contact_id).first()
+    contact = db.query(Contact).filter(Contact.id == contact_id, Contact.deleted_at.is_(None)).first()
     if not contact:
         raise HTTPException(status_code=404, detail="Not found")
     note = ContactNote(contact_id=contact_id, body=data.body, author_id=current_user.id)
@@ -166,6 +168,21 @@ def add_contact_note(contact_id: int, data: NoteCreate, db: Session = Depends(ge
     db.commit()
     db.refresh(note)
     return {"id": note.id, "body": note.body, "author_name": current_user.name, "created_at": note.created_at.isoformat()}
+
+@router.delete("/{contact_id}/notes/{note_id}")
+def delete_contact_note(contact_id: int, note_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    note = db.query(ContactNote).filter(
+        ContactNote.id == note_id,
+        ContactNote.contact_id == contact_id,
+        ContactNote.deleted_at.is_(None)
+    ).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="Not found")
+    if current_user.role != "admin" and note.author_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    note.deleted_at = datetime.utcnow()
+    db.commit()
+    return {"ok": True}
 
 
 import uuid, shutil
@@ -182,7 +199,7 @@ async def upload_attachment(
     current_user: User = Depends(get_current_user)
 ):
     from app.models.models import ContactAttachment
-    contact = db.query(Contact).filter(Contact.id == contact_id).first()
+    contact = db.query(Contact).filter(Contact.id == contact_id, Contact.deleted_at.is_(None)).first()
     if not contact:
         raise HTTPException(status_code=404, detail="Not found")
     dest_dir = os.path.join(UPLOAD_DIR, str(contact_id))
@@ -250,7 +267,7 @@ def list_tasks(contact_id: int, db: Session = Depends(get_db), current_user: Use
 def create_task(contact_id: int, data: TaskCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     from app.models.models import ContactTask
     from datetime import date as _date
-    contact = db.query(Contact).filter(Contact.id == contact_id).first()
+    contact = db.query(Contact).filter(Contact.id == contact_id, Contact.deleted_at.is_(None)).first()
     if not contact:
         raise HTTPException(status_code=404, detail="Not found")
     due = None
@@ -278,9 +295,9 @@ def merge_preview(
 ):
     if master_id == dup_id:
         raise HTTPException(status_code=400, detail="Cannot merge a contact with itself")
-    from app.models.models import PipelineEntry, EmailLog, Order, ContactNote, ContactAttachment, ContactTask
-    master = db.query(Contact).filter(Contact.id == master_id).first()
-    dup    = db.query(Contact).filter(Contact.id == dup_id).first()
+    from app.models.models import PipelineEntry, EmailLog, Order, ContactAttachment, ContactTask
+    master = db.query(Contact).filter(Contact.id == master_id, Contact.deleted_at.is_(None)).first()
+    dup    = db.query(Contact).filter(Contact.id == dup_id, Contact.deleted_at.is_(None)).first()
     if not master or not dup:
         raise HTTPException(status_code=404, detail="Contact not found")
     return {
@@ -303,12 +320,12 @@ def merge_contacts(
     dup_id = data.duplicate_id
     if master_id == dup_id:
         raise HTTPException(status_code=400, detail="Cannot merge a contact with itself")
-    master = db.query(Contact).filter(Contact.id == master_id).first()
-    dup    = db.query(Contact).filter(Contact.id == dup_id).first()
+    from app.models.models import PipelineEntry, EmailLog, Order, ContactAttachment, ContactTask
+    master = db.query(Contact).filter(Contact.id == master_id, Contact.deleted_at.is_(None)).first()
+    dup    = db.query(Contact).filter(Contact.id == dup_id, Contact.deleted_at.is_(None)).first()
     if not master or not dup:
         raise HTTPException(status_code=404, detail="Contact not found")
 
-    from app.models.models import PipelineEntry, EmailLog, Order, ContactNote, ContactAttachment, ContactTask
     import shutil, os as _os
 
     # Move all FK-linked records to master
@@ -318,28 +335,36 @@ def merge_contacts(
     db.query(ContactNote).filter(ContactNote.contact_id == dup_id).update({"contact_id": master_id})
     db.query(ContactTask).filter(ContactTask.contact_id == dup_id).update({"contact_id": master_id})
 
-    # Attachments: move DB rows + files on disk
+    # Attachments: update DB rows first, then move files AFTER commit
     UPLOAD_DIR = "/home/thierry/konomocha-crm/uploads"
     atts = db.query(ContactAttachment).filter(ContactAttachment.contact_id == dup_id).all()
+    att_names = [att.stored_name for att in atts]
     if atts:
+        db.query(ContactAttachment).filter(ContactAttachment.contact_id == dup_id).update({"contact_id": master_id})
+
+    db.delete(dup)
+    db.commit()  # commit all DB changes before touching the filesystem
+
+    # Move files on disk after successful commit
+    if att_names:
         master_dir = _os.path.join(UPLOAD_DIR, str(master_id))
         dup_dir    = _os.path.join(UPLOAD_DIR, str(dup_id))
         _os.makedirs(master_dir, exist_ok=True)
-        for att in atts:
-            src = _os.path.join(dup_dir, att.stored_name)
-            dst = _os.path.join(master_dir, att.stored_name)
-            if _os.path.exists(src):
-                shutil.move(src, dst)
-        db.query(ContactAttachment).filter(ContactAttachment.contact_id == dup_id).update({"contact_id": master_id})
+        for stored_name in att_names:
+            src = _os.path.join(dup_dir, stored_name)
+            dst = _os.path.join(master_dir, stored_name)
+            try:
+                if _os.path.exists(src):
+                    shutil.move(src, dst)
+            except Exception as exc:
+                from app.logger import app_logger
+                app_logger.error("merge_contacts: failed to move " + src + " -> " + dst + ": " + str(exc))
 
     # Try to remove the now-empty dup upload dir
     dup_dir = _os.path.join(UPLOAD_DIR, str(dup_id))
     if _os.path.exists(dup_dir):
         try: _os.rmdir(dup_dir)
         except: pass
-
-    db.delete(dup)
-    db.commit()
     db.refresh(master)
     return {"ok": True, "master": contact_to_dict(master)}
 

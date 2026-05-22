@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, contains_eager
 from sqlalchemy import or_, func
@@ -5,7 +6,7 @@ from typing import Optional
 from datetime import date, timedelta
 from decimal import Decimal
 from app.database import get_db
-from app.models.models import PipelineEntry, Contact, Brand, User
+from app.models.models import PipelineEntry, Contact, Brand, User, PipelineNote
 from app.auth import get_current_user
 from app.constants import PIPELINE_PROBABILITIES, COMMISSION_LAG_DAYS
 from pydantic import BaseModel
@@ -22,6 +23,7 @@ class PipelineCreate(BaseModel):
     fob_date: Optional[date] = None
     owner_id: int
     notes: Optional[str] = None
+    close_reason: Optional[str] = None
 
 
 def entry_to_dict(e: PipelineEntry, db: Session):
@@ -46,6 +48,8 @@ def entry_to_dict(e: PipelineEntry, db: Session):
         "owner_id": e.owner_id,
         "owner_name": e.owner.name if e.owner else None,
         "notes": e.notes,
+        "close_reason": e.close_reason,
+        "closed_at": e.closed_at.isoformat() if e.closed_at else None,
         "updated_at": e.updated_at.isoformat() if e.updated_at else None,
     }
 
@@ -91,6 +95,7 @@ def list_pipeline(
             contains_eager(PipelineEntry.brand),
             contains_eager(PipelineEntry.owner),
         )
+        .filter(PipelineEntry.deleted_at.is_(None))
     )
     if search:
         q = q.filter(or_(
@@ -123,7 +128,7 @@ def list_pipeline(
     q = q.order_by(sort_col.desc() if sort_dir == "desc" else sort_col)
 
     total = q.count()
-    total_value = db.query(func.sum(PipelineEntry.potential_value)).scalar() or 0
+    total_value = db.query(func.sum(PipelineEntry.potential_value)).filter(PipelineEntry.deleted_at.is_(None)).scalar() or 0
     entries = q.offset((page - 1) * per_page).limit(per_page).all()
     return {
         "total": total,
@@ -146,7 +151,7 @@ def get_entry(entry_id: int, db: Session = Depends(get_db), current_user: User =
             contains_eager(PipelineEntry.brand),
             contains_eager(PipelineEntry.owner),
         )
-        .filter(PipelineEntry.id == entry_id)
+        .filter(PipelineEntry.id == entry_id, PipelineEntry.deleted_at.is_(None))
         .first()
     )
     if not e:
@@ -159,6 +164,11 @@ def create_entry(data: PipelineCreate, db: Session = Depends(get_db), current_us
     if current_user.role == "agent" and data.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Agents can only create entries assigned to themselves")
     e = PipelineEntry(**data.dict())
+    probs = get_db_probabilities(db)
+    if probs.get(data.status, 1) == 0 and e.closed_at is None:
+        e.closed_at = datetime.utcnow()
+    if e.close_reason:
+        e.close_reason = e.close_reason.strip() or None
     db.add(e)
     db.commit()
     db.refresh(e)
@@ -167,13 +177,23 @@ def create_entry(data: PipelineCreate, db: Session = Depends(get_db), current_us
 
 @router.put("/{entry_id}")
 def update_entry(entry_id: int, data: PipelineCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    e = db.query(PipelineEntry).filter(PipelineEntry.id == entry_id).first()
+    e = db.query(PipelineEntry).filter(PipelineEntry.id == entry_id, PipelineEntry.deleted_at.is_(None)).first()
     if not e:
         raise HTTPException(status_code=404, detail="Entry not found")
     if current_user.role == "agent" and e.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="You can only edit your own entries")
-    for k, v in data.dict(exclude_unset=True).items():
+    update_data = data.dict(exclude_unset=True)
+    close_reason = update_data.pop("close_reason", None)
+    old_status = e.status
+    new_status = update_data.get("status", old_status)
+    for k, v in update_data.items():
         setattr(e, k, v)
+    probs = get_db_probabilities(db)
+    if probs.get(new_status, 1) == 0 and probs.get(old_status, 1) != 0:
+        if e.closed_at is None:
+            e.closed_at = datetime.utcnow()
+    if close_reason is not None:
+        e.close_reason = close_reason.strip() or None
     db.commit()
     db.refresh(e)
     return entry_to_dict(e, db)
@@ -183,10 +203,10 @@ def update_entry(entry_id: int, data: PipelineCreate, db: Session = Depends(get_
 def delete_entry(entry_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
-    e = db.query(PipelineEntry).filter(PipelineEntry.id == entry_id).first()
+    e = db.query(PipelineEntry).filter(PipelineEntry.id == entry_id, PipelineEntry.deleted_at.is_(None)).first()
     if not e:
         raise HTTPException(status_code=404, detail="Entry not found")
-    db.delete(e)
+    e.deleted_at = datetime.utcnow()
     db.commit()
     return {"ok": True}
 
@@ -201,11 +221,13 @@ class PipelineNoteUpdate(BaseModel):
 
 @router.get("/{entry_id}/notes")
 def get_pipeline_notes(entry_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    from app.models.models import PipelineNote
-    e = db.query(PipelineEntry).filter(PipelineEntry.id == entry_id).first()
+    e = db.query(PipelineEntry).filter(PipelineEntry.id == entry_id, PipelineEntry.deleted_at.is_(None)).first()
     if not e:
         raise HTTPException(status_code=404, detail="Not found")
-    notes = db.query(PipelineNote).filter(PipelineNote.pipeline_id == entry_id).order_by(PipelineNote.created_at.desc()).all()
+    notes = db.query(PipelineNote).filter(
+        PipelineNote.pipeline_id == entry_id,
+        PipelineNote.deleted_at.is_(None)
+    ).order_by(PipelineNote.created_at.desc()).all()
     return [{"id": n.id, "body": n.body, "author_name": n.author.name,
              "created_at": n.created_at.isoformat(),
              "updated_at": n.updated_at.isoformat() if n.updated_at else None,
@@ -214,8 +236,7 @@ def get_pipeline_notes(entry_id: int, db: Session = Depends(get_db), current_use
 
 @router.post("/{entry_id}/notes")
 def add_pipeline_note(entry_id: int, data: PipelineNoteCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    from app.models.models import PipelineNote
-    e = db.query(PipelineEntry).filter(PipelineEntry.id == entry_id).first()
+    e = db.query(PipelineEntry).filter(PipelineEntry.id == entry_id, PipelineEntry.deleted_at.is_(None)).first()
     if not e:
         raise HTTPException(status_code=404, detail="Not found")
     note = PipelineNote(pipeline_id=entry_id, body=data.body, author_id=current_user.id)
@@ -228,9 +249,12 @@ def add_pipeline_note(entry_id: int, data: PipelineNoteCreate, db: Session = Dep
 
 @router.put("/{entry_id}/notes/{note_id}")
 def edit_pipeline_note(entry_id: int, note_id: int, data: PipelineNoteUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    from app.models.models import PipelineNote
     from datetime import datetime as _dt
-    note = db.query(PipelineNote).filter(PipelineNote.id == note_id, PipelineNote.pipeline_id == entry_id).first()
+    note = db.query(PipelineNote).filter(
+        PipelineNote.id == note_id,
+        PipelineNote.pipeline_id == entry_id,
+        PipelineNote.deleted_at.is_(None)
+    ).first()
     if not note:
         raise HTTPException(status_code=404, detail="Not found")
     note.body = data.body
@@ -240,3 +264,19 @@ def edit_pipeline_note(entry_id: int, note_id: int, data: PipelineNoteUpdate, db
     return {"id": note.id, "body": note.body, "author_name": note.author.name,
             "created_at": note.created_at.isoformat(),
             "updated_at": note.updated_at.isoformat(), "updated_by": current_user.name}
+
+
+@router.delete("/{entry_id}/notes/{note_id}")
+def delete_pipeline_note(entry_id: int, note_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    note = db.query(PipelineNote).filter(
+        PipelineNote.id == note_id,
+        PipelineNote.pipeline_id == entry_id,
+        PipelineNote.deleted_at.is_(None)
+    ).first()
+    if not note:
+        raise HTTPException(status_code=404, detail="Not found")
+    if current_user.role != "admin" and note.author_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    note.deleted_at = datetime.utcnow()
+    db.commit()
+    return {"ok": True}

@@ -830,6 +830,7 @@
 </style>
 </head>
 <body>
+<div style="background:#F5A623;color:#000;text-align:center;padding:6px;font-size:13px;font-weight:600;letter-spacing:1px;">STAGING — NOT PRODUCTION</div>
 
 <!-- LOGIN -->
 <div id="login-screen" style="display:none;position:fixed;inset:0;background:var(--navy);z-index:100;align-items:center;justify-content:center;">
@@ -919,6 +920,10 @@
       <button class="sb-item" data-view="admin">
         <svg class="sb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M20 21a8 8 0 1 0-16 0"></path></svg>
         <span>Admin</span>
+      </button>
+      <button class="sb-item" data-view="trash" id="nav-trash" style="display:none">
+        <svg class="sb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4h6v2"></path></svg>
+        <span>Trash</span>
       </button>
     </nav>
     <div class="sb-footer">
@@ -1415,14 +1420,6 @@
       <div class="page-body" style="padding:0">
         <div style="max-width:720px">
 
-          <div class="report-row" onclick="openReport('quality')">
-            <div>
-              <div style="font-size:14px;font-weight:600;color:var(--navy)">Data Quality Audit</div>
-              <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">Contact completeness, field validation and region checks</div>
-            </div>
-            <span style="color:var(--logo-blue);font-size:20px;font-weight:300">&#8594;</span>
-          </div>
-
           <div class="report-row" id="rr-activity" style="display:none" onclick="openReport('activity')">
             <div>
               <div style="font-size:14px;font-weight:600;color:var(--navy)">Activity Report</div>
@@ -1431,10 +1428,10 @@
             <span style="color:var(--logo-blue);font-size:20px;font-weight:300">&#8594;</span>
           </div>
 
-          <div class="report-row" onclick="openReport('tasks')">
+          <div class="report-row" id="rr-bonus" onclick="loadBonusReport()">
             <div>
-              <div style="font-size:14px;font-weight:600;color:var(--navy)">Task Report</div>
-              <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">All tasks across contacts, filterable by status</div>
+              <div style="font-size:14px;font-weight:600;color:var(--navy)">Bonus Report</div>
+              <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">Quarterly bonus summary for Zeal and Erna</div>
             </div>
             <span style="color:var(--logo-blue);font-size:20px;font-weight:300">&#8594;</span>
           </div>
@@ -1447,10 +1444,18 @@
             <span style="color:var(--logo-blue);font-size:20px;font-weight:300">&#8594;</span>
           </div>
 
-          <div class="report-row" id="rr-bonus" onclick="loadBonusReport()">
+          <div class="report-row" onclick="openReport('quality')">
             <div>
-              <div style="font-size:14px;font-weight:600;color:var(--navy)">Bonus Report</div>
-              <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">Quarterly bonus summary for Zeal and Erna</div>
+              <div style="font-size:14px;font-weight:600;color:var(--navy)">Data Quality Audit</div>
+              <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">Contact completeness, field validation and region checks</div>
+            </div>
+            <span style="color:var(--logo-blue);font-size:20px;font-weight:300">&#8594;</span>
+          </div>
+
+          <div class="report-row" onclick="openReport('lost-deals')">
+            <div>
+              <div style="font-size:14px;font-weight:600;color:var(--navy)">Lost Deals</div>
+              <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">Pipeline entries closed, stalled or cancelled &#8212; grouped by close reason</div>
             </div>
             <span style="color:var(--logo-blue);font-size:20px;font-weight:300">&#8594;</span>
           </div>
@@ -1468,6 +1473,14 @@
               <div style="color:var(--warm-grey);font-size:13px">Loading brands…</div>
             </div>
             <button class="btn btn-primary" onclick="event.stopPropagation();downloadPrincipalReport()">&#8595; Download Report</button>
+          </div>
+
+          <div class="report-row" onclick="openReport('tasks')">
+            <div>
+              <div style="font-size:14px;font-weight:600;color:var(--navy)">Task Report</div>
+              <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">All tasks across contacts, filterable by status</div>
+            </div>
+            <span style="color:var(--logo-blue);font-size:20px;font-weight:300">&#8594;</span>
           </div>
 
         </div>
@@ -1567,6 +1580,21 @@
           </div>
         </div>
 
+        <!-- Close Reasons -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-head" style="cursor:pointer" onclick="toggleSection('admin-close-reasons-body')">
+            <div><div class="card-title">Close Reasons</div><div class="card-sub">Manage reasons for lost / closed deals</div></div>
+            <span id="admin-close-reasons-chevron" style="color:var(--warm-grey)">&#9654;</span>
+          </div>
+          <div id="admin-close-reasons-body" style="display:none">
+            <div style="padding:0 20px" id="admin-close-reasons-list"></div>
+            <div class="card-foot" style="gap:8px;">
+              <input id="new-close-reason-input" placeholder="New close reason…" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;flex:1;"/>
+              <button class="btn btn-primary" style="padding:6px 12px" onclick="addRefItem('close_reason')">Add</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Sales Regions -->
         <div class="card" style="margin-bottom:16px;">
           <div class="card-head" style="cursor:pointer" onclick="toggleSection('admin-regions-body')">
@@ -1612,7 +1640,7 @@
             <div class="card-body" style="padding:24px 28px;line-height:1.8">
               <table style="border-collapse:collapse;font-size:13px;color:var(--navy)">
                 <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Application</td><td style="font-weight:600">Kizuna — Konomocha CRM</td></tr>
-                <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Version</td><td style="font-weight:600">v2.10</td></tr>
+                <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Version</td><td style="font-weight:600">v2.13</td></tr>
                 <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Last updated</td><td style="font-weight:600">21 May 2026</td></tr>
                 <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Developer</td><td style="font-weight:600">Thierry Bourret</td></tr>
                 <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Built with</td><td style="font-weight:600">FastAPI &middot; PostgreSQL &middot; Vanilla JS</td></tr>
@@ -1625,12 +1653,28 @@
 </div>
     </section>
 
+  <section class="view" id="view-trash" data-screen-label="Trash">
+    <div class="page-head">
+      <div>
+        <h1 class="page-title">Trash</h1>
+        <div class="page-sub" style="color:var(--warm-grey);font-size:13px">Items are permanently deleted after 20 days</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--line)">
+      <button class="trash-tab-btn" id="ttab-contacts" onclick="switchTrashTab('contacts')" style="background:none;border:none;border-bottom:2px solid var(--logo-blue-dark);margin-bottom:-2px;padding:8px 16px;font:inherit;font-size:13px;font-weight:600;color:var(--logo-blue-dark);cursor:pointer">Contacts</button>
+      <button class="trash-tab-btn" id="ttab-pipeline" onclick="switchTrashTab('pipeline')" style="background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;padding:8px 16px;font:inherit;font-size:13px;color:var(--warm-grey);cursor:pointer">Pipeline</button>
+      <button class="trash-tab-btn" id="ttab-orders" onclick="switchTrashTab('orders')" style="background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;padding:8px 16px;font:inherit;font-size:13px;color:var(--warm-grey);cursor:pointer">Orders</button>
+      <button class="trash-tab-btn" id="ttab-notes" onclick="switchTrashTab('notes')" style="background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;padding:8px 16px;font:inherit;font-size:13px;color:var(--warm-grey);cursor:pointer">Notes</button>
+    </div>
+    <div id="trash-content"><div style="text-align:center;padding:40px;color:var(--warm-grey)">Loading…</div></div>
+  </section>
+
   </main>
 </div><!-- /app-root -->
 
 <script>
 // ============================================================
-// Kizuna (Konomocha CRM) v2.10
+// Kizuna (Konomocha CRM) v2.13
 // ============================================================
 
 const API = '/crm/api';
@@ -1640,6 +1684,12 @@ let CURRENT_USER = JSON.parse(localStorage.getItem('crm_user') || 'null');
 // ---- Reference data (localStorage) ----
 const DEF_REGIONS   = ['Africa','Asia','Balkans','Eastern Europe','Europe','India','Middle East','North America','Oceania','South America'];
 const DEF_PIPELINE_STATUSES = ['Awaiting Feedback','Awaiting Info','Awaiting Samples','Catalogue Sent','Closed / No Action','Deposit Paid','Form Completed','In Progress','On Hold','Order Placed','Price List Sent','Quotation Sent','Samples Delivered','Samples Requested','Samples Sent','Stalled'];
+const DEF_LOST_STATUSES = ['Stalled', 'Closed / No Action', 'Cancelled'];
+function isLostStatus(st) {
+  var sp = _stageProbs && _stageProbs[st];
+  if (sp !== undefined && sp !== null) return (sp.probability || 0) === 0;
+  return DEF_LOST_STATUSES.indexOf(st) !== -1;
+}
 const DEF_ORDER_STATUSES = ['PO Received','PI Confirmed','Deposit Paid','Shipped','Payment Received','Cancelled'];
 const DEF_TAGS      = ['Agent','CloseOut','DND','Distributor','Manufacturer','Network','Principal','Retailer','Stationery'];
 const DEF_COUNTRIES = ['Afghanistan','Albania','Algeria','Angola','Argentina','Armenia','Australia','Austria','Azerbaijan','Bahrain','Bangladesh','Belarus','Belgium','Bosnia','Botswana','Brazil','Bulgaria','Cambodia','Canada','Chile','China','Colombia','Costa Rica','Croatia','Cyprus','Czech Republic','Denmark','Dominican Republic','Ecuador','Egypt','El Salvador','Estonia','Fiji','Finland','France','Georgia','Germany','Ghana','Gibraltar','Greece','Hong Kong','Hungary','Iceland','India','Indonesia','Iran','Iraq','Ireland','Israel','Italy','Jamaica','Japan','Jordan','Kazakhstan','Kenya','Korea','Kuwait','Latvia','Lebanon','Liechtenstein','Lithuania','Luxembourg','Macedonia','Madagascar','Malaysia','Malta','Mauritius','Mexico','Moldova','Mongolia','Morocco','Myanmar','Namibia','Netherlands','New Zealand','Nigeria','Norway','Oman','Pakistan','Palestine','Panama','Paraguay','Peru','Philippines','Poland','Portugal','Puerto Rico','Qatar','Romania','Russia','Saudi Arabia','Senegal','Serbia','Singapore','Slovakia','Slovenia','South Africa','South Korea','Spain','Sri Lanka','Sweden','Switzerland','Taiwan','Thailand','Trinidad and Tobago','Tunisia','Turkey','Ukraine','United Arab Emirates','United Kingdom','United States of America','Uruguay','Venezuela','Vietnam','Zimbabwe'];
@@ -1708,6 +1758,7 @@ function showApp() {
   // Admin nav
   if (CURRENT_USER.role === 'admin') {
     document.getElementById('sb-hdr-admin').style.display = '';
+    document.getElementById('nav-trash').style.display = '';
     document.getElementById('sb-body-admin').style.display = '';
   }
   // Orders — admin only
@@ -1719,7 +1770,7 @@ function showApp() {
 }
 
 // ---- Navigation ----
-const TITLES = { dashboard:'Dashboard', contacts:'Contacts', companies:'Companies', pipeline:'Pipeline', brands:'Brands', orders:'Orders', tasks:'Tasks', email:'Email Log', reports:'Reports', admin:'Admin' };
+const TITLES = { dashboard:'Dashboard', contacts:'Contacts', companies:'Companies', pipeline:'Pipeline', brands:'Brands', orders:'Orders', tasks:'Tasks', email:'Email Log', reports:'Reports', admin:'Admin', trash:'Trash' };
 function activate(view) {
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-'+view));
   document.querySelectorAll('.sb-item[data-view]').forEach(n => n.classList.toggle('active', n.dataset.view === view));
@@ -2096,6 +2147,7 @@ async function openContactDetail(id) {
     `<div id="ec-error" style="display:none;color:#B33A47;font-size:13px;margin-bottom:12px;padding:10px;background:#FAE3E5;border-radius:8px"></div>`+
     `<div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:24px">`+
       `<button type="button" onclick="document.getElementById('modal').style.display='none';window._editFromReport=false;" class="btn btn-secondary">Cancel</button>`+
+      `${CURRENT_USER&&CURRENT_USER.role==='admin'?'<button type="button" onclick="deleteContactFromModal('+id+')" class="btn btn-secondary" style="color:#B33A47">Delete</button>':''}`+
       `<button type="submit" class="btn btn-primary">Save</button>`+
     `</div></form>`+
     `<div style="text-align:right;margin:-4px 0 16px"><button type="button" onclick="openMergeModal(${id})" style="background:none;border:none;color:var(--warm-grey);font-size:12px;cursor:pointer;padding:0;text-decoration:underline">Merge duplicate…</button></div>`+
@@ -2449,7 +2501,7 @@ function openPipelineDetail(id) {
     <form id="pe-edit-form" onsubmit="savePipelineEdit(event,${e.id})">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
         <div><label class="fl">Status</label>
-          <select name="status" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">
+          <select name="status" id="pe-status-select" onchange="onPipelineStatusChange(this.value)" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">
             ${statuses.map(s=>`<option${s===e.status?' selected':''}>${s}</option>`).join('')}
           </select></div>
         <div><label class="fl">Owner</label>
@@ -2465,6 +2517,8 @@ function openPipelineDetail(id) {
       </div>
       <div style="margin-bottom:12px"><label class="fl">Next Action</label>
         <input name="next_action" value="${(e.next_action||'').replace(/"/g,'&quot;')}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+      <div id="pe-close-reason-wrap" style="${isLostStatus(e.status)?'':'display:none'}"><label class="fl">Close Reason </label>
+        ${buildCloseReasonSelect(e.close_reason||'')}</div>
       <div id="pe-edit-error" style="display:none;color:#B33A47;font-size:13px;margin-bottom:12px;padding:10px;background:#FAE3E5;border-radius:8px"></div>
     </form>
     <div style="border-top:1px solid var(--line);padding-top:16px;margin-top:4px">
@@ -2477,8 +2531,10 @@ function openPipelineDetail(id) {
         <button onclick="addPipelineNote(${e.id})" class="btn btn-primary" style="font-size:13px">Add Note</button>
       </div>
     </div>`;
+  const isAdminPE = CURRENT_USER && CURRENT_USER.role === 'admin';
   document.getElementById('modal-footer').innerHTML = `
     <button class="btn btn-secondary" onclick="document.getElementById('modal').style.display='none'">Cancel</button>
+    ${isAdminPE ? `<button class="btn btn-secondary" style="color:#B33A47" onclick="deletePipelineEntry(${e.id})">Delete</button>` : ''}
     <button class="btn btn-secondary" onclick="openConvertToOrderModal(${e.id})">Convert to Order</button>
     <button class="btn btn-primary" onclick="document.getElementById('pe-edit-form').requestSubmit()">Save</button>`;
   document.getElementById('modal').style.display = 'flex';
@@ -2489,15 +2545,26 @@ async function savePipelineEdit(evt, id) {
   evt.preventDefault();
   const e = pipelineData.find(x=>x.id===id); if(!e) return;
   const fd = new FormData(evt.target);
+  const newStatus = fd.get('status');
+  const closeReasonRaw = fd.get('close_reason');
   const payload = {
     contact_id:      e.contact_id,
     brand_id:        e.brand_id,
-    status:          fd.get('status'),
+    status:          newStatus,
     potential_value: parseFloat(fd.get('potential_value'))||0,
     next_action:     fd.get('next_action')||null,
     fob_date:        fd.get('fob_date')||null,
     owner_id:        parseInt(fd.get('owner_id')),
   };
+  if (isLostStatus(newStatus)) {
+    const reason = (closeReasonRaw || '').trim();
+    if (!reason) {
+      document.getElementById('pe-edit-error').textContent = 'A close reason is required for this status.';
+      document.getElementById('pe-edit-error').style.display = 'block';
+      return;
+    }
+    payload.close_reason = reason;
+  }
   const btn = document.querySelector('#modal-footer .btn-primary');
   if (btn) { btn.textContent='Saving…'; btn.disabled=true; }
   const result = await apiFetch('/pipeline/'+id, {method:'PUT', body:JSON.stringify(payload)});
@@ -2996,6 +3063,12 @@ let qFilter = 'all', qCurrentPage = 1, qPerPage = 50;
 
 
 function openReport(type) {
+  if (type === 'lost-deals') {
+    var lo = document.getElementById('report-overlay');
+    if (lo) lo.style.display = 'flex';
+    loadLostDealsReport();
+    return;
+  }
   const overlay = document.getElementById('report-overlay');
   const title   = document.getElementById('report-overlay-title');
   const body    = document.getElementById('report-overlay-body');
@@ -3125,10 +3198,177 @@ function togglePrincipalPicker() {
   if (!isOpen) populatePrincipalBrands();
 }
 
+function onPipelineStatusChange(val) {
+  var wrap = document.getElementById('pe-close-reason-wrap');
+  if (wrap) wrap.style.display = isLostStatus(val) ? '' : 'none';
+}
+
+function buildCloseReasonSelect(currentVal) {
+  var reasons = (_stageList.close_reason || []).slice().sort(function(a,b){return a.position-b.position;});
+  var style = 'width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)';
+  var html = '<select name="close_reason" id="pe-close-reason" required style="' + style + '">';
+  html += '<option value="">Select a reason…</option>';
+  var labels = reasons.map(function(r){ return r.label||r.name; });
+  if (currentVal && !labels.includes(currentVal)) {
+    html += '<option value="' + escHtml(currentVal) + '" selected>' + escHtml(currentVal) + '</option>';
+  }
+  reasons.forEach(function(r) {
+    var lbl = r.label||r.name;
+    html += '<option value="' + lbl + '"' + (currentVal === lbl ? ' selected' : '') + '>' + lbl + '</option>';
+  });
+  html += '</select>';
+  return html;
+}
+
+function fmtDate(iso) {
+  if (!iso) return "—";
+  var d = iso.substring(0, 10);
+  return d.slice(8,10) + '/' + d.slice(5,7) + '/' + d.slice(0,4);
+}
+
 async function loadReports() {
   var u = JSON.parse(localStorage.getItem('crm_user')||'{}');
   var ra = document.getElementById('rr-activity');
   if (ra) ra.style.display = (u.role==='admin') ? '' : 'none';
+}
+
+async function loadLostDealsReport() {
+  var body = document.getElementById('report-overlay-body');
+  var title = document.getElementById('report-overlay-title');
+  if (title) title.textContent = 'Lost Deals';
+  if (!body) return;
+  var ownerEl   = document.getElementById('ld-owner-filter');
+  var brandEl   = document.getElementById('ld-brand-filter');
+  var fromEl    = document.getElementById('ld-date-from');
+  var toEl      = document.getElementById('ld-date-to');
+  var companyEl = document.getElementById('ld-company-search');
+  var companySearch = ((companyEl && companyEl.value) || '').toLowerCase().trim();
+  body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--warm-grey)">Loading…</div>';
+  var params = new URLSearchParams();
+  if (ownerEl && ownerEl.value) params.set('owner_id', ownerEl.value);
+  if (brandEl && brandEl.value) params.set('brand_id', brandEl.value);
+  if (fromEl  && fromEl.value)  params.set('date_from', fromEl.value);
+  if (toEl    && toEl.value)    params.set('date_to',   toEl.value);
+  var d = await apiFetch('/reports/lost-deals?' + params);
+  if (!d) { body.innerHTML='<div style="padding:40px;text-align:center;color:#B33A47">Failed to load.</div>'; return; }
+  var isAdmin = CURRENT_USER && CURRENT_USER.role === 'admin';
+  var users  = (window._crmUsers || []);
+  var brands = allBrands || [];
+  var filters = '<div style="display:flex;flex-wrap:wrap;gap:10px;padding:16px 24px;border-bottom:1px solid var(--line);background:var(--off-white)">';
+  if (isAdmin) {
+    filters += '<div><label style="font-size:12px;color:var(--warm-grey);display:block;margin-bottom:4px">Owner</label>'
+      + '<select id="ld-owner-filter" onchange="loadLostDealsReport()" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;background:var(--white)">'
+      + '<option value="">All owners</option>'
+      + users.map(function(u){ return '<option value="' + u.id + '"' + ((ownerEl&&ownerEl.value==u.id)?' selected':'') + '>' + escHtml(u.name) + '</option>'; }).join('')
+      + '</select></div>';
+  }
+  filters += '<div><label style="font-size:12px;color:var(--warm-grey);display:block;margin-bottom:4px">Brand</label>'
+    + '<select id="ld-brand-filter" onchange="loadLostDealsReport()" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;background:var(--white)">'
+    + '<option value="">All brands</option>'
+    + brands.map(function(b){ return '<option value="' + b.id + '"' + ((brandEl&&brandEl.value==b.id)?' selected':'') + '>' + escHtml(b.name) + '</option>'; }).join('')
+    + '</select></div>';
+  filters += '<div><label style="font-size:12px;color:var(--warm-grey);display:block;margin-bottom:4px">Company</label>'
+    + '<input id="ld-company-search" type="text" placeholder="Filter by company…" value="' + escHtml(companySearch) + '" onchange="loadLostDealsReport()" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;min-width:180px"/></div>';
+  filters += '<div><label style="font-size:12px;color:var(--warm-grey);display:block;margin-bottom:4px">Closed from</label>'
+    + '<input id="ld-date-from" type="date" value="' + ((fromEl&&fromEl.value)||'') + '" onchange="loadLostDealsReport()" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px"/></div>';
+  filters += '<div><label style="font-size:12px;color:var(--warm-grey);display:block;margin-bottom:4px">Closed to</label>'
+    + '<input id="ld-date-to" type="date" value="' + ((toEl&&toEl.value)||'') + '" onchange="loadLostDealsReport()" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px"/></div>';
+  filters += '</div>';
+  var winRateColor  = (d.win_rate_pct  >= 50) ? '#1A7F4B' : '#B33A47';
+  var lossRateColor = (d.loss_rate_pct >= 50) ? '#B33A47' : '#1A7F4B';
+  var summaryHtml = '<div style="display:flex;flex-wrap:wrap;gap:0;border-bottom:1px solid var(--line)">'
+    + '<div style="padding:16px 24px;border-right:1px solid var(--line);min-width:120px">'
+    + '<div style="font-size:11px;color:var(--warm-grey);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Won deals</div>'
+    + '<div style="font-size:26px;font-weight:700;color:#1A7F4B">' + (d.total_won||0) + '</div>'
+    + '<div style="font-size:11px;color:var(--warm-grey);margin-top:2px">' + fmtVal(d.total_won_value||0) + '</div>'
+    + '</div>'
+    + '<div style="padding:16px 24px;border-right:1px solid var(--line);min-width:120px">'
+    + '<div style="font-size:11px;color:var(--warm-grey);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Lost deals</div>'
+    + '<div style="font-size:26px;font-weight:700;color:#B33A47">' + (d.total_lost||d.total||0) + '</div>'
+    + '<div style="font-size:11px;color:var(--warm-grey);margin-top:2px">' + fmtVal(d.total_lost_value||d.total_value||0) + '</div>'
+    + '</div>'
+    + '<div style="padding:16px 24px;border-right:1px solid var(--line);min-width:110px">'
+    + '<div style="font-size:11px;color:var(--warm-grey);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Win rate</div>'
+    + '<div style="font-size:26px;font-weight:700;color:' + winRateColor + '">' + (d.win_rate_pct||0) + '%</div>'
+    + '</div>'
+    + '<div style="padding:16px 24px;min-width:110px">'
+    + '<div style="font-size:11px;color:var(--warm-grey);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Loss rate</div>'
+    + '<div style="font-size:26px;font-weight:700;color:' + lossRateColor + '">' + (d.loss_rate_pct||0) + '%</div>'
+    + '</div>'
+    + '</div>';
+  var reasonsHtml = '';
+  var reasonKeys = Object.keys(d.by_reason || {});
+  if (reasonKeys.length) {
+    reasonsHtml = '<div style="padding:16px 24px;border-bottom:1px solid var(--line)">'
+      + '<div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:10px">By Close Reason</div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:8px">'
+      + reasonKeys.map(function(r){
+          return '<span style="padding:4px 12px;border-radius:12px;font-size:12px;font-weight:500;background:#F0F4FF;border:1px solid #C7D2FF;color:#3B4FCF">'
+            + escHtml(r) + ' <b>' + d.by_reason[r] + '</b></span>';
+        }).join('')
+      + '</div></div>';
+  }
+  var byOwnerHtml = '';
+  if (d.by_owner && d.by_owner.length > 1) {
+    byOwnerHtml = '<div style="padding:16px 24px;border-bottom:1px solid var(--line)">'
+      + '<div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:10px">Win / Loss by Owner</div>'
+      + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'
+      + '<thead><tr style="background:var(--off-white)">'
+      + '<th style="text-align:left;padding:8px 12px;font-weight:600;color:var(--navy)">Owner</th>'
+      + '<th style="text-align:right;padding:8px 12px;font-weight:600;color:#1A7F4B">Won</th>'
+      + '<th style="text-align:right;padding:8px 12px;font-weight:600;color:#B33A47">Lost</th>'
+      + '<th style="text-align:right;padding:8px 12px;font-weight:600;color:var(--navy)">Win %</th>'
+      + '<th style="text-align:left;padding:8px 12px;font-weight:600;color:var(--navy)"> </th>'
+      + '</tr></thead><tbody>'
+      + d.by_owner.map(function(o) {
+          var bar = '<div style="display:flex;height:6px;border-radius:3px;overflow:hidden;width:100px;background:var(--line)">'
+            + '<div style="background:#1A7F4B;width:' + o.win_rate_pct + '%"></div>'
+            + '</div>';
+          return '<tr style="border-top:1px solid var(--line)">'
+            + '<td style="padding:8px 12px;font-weight:500">' + escHtml(o.owner_name||'—') + '</td>'
+            + '<td style="padding:8px 12px;text-align:right;color:#1A7F4B;font-weight:600">' + o.won + '</td>'
+            + '<td style="padding:8px 12px;text-align:right;color:#B33A47;font-weight:600">' + o.lost + '</td>'
+            + '<td style="padding:8px 12px;text-align:right;font-weight:600">' + o.win_rate_pct + '%</td>'
+            + '<td style="padding:8px 12px">' + bar + '</td>'
+            + '</tr>';
+        }).join('')
+      + '</tbody></table></div>'
+      + '</div>';
+  }
+
+  var filteredEntries = companySearch
+    ? (d.entries || []).filter(function(e){ return (e.contact_company||'').toLowerCase().includes(companySearch); })
+    : (d.entries || []);
+  var tableHtml = '';
+  if (filteredEntries.length) {
+    var isAdminCol = isAdmin ? '<th style="text-align:left;padding:10px 12px;font-weight:600;color:var(--navy)">Owner</th>' : '';
+    tableHtml = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'
+      + '<thead><tr style="background:var(--off-white)">'
+      + '<th style="text-align:left;padding:10px 12px;font-weight:600;color:var(--navy)">Contact / Company</th>'
+      + '<th style="text-align:left;padding:10px 12px;font-weight:600;color:var(--navy)">Brand</th>'
+      + '<th style="text-align:left;padding:10px 12px;font-weight:600;color:var(--navy)">Status</th>'
+      + '<th style="text-align:right;padding:10px 12px;font-weight:600;color:var(--navy)">Value</th>'
+      + '<th style="text-align:left;padding:10px 12px;font-weight:600;color:var(--navy)">Close Reason</th>'
+      + '<th style="text-align:left;padding:10px 12px;font-weight:600;color:var(--navy)">Closed</th>'
+      + isAdminCol + '</tr></thead><tbody>'
+      + filteredEntries.map(function(e, i) {
+          var adminCol = isAdmin ? '<td style="padding:10px 12px">' + escHtml(e.owner_name||'—') + '</td>' : '';
+          return '<tr style="border-top:1px solid var(--line)">'
+            + '<td style="padding:10px 12px"><div style="font-weight:500">' + escHtml(e.contact_name||'—') + '</div>'
+            + (e.contact_company ? '<div style="font-size:12px;color:var(--warm-grey)">' + escHtml(e.contact_company) + '</div>' : '')
+            + '</td>'
+            + '<td style="padding:10px 12px">' + escHtml(e.brand_name||'—') + '</td>'
+            + '<td style="padding:10px 12px"><span style="padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;background:#FEF2F2;border:1px solid #FCA5A5;color:#B33A47">' + escHtml(e.status||'') + '</span></td>'
+            + '<td style="padding:10px 12px;text-align:right;font-family:monospace">' + fmtVal(e.potential_value) + '</td>'
+            + '<td style="padding:10px 12px">' + escHtml(e.close_reason||'—') + '</td>'
+            + '<td style="padding:10px 12px;color:var(--warm-grey);white-space:nowrap">' + fmtDate(e.closed_at) + '</td>'
+            + adminCol + '</tr>';
+        }).join('')
+      + '</tbody></table></div>';
+  } else {
+    tableHtml = '<div style="padding:40px;text-align:center;color:var(--warm-grey)">No lost deals found.</div>';
+  }
+  body.innerHTML = filters + summaryHtml + reasonsHtml + byOwnerHtml + tableHtml;
 }
 
 function setQFilter(f) {
@@ -3675,7 +3915,7 @@ async function advanceOrderStatus(orderId, newStatus) {
 }
 
 async function deleteOrder(orderId) {
-  if (!confirm('Delete this order? This cannot be undone.')) return;
+  if (!confirm('Move this order to trash?')) return;
   var r = await apiFetch('/orders/'+orderId, {method:'DELETE'});
   if (r) { document.getElementById('modal').style.display='none'; showToast('Order deleted'); loadOrders(); }
   else showToast('Failed to delete order');
@@ -3872,15 +4112,15 @@ async function loadAdminUsers() {
 var _stageProbs = {};
 var _stageList = {pipeline: [], order: []};
 async function loadStageProbs() {
-  var r = await fetch('/crm/api/admin/stages', {headers:{Authorization:'Bearer '+TOKEN}});
+  var r = await fetch('/crm-staging/api/admin/stages', {headers:{Authorization:'Bearer '+TOKEN}});
   if (!r.ok) return;
   var d = await r.json();
   _stageProbs = {};
-  _stageList = {pipeline: d.pipeline||[], order: d.order||[]};
+  _stageList = {pipeline: d.pipeline||[], order: d.order||[], close_reason: d.close_reason||[]};
   (d.pipeline||[]).concat(d.order||[]).forEach(function(s){ _stageProbs[s.name] = s; });
 }
 async function updateStageProb(id, value) {
-  await fetch('/crm/api/admin/stages/' + id, {
+  await fetch('/crm-staging/api/admin/stages/' + id, {
     method: 'PUT',
     headers: {Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json'},
     body: JSON.stringify({probability: value})
@@ -3910,6 +4150,7 @@ function renderRefLists() {
   renderList('admin-countries-list',getCountries(), 'country');
   renderDbStageList('admin-statuses-list', 'pipeline');
   renderDbStageList('admin-order-statuses-list', 'order');
+  renderDbStageListSimple('admin-close-reasons-list', 'close_reason');
 }
 
 function renderDbStageList(elId, stageType) {
@@ -3924,23 +4165,35 @@ function renderDbStageList(elId, stageType) {
       </div></div>`
   ).join('');
 }
+function renderDbStageListSimple(elId, stageType) {
+  const el = document.getElementById(elId); if (!el) return;
+  const stages = (_stageList[stageType] || []).slice().sort((a,b)=>a.position-b.position);
+  el.innerHTML = stages.map(s =>
+    `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line)">
+      <span style="font-size:13px;flex:1">${s.label||s.name}</span>
+      <button onclick="deleteStageById(${s.id})" style="color:var(--accent-coral);font-size:12px;background:none;border:none;cursor:pointer">Remove</button>
+    </div>`
+  ).join('');
+}
 async function deleteStageById(id) {
   if (!confirm('Remove this stage?')) return;
-  await fetch('/crm/api/admin/stages/'+id, {method:'DELETE', headers:{Authorization:'Bearer '+TOKEN}});
+  await fetch('/crm-staging/api/admin/stages/'+id, {method:'DELETE', headers:{Authorization:'Bearer '+TOKEN}});
   await loadStageProbs(); renderRefLists();
 }
 function addRefItem(type) {
-  const el = document.getElementById('new-'+type+'-input');
+  const inputId = type === 'close_reason' ? 'new-close-reason-input' : 'new-'+type+'-input';
+  const el = document.getElementById(inputId);
   const val = el.value.trim(); if(!val) return;
   if (type==='region') { const r=getRegions(); if(!r.includes(val)){r.push(val);r.sort();saveRegions(r);} el.value=''; renderRefLists(); populateFilterDropdowns(); return; }
   if (type==='tag')    { const t=getTags();    if(!t.includes(val)){t.push(val);t.sort();saveTags(t);}     el.value=''; renderRefLists(); populateFilterDropdowns(); return; }
   if (type==='country'){ const c=getCountries();if(!c.includes(val)){c.push(val);c.sort();saveCountries(c);} el.value=''; renderRefLists(); populateFilterDropdowns(); return; }
   // status + order_status → write to DB
-  const stageType = type==='status' ? 'pipeline' : 'order';
-  fetch('/crm/api/admin/stages', {
+  const stageType = type==='status' ? 'pipeline' : type==='order_status' ? 'order' : 'close_reason';
+  const prob = (stageType === 'close_reason') ? null : 0;
+  fetch('/crm-staging/api/admin/stages', {
     method:'POST',
     headers:{Authorization:'Bearer '+TOKEN,'Content-Type':'application/json'},
-    body: JSON.stringify({stage_type:stageType, name:val, label:val, probability:0})
+    body: JSON.stringify({stage_type:stageType, name:val, label:val, probability:prob})
   }).then(()=>loadStageProbs()).then(()=>{ renderRefLists(); populateFilterDropdowns(); });
   el.value='';
 }
@@ -4274,6 +4527,7 @@ async function loadView(view) {
   if(view==='tasks')     await loadMyTasks();
   if(view==='email')     await loadEmails();
   if(view==='admin')     await loadAdmin();
+  if(view==='trash')     await loadTrash();
 }
 
 // ---- Event listeners ----
@@ -4368,6 +4622,182 @@ if (TOKEN) {
     });
   });
 })();
+
+// ============================================================
+// Stage 6 — Soft delete helpers
+// ============================================================
+
+async function deleteContactFromModal(contactId) {
+  if (!confirm('Move this contact to trash?')) return;
+  const r = await apiFetch('/contacts/'+contactId, {method:'DELETE'});
+  if (r) {
+    document.getElementById('modal').style.display='none';
+    showToast('Contact moved to trash');
+    loadContacts();
+  }
+}
+
+async function deletePipelineEntry(entryId) {
+  if (!confirm('Move this pipeline entry to trash?')) return;
+  const r = await apiFetch('/pipeline/'+entryId, {method:'DELETE'});
+  if (r) {
+    document.getElementById('modal').style.display='none';
+    showToast('Pipeline entry moved to trash');
+    loadPipeline();
+  }
+}
+
+// ---- Trash view ----
+let trashData = null;
+let trashTab = 'contacts';
+
+function switchTrashTab(tab) {
+  trashTab = tab;
+  document.querySelectorAll('.trash-tab-btn').forEach(function(btn) {
+    var active = btn.id === 'ttab-' + tab;
+    btn.style.borderBottomColor = active ? 'var(--logo-blue-dark)' : 'transparent';
+    btn.style.color = active ? 'var(--logo-blue-dark)' : 'var(--warm-grey)';
+    btn.style.fontWeight = active ? '600' : '';
+  });
+  renderTrashTab();
+}
+
+function renderTrashTab() {
+  var el = document.getElementById('trash-content');
+  if (!el) return;
+  if (!trashData) { el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--warm-grey)">Loading…</div>'; return; }
+
+  if (trashTab === 'contacts') {
+    var items = trashData.contacts;
+    if (!items || !items.length) { el.innerHTML = '<div style="padding:24px;color:var(--warm-grey);font-size:13px">No contacts in trash.</div>'; return; }
+    var rows = items.map(function(i) {
+      return '<tr>' +
+        '<td style="padding:10px 12px;font-size:13px"><strong>' + escHtml(i.name||'—') + '</strong>' + (i.company ? '<br><span style="font-size:11px;color:var(--warm-grey)">'+escHtml(i.company)+'</span>' : '') + '</td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey)">' + escHtml(i.email||'—') + '</td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey)">' + i.days_since + ' day' + (i.days_since!==1?'s':'') + ' ago</td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:' + (i.days_remaining <= 3 ? '#B33A47' : 'var(--warm-grey)') + '">' + i.days_remaining + ' day' + (i.days_remaining!==1?'s':'') + ' left</td>' +
+        '<td style="padding:10px 12px;white-space:nowrap">' +
+          '<button onclick="restoreTrashItem(\x27contact\x27,'+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;margin-right:4px">Restore</button>' +
+          '<button onclick="hardDeleteTrashItem(\x27contact\x27,'+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;color:#B33A47">Delete</button>' +
+        '</td></tr>';
+    });
+    el.innerHTML = '<table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid var(--line)">' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Name</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Email</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Deleted</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Remaining</th>' +
+      '<th></th></tr></thead><tbody>' + rows.join('') + '</tbody></table>';
+  } else if (trashTab === 'pipeline') {
+    var items = trashData.pipeline;
+    if (!items || !items.length) { el.innerHTML = '<div style="padding:24px;color:var(--warm-grey);font-size:13px">No pipeline entries in trash.</div>'; return; }
+    var rows = items.map(function(i) {
+      return '<tr>' +
+        '<td style="padding:10px 12px;font-size:13px">' + escHtml(i.contact_name||'—') + '</td>' +
+        '<td style="padding:10px 12px;font-size:13px">' + escHtml(i.brand_name||'—') + '</td>' +
+        '<td style="padding:10px 12px;font-size:12px"><span class="pill blue">' + escHtml(i.status||'') + '</span></td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey)">' + i.days_since + ' day' + (i.days_since!==1?'s':'') + ' ago</td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:' + (i.days_remaining <= 3 ? '#B33A47' : 'var(--warm-grey)') + '">' + i.days_remaining + ' day' + (i.days_remaining!==1?'s':'') + ' left</td>' +
+        '<td style="padding:10px 12px;white-space:nowrap">' +
+          '<button onclick="restoreTrashItem(\x27pipeline\x27,'+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;margin-right:4px">Restore</button>' +
+          '<button onclick="hardDeleteTrashItem(\x27pipeline\x27,'+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;color:#B33A47">Delete</button>' +
+        '</td></tr>';
+    });
+    el.innerHTML = '<table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid var(--line)">' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Contact</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Brand</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Status</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Deleted</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Remaining</th>' +
+      '<th></th></tr></thead><tbody>' + rows.join('') + '</tbody></table>';
+  } else if (trashTab === 'orders') {
+    var items = trashData.orders;
+    if (!items || !items.length) { el.innerHTML = '<div style="padding:24px;color:var(--warm-grey);font-size:13px">No orders in trash.</div>'; return; }
+    var rows = items.map(function(i) {
+      return '<tr>' +
+        '<td style="padding:10px 12px;font-size:13px">' + escHtml(i.contact_name||'—') + '</td>' +
+        '<td style="padding:10px 12px;font-size:13px">' + escHtml(i.brand_name||'—') + '</td>' +
+        '<td style="padding:10px 12px;font-size:13px;font-weight:600">' + fmtVal(i.order_value) + '</td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey)">' + i.days_since + ' day' + (i.days_since!==1?'s':'') + ' ago</td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:' + (i.days_remaining <= 3 ? '#B33A47' : 'var(--warm-grey)') + '">' + i.days_remaining + ' day' + (i.days_remaining!==1?'s':'') + ' left</td>' +
+        '<td style="padding:10px 12px;white-space:nowrap">' +
+          '<button onclick="restoreTrashItem(\x27order\x27,'+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;margin-right:4px">Restore</button>' +
+          '<button onclick="hardDeleteTrashItem(\x27order\x27,'+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;color:#B33A47">Delete</button>' +
+        '</td></tr>';
+    });
+    el.innerHTML = '<table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid var(--line)">' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Contact</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Brand</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Value</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Deleted</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Remaining</th>' +
+      '<th></th></tr></thead><tbody>' + rows.join('') + '</tbody></table>';
+  } else if (trashTab === 'notes') {
+    var cNotes = (trashData.contact_notes || []).map(function(i) {
+      return '<tr>' +
+        '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey)">Contact</td>' +
+        '<td style="padding:10px 12px;font-size:13px">' + escHtml(i.contact_name||'—') + '</td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(i.body_preview||'') + '</td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey)">' + i.days_since + ' day' + (i.days_since!==1?'s':'') + ' ago</td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:' + (i.days_remaining <= 3 ? '#B33A47' : 'var(--warm-grey)') + '">' + i.days_remaining + ' day' + (i.days_remaining!==1?'s':'') + ' left</td>' +
+        '<td style="padding:10px 12px;white-space:nowrap">' +
+          '<button onclick="restoreTrashItem(\x27contact_note\x27,'+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;margin-right:4px">Restore</button>' +
+          '<button onclick="hardDeleteTrashItem(\x27contact_note\x27,'+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;color:#B33A47">Delete</button>' +
+        '</td></tr>';
+    });
+    var pNotes = (trashData.pipeline_notes || []).map(function(i) {
+      return '<tr>' +
+        '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey)">Pipeline</td>' +
+        '<td style="padding:10px 12px;font-size:13px">' + escHtml((i.contact_name||'—') + (i.brand_name?' / '+i.brand_name:'')) + '</td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(i.body_preview||'') + '</td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey)">' + i.days_since + ' day' + (i.days_since!==1?'s':'') + ' ago</td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:' + (i.days_remaining <= 3 ? '#B33A47' : 'var(--warm-grey)') + '">' + i.days_remaining + ' day' + (i.days_remaining!==1?'s':'') + ' left</td>' +
+        '<td style="padding:10px 12px;white-space:nowrap">' +
+          '<button onclick="restoreTrashItem(\x27pipeline_note\x27,'+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;margin-right:4px">Restore</button>' +
+          '<button onclick="hardDeleteTrashItem(\x27pipeline_note\x27,'+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;color:#B33A47">Delete</button>' +
+        '</td></tr>';
+    });
+    var allRows = cNotes.concat(pNotes);
+    if (!allRows.length) { el.innerHTML = '<div style="padding:24px;color:var(--warm-grey);font-size:13px">No notes in trash.</div>'; return; }
+    el.innerHTML = '<table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid var(--line)">' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Type</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Contact / Brand</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Preview</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Deleted</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Remaining</th>' +
+      '<th></th></tr></thead><tbody>' + allRows.join('') + '</tbody></table>';
+  }
+}
+
+async function loadTrash() {
+  trashData = null;
+  var el = document.getElementById('trash-content');
+  if (el) el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--warm-grey)">Loading…</div>';
+  var data = await apiFetch('/trash');
+  if (data) {
+    trashData = data;
+    renderTrashTab();
+  } else {
+    if (el) el.innerHTML = '<div style="text-align:center;padding:40px;color:#B33A47">Failed to load trash.</div>';
+  }
+}
+
+async function restoreTrashItem(itemType, itemId) {
+  const r = await apiFetch('/trash/'+itemType+'/'+itemId+'/restore', {method:'POST'});
+  if (r) {
+    showToast('Item restored');
+    await loadTrash();
+  }
+}
+
+async function hardDeleteTrashItem(itemType, itemId) {
+  if (!confirm('Permanently delete? This cannot be undone.')) return;
+  const r = await apiFetch('/trash/'+itemType+'/'+itemId, {method:'DELETE'});
+  if (r) {
+    showToast('Permanently deleted');
+    await loadTrash();
+  }
+}
+
 </script>
 </body>
 </html>

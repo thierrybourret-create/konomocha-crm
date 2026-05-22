@@ -46,6 +46,11 @@ def get_stages(db: Session = Depends(get_db), _=Depends(require_admin)):
               "probability": s.probability, "position": s.position}
             for s in stages if s.stage_type == 'order'
         ],
+        "close_reason": [
+            {"id": s.id, "name": s.name, "label": s.label,
+              "position": s.position}
+            for s in stages if s.stage_type == 'close_reason'
+        ],
     }
 
 
@@ -55,8 +60,8 @@ def create_stage(
     db: Session = Depends(get_db),
     _=Depends(require_admin),
 ):
-    if data.stage_type not in ('pipeline', 'order'):
-        raise HTTPException(400, "stage_type must be 'pipeline' or 'order'")
+    if data.stage_type not in ('pipeline', 'order', 'close_reason'):
+        raise HTTPException(400, "stage_type must be 'pipeline', 'order', or 'close_reason'")
     max_pos = db.query(AppStage).filter(AppStage.stage_type == data.stage_type).count()
     stage = AppStage(
         stage_type=data.stage_type,

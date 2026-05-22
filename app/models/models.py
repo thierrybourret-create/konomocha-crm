@@ -59,6 +59,7 @@ class Contact(Base):
     owner_id   = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True, default=None)
     owner            = relationship("User", foreign_keys=[owner_id])
     pipeline_entries = relationship("PipelineEntry", back_populates="contact")
     email_logs       = relationship("EmailLog", back_populates="contact")
@@ -89,6 +90,9 @@ class PipelineEntry(Base):
     notes           = Column(Text)
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
     updated_at      = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    deleted_at      = Column(DateTime(timezone=True), nullable=True, default=None)
+    close_reason    = Column(String(500), nullable=True)
+    closed_at       = Column(DateTime(timezone=True), nullable=True)
     contact     = relationship("Contact", back_populates="pipeline_entries")
     brand       = relationship("Brand",   back_populates="pipeline_entries")
     owner       = relationship("User",    back_populates="pipeline_entries")
@@ -137,7 +141,8 @@ class Order(Base):
     commission_paid_date   = Column(Date)
     bonus_paid_date        = Column(Date)
     bonus_amount           = Column(Numeric(12, 2))
-    owner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    owner_id               = Column(Integer, ForeignKey("users.id"), nullable=True)
+    deleted_at             = Column(DateTime(timezone=True), nullable=True, default=None)
     contact  = relationship("Contact", back_populates="orders")
     brand    = relationship("Brand",   back_populates="orders")
     owner    = relationship("User",    foreign_keys=[owner_id])
@@ -149,6 +154,7 @@ class ContactNote(Base):
     body       = Column(Text, nullable=False)
     author_id  = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    deleted_at = Column(DateTime(timezone=True), nullable=True, default=None)
     contact = relationship("Contact", back_populates="contact_notes")
     author  = relationship("User")
 
@@ -188,6 +194,7 @@ class PipelineNote(Base):
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
     updated_at      = Column(DateTime(timezone=True), nullable=True)
     updated_by_id   = Column(Integer, ForeignKey("users.id"), nullable=True)
+    deleted_at      = Column(DateTime(timezone=True), nullable=True, default=None)
     pipeline_entry = relationship("PipelineEntry", back_populates="notes_list")
     author         = relationship("User", foreign_keys=[author_id])
     updated_by     = relationship("User", foreign_keys=[updated_by_id])
@@ -201,4 +208,3 @@ class AppStage(Base):
     label       = Column(String, nullable=False)   # display label
     probability = Column(Integer, nullable=True)   # 0-100, null for order stages
     position    = Column(Integer, nullable=False, default=0)
-

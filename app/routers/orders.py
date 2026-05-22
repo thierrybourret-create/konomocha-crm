@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional
@@ -113,7 +114,7 @@ def list_orders(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    q = _base_query(db)
+    q = _base_query(db).filter(Order.deleted_at.is_(None))
     if current_user.role != "admin":
         q = q.filter(Order.owner_id == current_user.id)
     elif owner_id:
@@ -133,7 +134,7 @@ def list_orders(
 
 @router.get("/{order_id}")
 def get_order(order_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    o = _base_query(db).filter(Order.id == order_id).first()
+    o = _base_query(db).filter(Order.id == order_id, Order.deleted_at.is_(None)).first()
     if not o:
         raise HTTPException(status_code=404, detail="Order not found")
     if current_user.role != "admin" and o.owner_id != current_user.id:
@@ -159,7 +160,7 @@ def create_order(data: OrderCreate, db: Session = Depends(get_db), current_user:
 
 @router.put("/{order_id}")
 def update_order(order_id: int, data: OrderCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    o = _base_query(db).filter(Order.id == order_id).first()
+    o = _base_query(db).filter(Order.id == order_id, Order.deleted_at.is_(None)).first()
     if not o:
         raise HTTPException(status_code=404, detail="Order not found")
     if current_user.role != "admin" and o.owner_id != current_user.id:
@@ -176,7 +177,7 @@ def update_order(order_id: int, data: OrderCreate, db: Session = Depends(get_db)
 
 @router.post("/{order_id}/advance-status")
 def advance_status(order_id: int, data: OrderStatusUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    o = _base_query(db).filter(Order.id == order_id).first()
+    o = _base_query(db).filter(Order.id == order_id, Order.deleted_at.is_(None)).first()
     if not o:
         raise HTTPException(status_code=404, detail="Order not found")
     if current_user.role != "admin" and o.owner_id != current_user.id:
@@ -198,10 +199,10 @@ def advance_status(order_id: int, data: OrderStatusUpdate, db: Session = Depends
 
 @router.delete("/{order_id}")
 def delete_order(order_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
-    o = db.query(Order).filter(Order.id == order_id).first()
+    o = db.query(Order).filter(Order.id == order_id, Order.deleted_at.is_(None)).first()
     if not o:
         raise HTTPException(status_code=404, detail="Order not found")
-    db.delete(o)
+    o.deleted_at = datetime.utcnow()
     db.commit()
     return {"ok": True}
 
@@ -222,11 +223,10 @@ def mark_bonus_paid(
     today = _date.today()
     updated = 0
     for oid in data.order_ids:
-        o = db.query(Order).filter(Order.id == oid, Order.status == 'commission_paid').first()
+        o = db.query(Order).filter(Order.id == oid, Order.status == 'commission_paid', Order.deleted_at.is_(None)).first()
         if o:
             o.status = 'bonus_paid'
             o.bonus_paid_date = today
             updated += 1
     db.commit()
     return {"updated": updated}
-

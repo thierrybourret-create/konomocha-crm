@@ -47,6 +47,71 @@ def contact_to_dict(c):
         "created_at": c.created_at.isoformat() if c.created_at else None,
     }
 
+@router.get("/duplicates")
+def list_all_duplicates(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return all pairs of contacts that share the same non-empty email."""
+    from sqlalchemy import func as sqlfunc
+    from app.models.models import Contact as C2
+    # find emails shared by 2+ contacts
+    dupes = (
+        db.query(Contact.email, sqlfunc.count(Contact.id).label("cnt"))
+        .filter(Contact.email.isnot(None), Contact.email != "",
+                Contact.deleted_at.is_(None))
+        .group_by(Contact.email)
+        .having(sqlfunc.count(Contact.id) > 1)
+        .all()
+    )
+    pairs = []
+    for row in dupes:
+        contacts = (
+            db.query(Contact)
+            .filter(Contact.email == row.email, Contact.deleted_at.is_(None))
+            .order_by(Contact.id)
+            .all()
+        )
+        for i in range(len(contacts)):
+            for j in range(i + 1, len(contacts)):
+                a, b = contacts[i], contacts[j]
+                pairs.append({
+                    "email":    row.email,
+                    "contact_a": {"id": a.id, "name": a.name, "company": a.company},
+                    "contact_b": {"id": b.id, "name": b.name, "company": b.company},
+                })
+    return {"total": len(pairs), "pairs": pairs}
+
+
+@router.get("/{contact_id}/duplicates")
+def find_contact_duplicates(
+    contact_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return contacts that share the same email as the given contact."""
+    contact = db.query(Contact).filter(
+        Contact.id == contact_id, Contact.deleted_at.is_(None)
+    ).first()
+    if not contact or not contact.email:
+        return {"duplicates": []}
+    matches = (
+        db.query(Contact)
+        .filter(
+            Contact.email == contact.email,
+            Contact.id != contact_id,
+            Contact.deleted_at.is_(None),
+        )
+        .all()
+    )
+    return {
+        "duplicates": [
+            {"id": c.id, "name": c.name, "company": c.company or "", "email": c.email}
+            for c in matches
+        ]
+    }
+
+
 @router.get("")
 def list_contacts(
     search: Optional[str] = Query(None),

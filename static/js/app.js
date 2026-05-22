@@ -759,11 +759,13 @@ async function saveNewContact(e, type) {
   const first = fd.get('first_name')||''; const last = fd.get('last_name')||'';
   const name = isCompany ? (fd.get('company')||'') : ((first+' '+last).trim() || fd.get('company')||'');
 
-  // Duplicate check
-  if (name) {
-    const check = await apiFetch('/contacts?search='+encodeURIComponent(name)+'&per_page=5');
-    if (check && check.results.some(c => c.name.toLowerCase()===name.toLowerCase())) {
-      document.getElementById('nc-error').textContent = `A contact named "${name}" already exists. Please check before saving.`;
+  // Duplicate check — exact email match
+  var emailVal = (fd.get('email')||'').trim();
+  if (emailVal) {
+    var emailCheck = await apiFetch('/contacts?search='+encodeURIComponent(emailVal)+'&per_page=10');
+    var emailMatch = emailCheck && emailCheck.results.find(function(c){ return (c.email||'').toLowerCase()===emailVal.toLowerCase(); });
+    if (emailMatch) {
+      document.getElementById('nc-error').textContent = 'A contact with this email already exists: ' + emailMatch.name + '. Please check before saving.';
       document.getElementById('nc-error').style.display = 'block';
       return;
     }
@@ -1793,12 +1795,57 @@ async function loadAuditReport(page) {
     + pager;
 }
 
+async function loadDuplicatesReport() {
+  var body  = document.getElementById('report-overlay-body');
+  var title = document.getElementById('report-overlay-title');
+  if (title) title.textContent = 'Duplicate Contacts';
+  if (!body) return;
+  document.getElementById('report-overlay').style.display = 'flex';
+  body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--warm-grey)">Loading…</div>';
+  var d = await apiFetch('/contacts/duplicates');
+  if (!d) { body.innerHTML = '<div style="padding:24px;color:#B33A47">Failed to load.</div>'; return; }
+  if (!d.pairs || !d.pairs.length) {
+    body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--warm-grey)">No duplicate emails found. Your database is clean!</div>';
+    return;
+  }
+  body.innerHTML =
+    '<div style="font-size:13px;color:var(--warm-grey);margin-bottom:16px">' + d.total + ' duplicate pair' + (d.total===1?'':'s') + ' with the same email address.</div>'
+    + d.pairs.map(function(p) {
+      return '<div style="display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)">'
+        + '<div style="background:var(--off-white);border-radius:8px;padding:10px 12px;cursor:pointer" onclick="openContactDetail(' + p.contact_a.id + ');document.getElementById(\'report-overlay\').style.display=\'none\'" title="Open contact">'
+        +   '<div style="font-size:13px;font-weight:600;color:var(--navy)">' + escHtml(p.contact_a.name) + '</div>'
+        +   '<div style="font-size:12px;color:var(--warm-grey)">' + escHtml(p.contact_a.company||'') + '</div>'
+        + '</div>'
+        + '<div style="text-align:center;font-size:11px;color:var(--warm-grey)">' + escHtml(p.email) + '<br><button onclick="showMergeConfirmFromReport(' + p.contact_a.id + ',' + p.contact_b.id + ')" style="margin-top:6px;font-size:11px;padding:3px 10px;border:1px solid #B33A47;color:#B33A47;background:none;border-radius:6px;cursor:pointer">Merge</button></div>'
+        + '<div style="background:var(--off-white);border-radius:8px;padding:10px 12px;cursor:pointer" onclick="openContactDetail(' + p.contact_b.id + ');document.getElementById(\'report-overlay\').style.display=\'none\'" title="Open contact">'
+        +   '<div style="font-size:13px;font-weight:600;color:var(--navy)">' + escHtml(p.contact_b.name) + '</div>'
+        +   '<div style="font-size:12px;color:var(--warm-grey)">' + escHtml(p.contact_b.company||'') + '</div>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+}
+
+async function showMergeConfirmFromReport(aId, bId) {
+  document.getElementById('report-overlay').style.display = 'none';
+  await openMergeModal(aId);
+  // Pre-trigger confirm screen for bId
+  setTimeout(function() { showMergeConfirm(aId, bId); }, 400);
+}
+
 async function loadReports() {
   var u = JSON.parse(localStorage.getItem('crm_user')||'{}');
   var ra = document.getElementById('rr-activity');
   if (ra) ra.style.display = (u.role==='admin') ? '' : 'none';
   var rau = document.getElementById('rr-audit');
   if (rau) rau.style.display = (u.role==='admin') ? '' : 'none';
+  // Load duplicate count badge
+  var rrd = document.getElementById('rr-duplicates-count');
+  if (rrd) {
+    apiFetch('/contacts/duplicates').then(function(d) {
+      if (d && d.total > 0) rrd.textContent = d.total + ' pair' + (d.total===1?'':'s') + ' found';
+      else if (rrd) rrd.textContent = 'No duplicates found';
+    });
+  }
 }
 
 async function loadLostDealsReport() {
@@ -2111,16 +2158,36 @@ async function openContactEditFromReport(id) {
 // ── Contact merge ─────────────────────────────────────────────────────────────
 async function openMergeModal(masterId) {
   document.getElementById('merge-overlay')?.remove();
-  const master = await apiFetch('/contacts/' + masterId);
+  const [master, dupData] = await Promise.all([
+    apiFetch('/contacts/' + masterId),
+    apiFetch('/contacts/' + masterId + '/duplicates'),
+  ]);
   if (!master) return;
+  const autoDups = (dupData && dupData.duplicates) || [];
 
   const overlay = document.createElement('div');
   overlay.id = 'merge-overlay';
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:10000';
+
+  var autoHtml = '';
+  if (autoDups.length) {
+    autoHtml = '<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:#B33A47;margin-bottom:8px">⚠ Duplicate email detected</div>'
+      + autoDups.map(function(c) {
+        return '<div onclick="showMergeConfirm(' + masterId + ',' + c.id + ')" '
+          + 'style="padding:10px 12px;border:1px solid #F5C6CB;background:#FFF5F5;border-radius:8px;margin-bottom:6px;cursor:pointer" '
+          + 'onmouseover="this.style.background=\'#FFE8E8\'" onmouseout="this.style.background=\'#FFF5F5\'">'
+          + '<div style="font-size:13px;font-weight:600;color:var(--navy)">' + escHtml(c.name) + '</div>'
+          + '<div style="font-size:12px;color:var(--warm-grey)">' + escHtml(c.company || '') + (c.email ? ' · ' + escHtml(c.email) : '') + '</div>'
+          + '</div>';
+      }).join('')
+      + '<div style="margin:12px 0;border-top:1px solid var(--line)"></div>';
+  }
+
   overlay.innerHTML =
     `<div style="background:#fff;border-radius:12px;padding:28px 32px;width:480px;max-width:95vw;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.2)">`+
       `<div style="font-family:'Playfair Display',serif;font-size:17px;color:var(--navy);font-weight:700;margin-bottom:4px">Merge Contact</div>`+
       `<div style="font-size:13px;color:var(--warm-grey);margin-bottom:20px">Master (kept): <strong>${escHtml(master.name)}</strong></div>`+
+      `<div id="merge-auto">${autoHtml}</div>`+
       `<label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:6px">Search for duplicate to absorb</label>`+
       `<input id="merge-search" type="text" placeholder="Name, email, or company…" `+
         `style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;box-sizing:border-box;margin-bottom:12px" `+

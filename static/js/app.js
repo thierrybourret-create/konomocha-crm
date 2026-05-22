@@ -85,6 +85,7 @@ function showApp() {
   document.getElementById('user-name').textContent   = CURRENT_USER.name;
   document.getElementById('user-role').textContent   = CURRENT_USER.role === 'admin' ? 'Administrator' : 'Agent';
   applyPageAccess();
+  applyReportAccess();
 }
 
 // ---- Navigation ----
@@ -106,9 +107,13 @@ function applyPageAccess() {
     document.getElementById('sb-hdr-admin').style.display = '';
     document.getElementById('nav-trash').style.display = '';
     document.getElementById('sb-body-admin').style.display = '';
+    var rc = document.getElementById('admin-roles-card'); if(rc) rc.style.display='';
     return;
   }
-  var allowed = CURRENT_USER.page_access; // null = all pages
+  // Use role's page_access if assigned, else user's own page_access
+  var allowed = (CURRENT_USER.crm_role && CURRENT_USER.crm_role.page_access)
+    ? CURRENT_USER.crm_role.page_access
+    : CURRENT_USER.page_access; // null = all pages
   var allPages = ['dashboard','contacts','companies','pipeline','orders','tasks','email','reports'];
   allPages.forEach(function(page) {
     var visible = !allowed || allowed.includes(page);
@@ -122,6 +127,17 @@ function applyPageAccess() {
     if (page === 'reports' && !visible) {
       var rrDiv = document.querySelector('.rr-cards'); if(rrDiv) rrDiv.style.display='none';
     }
+  });
+}
+
+function applyReportAccess() {
+  if (!CURRENT_USER || CURRENT_USER.role === 'admin') return; // admin sees all
+  var allowed = CURRENT_USER.crm_role ? CURRENT_USER.crm_role.report_access : null;
+  if (!allowed) return; // null = see all reports
+  var rptIds = {'activity': 'rr-activity', 'audit': 'rr-audit', 'bonus': 'rr-bonus', 'commission': 'rr-commission', 'engagement': 'rr-engagement', 'quality': 'rr-quality', 'duplicates': 'rr-duplicates', 'lost_deals': 'rr-lost-deals', 'principal': 'rr-principal', 'tasks_report': 'rr-tasks'};
+  Object.keys(rptIds).forEach(function(key) {
+    var el = document.getElementById(rptIds[key]);
+    if (el) el.style.display = allowed.includes(key) ? '' : 'none';
   });
 }
 
@@ -2778,14 +2794,130 @@ async function loadEmails() {
 
 // ---- Admin ----
 async function loadAdmin() {
+  if (CURRENT_USER?.role === 'admin') { var rc = document.getElementById('admin-roles-card'); if(rc) rc.style.display=''; }
   // Show users card to admin only
   if (CURRENT_USER?.role==='admin') {
     document.getElementById('admin-users-card').style.display='';
+    await loadAdminRoles();
     await loadAdminUsers();
   }
   await loadBrands();
   await loadStageProbs();
   renderRefLists();
+}
+
+
+// ── Role management ───────────────────────────────────────────────────────────
+var _crmRoles = [];
+
+async function loadAdminRoles() {
+  var d = await apiFetch('/roles'); if (!d) return;
+  _crmRoles = d;
+  document.getElementById('admin-roles-meta').textContent = d.length + ' role' + (d.length !== 1 ? 's' : '');
+  document.getElementById('admin-roles-tbody').innerHTML = d.length ? d.map(function(r) {
+    var pages = r.page_access ? r.page_access.join(', ') : 'All pages';
+    var rpts  = r.report_access ? r.report_access.length + ' report(s)' : 'All reports';
+    return '<tr>' +
+      '<td style="font-weight:600">' + escHtml(r.name) + '</td>' +
+      '<td style="font-size:12px;color:var(--warm-grey)">' + escHtml(pages) + '</td>' +
+      '<td style="font-size:12px;color:var(--warm-grey)">' + escHtml(rpts) + '</td>' +
+      '<td style="display:flex;gap:6px">' +
+        '<button class="btn btn-secondary" style="padding:4px 10px;font-size:12px" onclick="openEditRoleModal(' + r.id + ')">Edit</button>' +
+        (r.user_count === 0 ? '<button class="btn btn-secondary" style="padding:4px 10px;font-size:12px;color:var(--accent-coral)" onclick="deleteRole(' + r.id + ',\'' + r.name.replace(/'/g,"\'") + '\')">Remove</button>' : '<span style="font-size:12px;color:var(--warm-grey);align-self:center">' + r.user_count + ' user(s)</span>') +
+      '</td>' +
+    '</tr>';
+  }).join('') : '<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--warm-grey)">No roles yet</td></tr>';
+}
+
+function _roleModalHtml(r) {
+  var allPages   = ['dashboard', 'contacts', 'companies', 'pipeline', 'orders', 'tasks', 'email', 'reports'];
+  var pageLabels = {dashboard:'Dashboard',contacts:'Contacts',companies:'Companies',pipeline:'Pipeline',orders:'Orders',tasks:'Tasks',email:'Emails',reports:'Reports'};
+  var allReports = ['activity', 'audit', 'bonus', 'commission', 'engagement', 'quality', 'duplicates', 'lost_deals', 'principal', 'tasks_report'];
+  var rptLabels  = {activity:'Activity Report',audit:'Audit Log',bonus:'Bonus Report',commission:'Commission Forecast',engagement:'Customer Engagement',quality:'Data Quality Audit',duplicates:'Duplicate Contacts',lost_deals:'Lost Deals',principal:'Principal Report',tasks_report:'Task Report'};
+  var pa = r && r.page_access;
+  var ra = r && r.report_access;
+  return '<div style="margin-bottom:14px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:8px">Page Access <span style="font-weight:400;text-transform:none;letter-spacing:0">(unchecked all = all pages)</span></label>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px">' +
+    allPages.map(function(p) {
+      var checked = (!pa || pa.includes(p)) ? 'checked' : '';
+      return '<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" name="pg_' + p + '" value="' + p + '" ' + checked + ' style="cursor:pointer"> ' + pageLabels[p] + '</label>';
+    }).join('') +
+    '</div></div>' +
+    '<div style="margin-bottom:20px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:8px">Report Access <span style="font-weight:400;text-transform:none;letter-spacing:0">(unchecked all = all reports)</span></label>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px">' +
+    allReports.map(function(k) {
+      var checked = (!ra || ra.includes(k)) ? 'checked' : '';
+      return '<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" name="rpt_' + k + '" value="' + k + '" ' + checked + ' style="cursor:pointer"> ' + rptLabels[k] + '</label>';
+    }).join('') +
+    '</div></div>';
+}
+
+function openNewRoleModal() {
+  document.getElementById('modal-title').innerHTML = 'New Role';
+  document.getElementById('modal-body').innerHTML =
+    '<form onsubmit="saveNewRole(event)">' +
+    '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Role Name</label>' +
+    '<input name="name" required placeholder="e.g. Sales Rep" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>' +
+    _roleModalHtml(null) +
+    '<div id="nr-error" style="display:none;color:#B33A47;font-size:13px;margin-bottom:12px;padding:10px;background:#FAE3E5;border-radius:8px"></div>' +
+    '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+    '<button type="button" onclick="document.getElementById(\'modal\').style.display=\'none\'" class="btn btn-secondary">Cancel</button>' +
+    '<button type="submit" class="btn btn-primary">Create Role</button></div></form>';
+  document.getElementById('modal').style.display = 'flex';
+}
+
+async function saveNewRole(e) {
+  e.preventDefault();
+  var fd = new FormData(e.target);
+  var name = fd.get('name');
+  var pages   = ['dashboard', 'contacts', 'companies', 'pipeline', 'orders', 'tasks', 'email', 'reports'].filter(function(p){ return fd.get('pg_'+p); });
+  var reports = ['activity', 'audit', 'bonus', 'commission', 'engagement', 'quality', 'duplicates', 'lost_deals', 'principal', 'tasks_report'].filter(function(k){ return fd.get('rpt_'+k); });
+  var r = await apiFetch('/roles', {method:'POST', body:JSON.stringify({
+    name: name,
+    page_access:   pages.length   < 8 ? pages   : null,
+    report_access: reports.length < 10 ? reports : null,
+  })});
+  if (r) { document.getElementById('modal').style.display='none'; loadAdminRoles(); }
+  else { document.getElementById('nr-error').textContent='Failed. Name may already exist.'; document.getElementById('nr-error').style.display='block'; }
+}
+
+function openEditRoleModal(id) {
+  var r = _crmRoles.find(function(x){ return x.id === id; });
+  if (!r) return;
+  document.getElementById('modal-title').innerHTML = 'Edit Role: ' + escHtml(r.name);
+  document.getElementById('modal-body').innerHTML =
+    '<form onsubmit="saveEditRole(event,' + id + ')">' +
+    '<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Role Name</label>' +
+    '<input name="name" value="' + escHtml(r.name) + '" required style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>' +
+    _roleModalHtml(r) +
+    '<div id="er-error" style="display:none;color:#B33A47;font-size:13px;margin-bottom:12px;padding:10px;background:#FAE3E5;border-radius:8px"></div>' +
+    '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+    '<button type="button" onclick="document.getElementById(\'modal\').style.display=\'none\'" class="btn btn-secondary">Cancel</button>' +
+    '<button type="submit" class="btn btn-primary">Save Changes</button></div></form>';
+  document.getElementById('modal').style.display = 'flex';
+}
+
+async function saveEditRole(e, id) {
+  e.preventDefault();
+  var fd = new FormData(e.target);
+  var name = fd.get('name');
+  var pages   = ['dashboard', 'contacts', 'companies', 'pipeline', 'orders', 'tasks', 'email', 'reports'].filter(function(p){ return fd.get('pg_'+p); });
+  var reports = ['activity', 'audit', 'bonus', 'commission', 'engagement', 'quality', 'duplicates', 'lost_deals', 'principal', 'tasks_report'].filter(function(k){ return fd.get('rpt_'+k); });
+  var btn = e.target.querySelector('[type=submit]'); btn.textContent='Saving…'; btn.disabled=true;
+  var r = await apiFetch('/roles/'+id, {method:'PUT', body:JSON.stringify({
+    name: name,
+    page_access:   pages.length   < 8 ? pages   : null,
+    report_access: reports.length < 10 ? reports : null,
+  })});
+  if (r) { document.getElementById('modal').style.display='none'; loadAdminRoles(); }
+  else { document.getElementById('er-error').textContent='Failed.'; document.getElementById('er-error').style.display='block'; btn.textContent='Save Changes'; btn.disabled=false; }
+}
+
+async function deleteRole(id, name) {
+  if (!confirm('Delete role "' + name + '"?')) return;
+  var r = await apiFetch('/roles/'+id, {method:'DELETE'});
+  if (r) loadAdminRoles();
+  else showToast('Cannot delete — users may still be assigned to this role.');
 }
 
 async function loadAdminUsers() {
@@ -2796,8 +2928,9 @@ async function loadAdminUsers() {
       <td class="contact-cell"><div class="nm">${escHtml(u.name.split(' ').slice(1).join(' ')||'—')}</div><div class="co">${escHtml(u.name.split(' ')[0])}</div></td>
       <td style="color:var(--warm-grey)">${escHtml(u.email)}</td>
       <td><span class="pill ${u.role==='admin'?'green':'blue'}">${u.role}</span></td>
+      <td style="font-size:12px;color:var(--warm-grey)">${u.crm_role ? escHtml(u.crm_role.name) : '—'}</td>
       <td style="display:flex;gap:6px">
-        <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px" onclick="openEditUserModal(${u.id},'${escHtml(u.name)}','${escHtml(u.email)}','${u.role}',${JSON.stringify(u.page_access||null)})">Edit</button>
+        <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px" onclick="openEditUserModal(${u.id},'${escHtml(u.name)}','${escHtml(u.email)}','${u.role}',${u.role_id||0})">Edit</button>
         ${u.email!==CURRENT_USER?.email?`<button class="btn btn-secondary" style="padding:4px 10px;font-size:12px;color:var(--accent-coral)" onclick="deleteUser(${u.id},'${u.name}')">Remove</button>`:''}
       </td>
     </tr>`).join('');
@@ -2921,25 +3054,23 @@ function openNewUserModal() {
         <button type="submit" class="btn btn-primary">Create User</button>
       </div>
     </form>`;
-  // inject page access checkboxes before submit buttons
-  var allPages=['dashboard','contacts','companies','pipeline','orders','tasks','email','reports'];
-var pageLabels={dashboard:'Dashboard',contacts:'Contacts',companies:'Companies',pipeline:'Pipeline',orders:'Orders',tasks:'Tasks',email:'Emails',reports:'Reports'};
-var accessHtml=`<div style="margin-bottom:24px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:8px">Page Access <span style="font-weight:400;text-transform:none;letter-spacing:0">(leave all unchecked = access to all)</span></label>`
-  + `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px">`
-  + allPages.map(p=>`<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" name="page_${p}" value="${p}" style="cursor:pointer"> ${pageLabels[p]}</label>`).join('')
-  + `</div></div>`;
+  // inject role selector before submit buttons
+  var rolesHtml='<div style="margin-bottom:24px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Assigned Role <span style="font-weight:400;text-transform:none;letter-spacing:0">(leave blank = full access)</span></label>'
+    + '<select name="role_id" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">'
+    + '<option value="0">— No role (full access) —</option>'
+    + _crmRoles.map(function(r){ return '<option value="'+r.id+'">'+escHtml(r.name)+'</option>'; }).join('')
+    + '</select></div>';
   document.getElementById('modal-body').innerHTML = document.getElementById('modal-body').innerHTML.replace(
     '<div id="nu-error"',
-    accessHtml + '<div id="nu-error"'
+    rolesHtml + '<div id="nu-error"'
   );
   document.getElementById('modal').style.display='flex';
 }
 async function saveNewUser(e) {
   e.preventDefault();
   const fd=new FormData(e.target);
-  var checkedPages=[...e.target.querySelectorAll('input[type=checkbox]:checked')].map(cb=>cb.value);
-  var pageAccess=checkedPages.length?checkedPages:null;
-  const r=await apiFetch('/users',{method:'POST',body:JSON.stringify({name:fd.get('name'),email:fd.get('email'),password:fd.get('password'),role:fd.get('role'),page_access:pageAccess})});
+  var roleIdVal = parseInt(fd.get('role_id')||'0') || null;
+  const r=await apiFetch('/users',{method:'POST',body:JSON.stringify({name:fd.get('name'),email:fd.get('email'),password:fd.get('password'),role:fd.get('role'),role_id:roleIdVal})});
   if(r){document.getElementById('modal').style.display='none';loadAdminUsers();populateOwnerFilter();}
   else{document.getElementById('nu-error').textContent='Failed. Email may be in use.';document.getElementById('nu-error').style.display='block';}
 }
@@ -2965,31 +3096,23 @@ function openEditUserModal(id,name,email,role,pageAccess) {
         <button type="submit" class="btn btn-primary">Save Changes</button>
       </div>
     </form>`;
-  // inject page access checkboxes
-  var allPages=['dashboard','contacts','companies','pipeline','orders','tasks','email','reports'];
-var pageLabels={dashboard:'Dashboard',contacts:'Contacts',companies:'Companies',pipeline:'Pipeline',orders:'Orders',tasks:'Tasks',email:'Emails',reports:'Reports'};
-var accessHtml=`<div style="margin-bottom:24px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:8px">Page Access <span style="font-weight:400;text-transform:none;letter-spacing:0">(leave all unchecked = access to all)</span></label>`
-  + `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px">`
-  + allPages.map(p=>`<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" name="page_${p}" value="${p}" style="cursor:pointer"> ${pageLabels[p]}</label>`).join('')
-  + `</div></div>`;
-  // pre-tick current access
+  // inject role selector
+  var rolesHtml2='<div style="margin-bottom:24px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Assigned Role <span style="font-weight:400;text-transform:none;letter-spacing:0">(leave blank = full access)</span></label>'
+    + '<select name="role_id" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">'
+    + '<option value="0">— No role (full access) —</option>'
+    + _crmRoles.map(function(r){ return '<option value="'+r.id+'"'+(r.id===pageAccess?' selected':'')+'>'+escHtml(r.name)+'</option>'; }).join('')
+    + '</select></div>';
   document.getElementById('modal-body').innerHTML = document.getElementById('modal-body').innerHTML.replace(
     '<div id="eu-error"',
-    accessHtml + '<div id="eu-error"'
+    rolesHtml2 + '<div id="eu-error"'
   );
-  if (pageAccess && pageAccess.length) {
-    pageAccess.forEach(function(p) {
-      var cb = document.querySelector('input[name="page_'+p+'"]');
-      if (cb) cb.checked = true;
-    });
-  }
   document.getElementById('modal').style.display='flex';
 }
 async function saveEditUser(e,id) {
   e.preventDefault();
   const fd=new FormData(e.target);
-  var checkedPages2=[...e.target.querySelectorAll('input[type=checkbox]:checked')].map(cb=>cb.value);
-  const payload={name:fd.get('name'),email:fd.get('email'),role:fd.get('role'),page_access:checkedPages2.length?checkedPages2:null};
+  var roleIdVal2 = parseInt(fd.get('role_id')||'0') || null;
+  const payload={name:fd.get('name'),email:fd.get('email'),role:fd.get('role'),role_id:roleIdVal2||0};
   if(fd.get('password')) payload.password=fd.get('password');
   const btn=e.target.querySelector('[type=submit]'); btn.textContent='Saving…'; btn.disabled=true;
   const r=await apiFetch('/users/'+id,{method:'PUT',body:JSON.stringify(payload)});

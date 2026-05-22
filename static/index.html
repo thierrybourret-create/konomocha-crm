@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/crm-staging/static/css/app.css?v=20260522l" />
+<link rel="stylesheet" href="/crm-staging/static/css/app.css?v=20260522m" />
 </head>
 <body>
 <div style="background:#F5A623;color:#000;text-align:center;padding:6px;font-size:13px;font-weight:600;letter-spacing:1px;">STAGING — NOT PRODUCTION</div>
@@ -647,7 +647,7 @@
             <span style="color:var(--logo-blue);font-size:20px;font-weight:300">&#8594;</span>
           </div>
 
-          <div class="report-row" onclick="openReport('engagement')">
+          <div class="report-row" id="rr-engagement" onclick="openReport('engagement')">
             <div>
               <div style="font-size:14px;font-weight:600;color:var(--navy)">Customer Engagement</div>
               <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">Contacts with no recent interaction — filter by tag and inactivity period</div>
@@ -655,7 +655,7 @@
             <span style="color:var(--logo-blue);font-size:20px;font-weight:300">&#8594;</span>
           </div>
 
-          <div class="report-row" onclick="openReport('quality')">
+          <div class="report-row" id="rr-quality" onclick="openReport('quality')">
             <div>
               <div style="font-size:14px;font-weight:600;color:var(--navy)">Data Quality Audit</div>
               <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">Contact completeness, field validation and region checks</div>
@@ -671,7 +671,7 @@
             <span style="color:var(--logo-blue);font-size:20px;font-weight:300">&#8594;</span>
           </div>
 
-          <div class="report-row" onclick="openReport('lost-deals')">
+          <div class="report-row" id="rr-lost-deals" onclick="openReport('lost-deals')">
             <div>
               <div style="font-size:14px;font-weight:600;color:var(--navy)">Lost Deals</div>
               <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">Pipeline entries closed, stalled or cancelled &#8212; grouped by close reason</div>
@@ -679,7 +679,7 @@
             <span style="color:var(--logo-blue);font-size:20px;font-weight:300">&#8594;</span>
           </div>
 
-          <div class="report-row" onclick="togglePrincipalPicker()">
+          <div class="report-row" id="rr-principal" onclick="togglePrincipalPicker()">
             <div>
               <div style="font-size:14px;font-weight:600;color:var(--navy)">Principal Report</div>
               <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">Multi-brand Excel with Pipeline &amp; Orders</div>
@@ -694,7 +694,7 @@
             <button class="btn btn-primary" onclick="event.stopPropagation();downloadPrincipalReport()">&#8595; Download Report</button>
           </div>
 
-          <div class="report-row" onclick="openReport('tasks')">
+          <div class="report-row" id="rr-tasks" onclick="openReport('tasks')">
             <div>
               <div style="font-size:14px;font-weight:600;color:var(--navy)">Task Report</div>
               <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">All tasks across contacts, filterable by status</div>
@@ -844,6 +844,26 @@
           </div>
         </div>
 
+        <!-- Roles — admin only -->
+        <div class="card" id="admin-roles-card" style="margin-bottom:16px;display:none">
+          <div class="card-head" style="cursor:pointer" onclick="toggleSection('admin-roles-body')">
+            <div><div class="card-title">Roles</div><div class="card-sub" id="admin-roles-meta">Manage roles and their page + report access</div></div>
+            <span id="admin-roles-chevron" style="color:var(--warm-grey)">&#9654;</span>
+          </div>
+          <div id="admin-roles-body" style="display:none">
+            <div class="card-body" style="padding:0">
+              <table class="data"><thead><tr>
+                <th>Role Name</th><th>Pages</th><th>Reports</th><th style="width:120px"></th>
+              </tr></thead>
+              <tbody id="admin-roles-tbody"><tr><td colspan="4" style="text-align:center;padding:30px;color:var(--warm-grey);">Loading…</td></tr></tbody>
+              </table>
+            </div>
+            <div class="card-foot" style="gap:8px;justify-content:flex-end">
+              <button class="btn btn-primary" onclick="openNewRoleModal()">+ New Role</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Users — admin only -->
         <div class="card" id="admin-users-card" style="margin-bottom:16px;display:none">
           <div class="card-head" style="cursor:pointer" onclick="toggleSection('admin-users-body')">
@@ -853,7 +873,7 @@
           <div id="admin-users-body" style="display:none">
             <div class="card-body" style="padding:0">
               <table class="data"><thead><tr>
-                <th>Name</th><th>Email</th><th>Role</th><th style="width:140px"></th>
+                <th>Name</th><th>Email</th><th>System Role</th><th>Custom Role</th><th style="width:140px"></th>
               </tr></thead>
               <tbody id="admin-users-tbody"><tr><td colspan="4" style="text-align:center;padding:30px;color:var(--warm-grey);">Loading…</td></tr></tbody>
               </table>
@@ -874,7 +894,7 @@
             <div class="card-body" style="padding:24px 28px;line-height:1.8">
               <table style="border-collapse:collapse;font-size:13px;color:var(--navy)">
                 <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Application</td><td style="font-weight:600">Kizuna — Konomocha CRM</td></tr>
-                <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Version</td><td style="font-weight:600">v2.20</td></tr>
+                <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Version</td><td style="font-weight:600">v2.21</td></tr>
                 <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Last updated</td><td style="font-weight:600">21 May 2026</td></tr>
                 <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Developer</td><td style="font-weight:600">Thierry Bourret</td></tr>
                 <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Built with</td><td style="font-weight:600">FastAPI &middot; PostgreSQL &middot; Vanilla JS</td></tr>
@@ -906,7 +926,7 @@
   </main>
 </div><!-- /app-root -->
 
-<script src="/crm-staging/static/js/app.js?v=20260522l"></script>
+<script src="/crm-staging/static/js/app.js?v=20260522m"></script>
 
 
 </body>

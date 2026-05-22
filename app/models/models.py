@@ -31,6 +31,15 @@ class PipelineStatus(str, enum.Enum):
 class EmailDirection(str, enum.Enum):
     inbound  = "inbound"
     outbound = "outbound"
+class CRMRole(Base):
+    __tablename__ = "crm_roles"
+    id           = Column(Integer, primary_key=True, index=True)
+    name         = Column(String(100), nullable=False, unique=True)
+    page_access  = Column(Text, nullable=True)
+    report_access= Column(Text, nullable=True)
+    created_at   = Column(DateTime(timezone=True), server_default=func.now())
+    users        = relationship("User", back_populates="crm_role")
+
 class User(Base):
     __tablename__ = "users"
     id              = Column(Integer, primary_key=True, index=True)
@@ -40,8 +49,10 @@ class User(Base):
     role            = Column(SAEnum(UserRole), default=UserRole.agent, nullable=False)
     is_active       = Column(Boolean, default=True)
     page_access     = Column(Text, nullable=True)
+    role_id         = Column(Integer, ForeignKey("crm_roles.id"), nullable=True)
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
     pipeline_entries = relationship("PipelineEntry", back_populates="owner")
+    crm_role         = relationship("CRMRole", back_populates="users", foreign_keys=[role_id])
     email_logs       = relationship("EmailLog", back_populates="logged_by")
 
 class Contact(Base):

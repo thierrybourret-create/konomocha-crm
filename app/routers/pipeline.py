@@ -9,7 +9,7 @@ from app.database import get_db
 from app.models.models import PipelineEntry, Contact, Brand, User, PipelineNote
 from app.auth import get_current_user
 from app.constants import PIPELINE_PROBABILITIES, COMMISSION_LAG_DAYS
-from app.audit import log_audit, diff_and_log, PIPELINE_TRACKED
+from app.audit import log_audit, diff_and_log, log_created_pipeline, PIPELINE_TRACKED
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/pipeline", tags=["pipeline"])
@@ -173,11 +173,7 @@ def create_entry(data: PipelineCreate, db: Session = Depends(get_db), current_us
     db.add(e)
     db.commit()
     db.refresh(e)
-    _cname = e.contact.name if e.contact else None
-    _bname = e.brand.name   if e.brand   else None
-    log_audit(db, entity_type='pipeline', entity_id=e.id,
-              contact_name=_cname, brand_name=_bname,
-              action='created', user_id=current_user.id, user_name=current_user.name)
+    log_created_pipeline(db, e, current_user.id, current_user.name)
     db.commit()
     return entry_to_dict(e, db)
 

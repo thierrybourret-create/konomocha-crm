@@ -3043,8 +3043,8 @@ let qFilter = 'all', qCurrentPage = 1, qPerPage = 50;
 
 function openReport(type) {
   if (type === 'lost-deals') {
-    var overlay = document.getElementById('report-overlay');
-    if (overlay) overlay.style.display = 'flex';
+    var lo = document.getElementById('report-overlay');
+    if (lo) lo.style.display = 'flex';
     loadLostDealsReport();
     return;
   }

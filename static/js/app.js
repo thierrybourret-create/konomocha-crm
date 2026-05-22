@@ -482,16 +482,6 @@ async function openContactDetail(id) {
       `<button type="submit" class="btn btn-primary">Save</button>`+
     `</div></form>`+
     `<div style="text-align:right;margin:-4px 0 16px"><button type="button" onclick="openMergeModal(${id})" style="background:none;border:none;color:var(--warm-grey);font-size:12px;cursor:pointer;padding:0;text-decoration:underline">Merge duplicate…</button></div>`+
-    `<div style="border-top:1px solid var(--line);padding-top:16px">`+
-      `<div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:12px">Notes</div>`+
-      `<div id="contact-notes-list"><div style="font-size:13px;color:var(--warm-grey)">Loading…</div></div>`+
-      (c.notes ? `<div style="margin-bottom:12px;padding:10px 12px;background:var(--off-white);border-radius:8px;font-size:12px"><span style="font-weight:600;color:var(--warm-grey)">Imported note:</span> <span style="white-space:pre-wrap">${escHtml(c.notes)}</span></div>` : '')+
-      `<div style="margin-top:12px">`+
-        `<label class="fl">Add Note</label>`+
-        `<textarea id="new-note-body" rows="3" placeholder="Type a note…" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;resize:vertical;margin-bottom:8px;box-sizing:border-box"></textarea>`+
-        `<button onclick="addContactNote(${id})" class="btn btn-primary" style="font-size:13px">Add Note</button>`+
-      `</div>`+
-    `</div>`+
     `<div style="border-top:1px solid var(--line);padding-top:16px;margin-top:16px">`+
       `<div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:12px">Attachments</div>`+
       `<div id="contact-attachments-list"><div style="font-size:13px;color:var(--warm-grey)">Loading…</div></div>`+
@@ -520,10 +510,13 @@ async function openContactDetail(id) {
     `</div>`+
     `</div>`+
     `<div id="ctab-timeline-panel" style="display:none">`+
+    `  <div style="padding-bottom:16px;margin-bottom:4px;border-bottom:1px solid var(--line)">`+
+    `    <textarea id="new-note-body" rows="2" placeholder="Add a note…" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;font-size:13px;resize:vertical;margin-bottom:8px;box-sizing:border-box"></textarea>`+
+    `    <button onclick="addContactNote(${id})" class="btn btn-primary" style="font-size:13px">Add Note</button>`+
+    `  </div>`+
     `  <div id="contact-timeline-body" style="padding:8px 0"><div style="padding:40px;text-align:center;color:var(--warm-grey)">Loading…</div></div>`+
     `</div>`;
   document.getElementById('modal').style.display = 'flex';
-  loadContactNotes(id);
   loadContactAttachments(id);
   loadContactTasks(id);
   loadContactTimeline(id);
@@ -653,7 +646,7 @@ async function addContactNote(contactId) {
   const result = await apiFetch('/contacts/'+contactId+'/notes', {method:'POST', body:JSON.stringify({body})});
   if (result) {
     if (bodyEl) bodyEl.value = '';
-    loadContactNotes(contactId);
+    loadContactTimeline(contactId);
     showToast('Note added');
   }
   if (btn) { btn.textContent='Add Note'; btn.disabled=false; }

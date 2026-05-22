@@ -436,6 +436,11 @@ async function openContactDetail(id) {
     `<div style="font-size:13px;font-weight:400;color:var(--warm-grey)">`+
       `${escHtml(c.company||'')}${c.country?' · '+escHtml(c.country):''}</div>`;
   document.getElementById('modal-body').innerHTML =
+    `<div style="display:flex;gap:0;border-bottom:1px solid var(--line);margin:-24px -24px 20px;padding:0 24px">`+
+    `  <button id="ctab-details" onclick="switchContactTab('details',${id})" style="background:none;border:none;border-bottom:2px solid var(--logo-blue);padding:10px 16px;font:inherit;font-size:13px;font-weight:600;color:var(--navy);cursor:pointer">Details</button>`+
+    `  <button id="ctab-timeline" onclick="switchContactTab('timeline',${id})" style="background:none;border:none;border-bottom:2px solid transparent;padding:10px 16px;font:inherit;font-size:13px;color:var(--warm-grey);cursor:pointer">Timeline</button>`+
+    `</div>`+
+    `<div id="ctab-details-panel">`+
     `<form id="edit-contact-form" onsubmit="saveContactEdit(event,${id})">`+
     `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">`+
       `<div><label class="fl">First Name</label>`+
@@ -513,10 +518,67 @@ async function openContactDetail(id) {
         `<button onclick="addContactTask(${id})" class="btn btn-primary" style="font-size:13px">Add Task</button>`+
       `</div>`+
     `</div>`;
+    `</div>`+
+    `<div id="ctab-timeline-panel" style="display:none">`+
+    `  <div id="contact-timeline-body" style="padding:8px 0"><div style="padding:40px;text-align:center;color:var(--warm-grey)">Loading…</div></div>`+
+    `</div>`;
   document.getElementById('modal').style.display = 'flex';
   loadContactNotes(id);
   loadContactAttachments(id);
   loadContactTasks(id);
+  loadContactTimeline(id);
+}
+
+function switchContactTab(tab, id) {
+  var isDetails = tab === 'details';
+  document.getElementById('ctab-details-panel').style.display  = isDetails ? '' : 'none';
+  document.getElementById('ctab-timeline-panel').style.display = isDetails ? 'none' : '';
+  document.getElementById('ctab-details').style.borderBottomColor  = isDetails ? 'var(--logo-blue)' : 'transparent';
+  document.getElementById('ctab-details').style.color              = isDetails ? 'var(--navy)' : 'var(--warm-grey)';
+  document.getElementById('ctab-details').style.fontWeight         = isDetails ? '600' : '400';
+  document.getElementById('ctab-timeline').style.borderBottomColor = isDetails ? 'transparent' : 'var(--logo-blue)';
+  document.getElementById('ctab-timeline').style.color             = isDetails ? 'var(--warm-grey)' : 'var(--navy)';
+  document.getElementById('ctab-timeline').style.fontWeight        = isDetails ? '400' : '600';
+}
+
+async function loadContactTimeline(contactId) {
+  var el = document.getElementById('contact-timeline-body');
+  if (!el) return;
+  var d = await apiFetch('/contacts/' + contactId + '/timeline');
+  if (!d) { el.innerHTML = '<div style="padding:24px;color:var(--accent-coral)">Failed to load timeline.</div>'; return; }
+  if (!d.events || !d.events.length) {
+    el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--warm-grey)">No activity yet.</div>';
+    return;
+  }
+  var ICONS = {
+    pipeline: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>',
+    pipeline_created: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>',
+    pipeline_deleted: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>',
+    order:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>',
+    email:   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>',
+    note:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+    task:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+    task_done:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>',
+  };
+  var TYPE_COLOR = {
+    pipeline_created:'#2563EB', pipeline_updated:'#7C3AED', pipeline_deleted:'#B33A47',
+    order_created:'#059669', order_updated:'#0891B2',
+    email:'var(--logo-blue)', note:'#D97706', task:'var(--warm-grey)', task_done:'#059669',
+  };
+  el.innerHTML = d.events.map(function(ev) {
+    var color = TYPE_COLOR[ev.type] || 'var(--warm-grey)';
+    var icon  = ICONS[ev.type] || ICONS[ev.icon] || ICONS.note;
+    var _d = ev.timestamp ? new Date(ev.timestamp) : null;
+    var dt = _d ? (String(_d.getDate()).padStart(2,'0')+'/'+String(_d.getMonth()+1).padStart(2,'0')+'/'+_d.getFullYear()+' '+String(_d.getHours()).padStart(2,'0')+':'+String(_d.getMinutes()).padStart(2,'0')) : '—';
+    return '<div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)">'
+      + '<div style="flex-shrink:0;width:28px;height:28px;border-radius:50%;background:'+color+'22;color:'+color+';display:flex;align-items:center;justify-content:center;margin-top:2px">'+icon+'</div>'
+      + '<div style="flex:1;min-width:0">'
+      +   '<div style="font-size:13px;font-weight:600;color:var(--navy)">'+escHtml(ev.title)+'</div>'
+      +   '<div style="font-size:12px;color:var(--warm-grey);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escHtml(ev.detail||'')+'</div>'
+      +   '<div style="font-size:11px;color:var(--warm-grey);margin-top:4px">'+escHtml(dt)+(ev.actor?' · '+escHtml(ev.actor):'')+'</div>'
+      + '</div>'
+      + '</div>';
+  }).join('');
 }
 
 async function saveContactEdit(e, id) {

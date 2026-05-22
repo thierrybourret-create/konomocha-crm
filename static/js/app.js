@@ -1015,18 +1015,57 @@ async function renderBoard() {
 }
 
 // ---- New Deal modal ----
+function ndContactSearch() {
+  var inp = document.getElementById('nd-contact-search');
+  var hid = document.getElementById('nd-contact-id');
+  var dd  = document.getElementById('nd-contact-dropdown');
+  if (!inp || !hid || !dd) return;
+  hid.value = '';
+  var q = inp.value.toLowerCase().trim();
+  if (!q) { dd.style.display = 'none'; return; }
+  var matches = (window._ndContacts||[]).filter(function(c){
+    return (c.name||'').toLowerCase().includes(q) || (c.company||'').toLowerCase().includes(q);
+  }).slice(0, 25);
+  if (!matches.length) { dd.innerHTML='<div style="padding:10px 12px;font-size:13px;color:var(--warm-grey)">No results</div>'; dd.style.display=''; return; }
+  dd.innerHTML = matches.map(function(c){
+    var lbl = escHtml(c.name + (c.company&&c.company!==c.name?' — '+c.company:''));
+    return '<div onclick="ndContactSelect('+c.id+')" style="padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--line)" '
+      +'onmouseenter="this.style.background=\'var(--off-white)\'" onmouseleave="this.style.background=\'\'">'+lbl+'</div>';
+  }).join('');
+  dd.style.display = '';
+}
+function ndContactSelect(id) {
+  var c = (window._ndContacts||[]).find(function(x){ return x.id===id; });
+  if (!c) return;
+  var lbl = c.name + (c.company&&c.company!==c.name?' — '+c.company:'');
+  var inp = document.getElementById('nd-contact-search');
+  var hid = document.getElementById('nd-contact-id');
+  var dd  = document.getElementById('nd-contact-dropdown');
+  if (inp) inp.value = lbl;
+  if (hid) hid.value = id;
+  if (dd)  dd.style.display = 'none';
+}
+
 async function openNewDealModal(preContactId) {
-  const [cData, bData, uData] = await Promise.all([apiFetch('/contacts?source=contacts&per_page=200'), apiFetch('/brands'), apiFetch('/users')]);
-  const contacts = cData?cData.results:[], brands=bData||[], users=uData||[];
+  const [cData, bData, uData] = await Promise.all([apiFetch('/contacts?source=contacts&per_page=2000'), apiFetch('/brands'), apiFetch('/users')]);
+  window._ndContacts = cData?cData.results:[];
+  const brands=bData||[], users=uData||[];
   const statuses = getPipelineStatuses();
+  // pre-fill label if a contact was passed in
+  var preLabel = '';
+  if (preContactId) {
+    var preC = window._ndContacts.find(function(c){ return c.id===preContactId; });
+    if (preC) preLabel = preC.name + (preC.company&&preC.company!==preC.name?' — '+preC.company:'');
+  }
   document.getElementById('modal-title').innerHTML = 'New Pipeline Entry';
   document.getElementById('modal-body').innerHTML = `
     <form id="new-deal-form" onsubmit="saveNewDeal(event)">
       <div style="margin-bottom:12px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Contact / Company *</label>
-        <select name="contact_id" required style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">
-          <option value="">— Select —</option>
-          ${contacts.map(c=>`<option value="${c.id}" ${preContactId===c.id?'selected':''}>${c.name}${c.company&&c.company!==c.name?' ('+c.company+')':''}</option>`).join('')}
-        </select></div>
+        <div style="position:relative">
+          <input id="nd-contact-search" placeholder="Type name or company…" autocomplete="off" oninput="ndContactSearch()" onfocus="ndContactSearch()" value="${escHtml(preLabel)}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;box-sizing:border-box"/>
+          <input type="hidden" name="contact_id" id="nd-contact-id" value="${preContactId||''}"/>
+          <div id="nd-contact-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--white);border:1px solid var(--line);border-radius:8px;z-index:200;max-height:220px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,0.12)"></div>
+        </div></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
         <div><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Brand *</label>
           <select name="brand_id" required style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">
@@ -1143,9 +1182,13 @@ async function saveNewDeal(e) {
     status:fd.get('status'), potential_value:parseFloat(fd.get('potential_value'))||0,
     owner_id:parseInt(fd.get('owner_id')), fob_date:fd.get('fob_date')||null,
     next_action:fd.get('next_action')||null, notes:fd.get('notes')||null };
+  if (!payload.contact_id) {
+    document.getElementById('nd-error').textContent='Please select a contact / company.';
+    document.getElementById('nd-error').style.display='block'; return;
+  }
   const btn = e.target.querySelector('[type=submit]'); btn.textContent='Saving…'; btn.disabled=true;
   const result = await apiFetch('/pipeline',{method:'POST',body:JSON.stringify(payload)});
-  if (result) { document.getElementById('modal').style.display='none'; loadPipeline(); }
+  if (result) { document.getElementById('modal').style.display='none'; loadPipeline(); showToast('Pipeline entry created'); }
   else { document.getElementById('nd-error').textContent='Failed. Check all required fields.'; document.getElementById('nd-error').style.display='block'; btn.textContent='Save Deal'; btn.disabled=false; }
 }
 
@@ -1628,7 +1671,8 @@ async function loadAuditReport(page) {
       + '</tr></thead><tbody>'
       + rows.map(function(r, i) {
           var bg   = i % 2 === 0 ? 'var(--white)' : 'var(--off-white)';
-          var dt   = fmtDate(r.created_at) + ' ' + (r.created_at||'').substring(11,16);
+          var _d = r.created_at ? new Date(r.created_at) : null;
+  var dt = _d ? (String(_d.getDate()).padStart(2,'0')+'/'+String(_d.getMonth()+1).padStart(2,'0')+'/'+_d.getFullYear()+' '+String(_d.getHours()).padStart(2,'0')+':'+String(_d.getMinutes()).padStart(2,'0')) : '—';
           var aClr = r.action === 'deleted' ? 'var(--accent-coral)'
                    : r.action === 'created' ? '#1A7F4B' : 'var(--navy)';
           return '<tr style="background:' + bg + '">'

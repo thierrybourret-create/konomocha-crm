@@ -2557,15 +2557,30 @@ async function deleteOrder(orderId) {
   else showToast('Failed to delete order');
 }
 
-function exportOrdersCSV() {
-  if (!ordersData.length) { showToast('No orders to export'); return; }
-  var cols = ['Contact','Company','Brand','Owner','Order Value','Net Commission','Status','Ship Date','Commission Due'];
-  var rows = ordersData.map(function(o){return[
-    o.contact_name||'',o.contact_company||'',o.brand_name||'',o.owner_name||'',
-    o.order_value||0,o.net_commission||0,o.status||'',o.ship_date||'',o.commission_due_date||''
-  ];});
-  var csv=cols.join(',')+String.fromCharCode(10);csv+=rows.map(function(r){return r.map(function(v){return '"'+String(v).replace(/"/g,'""')+'"';}).join(',');}).join(String.fromCharCode(10));
-  var a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='orders.csv';a.click();
+async function exportOrdersCSV() {
+  const p = new URLSearchParams({ per_page: 5000 });
+  const sf = document.getElementById('orders-filter-status'); if (sf && sf.value) p.set('status', sf.value);
+  const of2 = document.getElementById('orders-filter-owner'); if (of2 && of2.value) p.set('owner_id', of2.value);
+  const bf = document.getElementById('orders-filter-brand'); if (bf && bf.value) p.set('brand_id', bf.value);
+  const d = await apiFetch('/orders?' + p);
+  if (!d || !d.results.length) { showToast('No orders to export'); return; }
+  const cols = ['Contact', 'Company', 'Brand', 'Owner', 'Order Date', 'Order Value', 'Currency',
+                'Status', 'PO Date', 'Ship Date', 'Payment Date', 'Commission Rate %',
+                'Net Commission', 'Commission Due Date', 'Notes'];
+  const rows = d.results.map(function(o) { return [
+    o.contact_name||'', o.contact_company||'', o.brand_name||'', o.owner_name||'',
+    o.order_date||'', o.order_value||0, o.currency||'USD',
+    o.status||'', o.po_date||'', o.ship_date||'', o.payment_date||'',
+    o.gross_commission_rate||0, o.net_commission||0, o.commission_due_date||'',
+    (o.notes||'').replace(/,/g, ' ')
+  ]; });
+  const csv = [cols, ...rows].map(function(r) {
+    return r.map(function(v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(',');
+  }).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = 'orders_export.csv'; a.click();
+  showToast('Exported ' + d.results.length + ' orders');
 }
 
 // ---- Emails ----

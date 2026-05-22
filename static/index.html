@@ -921,6 +921,10 @@
         <svg class="sb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M20 21a8 8 0 1 0-16 0"></path></svg>
         <span>Admin</span>
       </button>
+      <button class="sb-item" data-view="trash" id="nav-trash" style="display:none">
+        <svg class="sb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14H6L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4h6v2"></path></svg>
+        <span>Trash</span>
+      </button>
     </nav>
     <div class="sb-footer">
       <div class="sb-user" id="logout-btn" title="Sign out" style="cursor:pointer;">
@@ -1626,6 +1630,22 @@
 </div>
     </section>
 
+  <section class="view" id="view-trash" data-screen-label="Trash">
+    <div class="page-head">
+      <div>
+        <h1 class="page-title">Trash</h1>
+        <div class="page-sub" style="color:var(--warm-grey);font-size:13px">Items are permanently deleted after 20 days</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--line)">
+      <button class="trash-tab-btn" id="ttab-contacts" onclick="switchTrashTab('contacts')" style="background:none;border:none;border-bottom:2px solid var(--logo-blue-dark);margin-bottom:-2px;padding:8px 16px;font:inherit;font-size:13px;font-weight:600;color:var(--logo-blue-dark);cursor:pointer">Contacts</button>
+      <button class="trash-tab-btn" id="ttab-pipeline" onclick="switchTrashTab('pipeline')" style="background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;padding:8px 16px;font:inherit;font-size:13px;color:var(--warm-grey);cursor:pointer">Pipeline</button>
+      <button class="trash-tab-btn" id="ttab-orders" onclick="switchTrashTab('orders')" style="background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;padding:8px 16px;font:inherit;font-size:13px;color:var(--warm-grey);cursor:pointer">Orders</button>
+      <button class="trash-tab-btn" id="ttab-notes" onclick="switchTrashTab('notes')" style="background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;padding:8px 16px;font:inherit;font-size:13px;color:var(--warm-grey);cursor:pointer">Notes</button>
+    </div>
+    <div id="trash-content"><div style="text-align:center;padding:40px;color:var(--warm-grey)">Loading…</div></div>
+  </section>
+
   </main>
 </div><!-- /app-root -->
 
@@ -1709,6 +1729,7 @@ function showApp() {
   // Admin nav
   if (CURRENT_USER.role === 'admin') {
     document.getElementById('sb-hdr-admin').style.display = '';
+    document.getElementById('nav-trash').style.display = '';
     document.getElementById('sb-body-admin').style.display = '';
   }
   // Orders — admin only
@@ -1720,7 +1741,7 @@ function showApp() {
 }
 
 // ---- Navigation ----
-const TITLES = { dashboard:'Dashboard', contacts:'Contacts', companies:'Companies', pipeline:'Pipeline', brands:'Brands', orders:'Orders', tasks:'Tasks', email:'Email Log', reports:'Reports', admin:'Admin' };
+const TITLES = { dashboard:'Dashboard', contacts:'Contacts', companies:'Companies', pipeline:'Pipeline', brands:'Brands', orders:'Orders', tasks:'Tasks', email:'Email Log', reports:'Reports', admin:'Admin', trash:'Trash' };
 function activate(view) {
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-'+view));
   document.querySelectorAll('.sb-item[data-view]').forEach(n => n.classList.toggle('active', n.dataset.view === view));
@@ -2097,6 +2118,7 @@ async function openContactDetail(id) {
     `<div id="ec-error" style="display:none;color:#B33A47;font-size:13px;margin-bottom:12px;padding:10px;background:#FAE3E5;border-radius:8px"></div>`+
     `<div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:24px">`+
       `<button type="button" onclick="document.getElementById('modal').style.display='none';window._editFromReport=false;" class="btn btn-secondary">Cancel</button>`+
+      `${CURRENT_USER&&CURRENT_USER.role==='admin'?'<button type="button" onclick="deleteContactFromModal('+id+')" class="btn btn-secondary" style="color:#B33A47">Delete</button>':''}`+
       `<button type="submit" class="btn btn-primary">Save</button>`+
     `</div></form>`+
     `<div style="text-align:right;margin:-4px 0 16px"><button type="button" onclick="openMergeModal(${id})" style="background:none;border:none;color:var(--warm-grey);font-size:12px;cursor:pointer;padding:0;text-decoration:underline">Merge duplicate…</button></div>`+
@@ -2478,8 +2500,10 @@ function openPipelineDetail(id) {
         <button onclick="addPipelineNote(${e.id})" class="btn btn-primary" style="font-size:13px">Add Note</button>
       </div>
     </div>`;
+  const isAdminPE = CURRENT_USER && CURRENT_USER.role === 'admin';
   document.getElementById('modal-footer').innerHTML = `
     <button class="btn btn-secondary" onclick="document.getElementById('modal').style.display='none'">Cancel</button>
+    ${isAdminPE ? `<button class="btn btn-secondary" style="color:#B33A47" onclick="deletePipelineEntry(${e.id})">Delete</button>` : ''}
     <button class="btn btn-secondary" onclick="openConvertToOrderModal(${e.id})">Convert to Order</button>
     <button class="btn btn-primary" onclick="document.getElementById('pe-edit-form').requestSubmit()">Save</button>`;
   document.getElementById('modal').style.display = 'flex';
@@ -3676,7 +3700,7 @@ async function advanceOrderStatus(orderId, newStatus) {
 }
 
 async function deleteOrder(orderId) {
-  if (!confirm('Delete this order? This cannot be undone.')) return;
+  if (!confirm('Move this order to trash?')) return;
   var r = await apiFetch('/orders/'+orderId, {method:'DELETE'});
   if (r) { document.getElementById('modal').style.display='none'; showToast('Order deleted'); loadOrders(); }
   else showToast('Failed to delete order');
@@ -4275,6 +4299,7 @@ async function loadView(view) {
   if(view==='tasks')     await loadMyTasks();
   if(view==='email')     await loadEmails();
   if(view==='admin')     await loadAdmin();
+  if(view==='trash')     await loadTrash();
 }
 
 // ---- Event listeners ----
@@ -4369,6 +4394,182 @@ if (TOKEN) {
     });
   });
 })();
+
+// ============================================================
+// Stage 6 — Soft delete helpers
+// ============================================================
+
+async function deleteContactFromModal(contactId) {
+  if (!confirm('Move this contact to trash?')) return;
+  const r = await apiFetch('/contacts/'+contactId, {method:'DELETE'});
+  if (r) {
+    document.getElementById('modal').style.display='none';
+    showToast('Contact moved to trash');
+    loadContacts();
+  }
+}
+
+async function deletePipelineEntry(entryId) {
+  if (!confirm('Move this pipeline entry to trash?')) return;
+  const r = await apiFetch('/pipeline/'+entryId, {method:'DELETE'});
+  if (r) {
+    document.getElementById('modal').style.display='none';
+    showToast('Pipeline entry moved to trash');
+    loadPipeline();
+  }
+}
+
+// ---- Trash view ----
+let trashData = null;
+let trashTab = 'contacts';
+
+function switchTrashTab(tab) {
+  trashTab = tab;
+  document.querySelectorAll('.trash-tab-btn').forEach(function(btn) {
+    var active = btn.id === 'ttab-' + tab;
+    btn.style.borderBottomColor = active ? 'var(--logo-blue-dark)' : 'transparent';
+    btn.style.color = active ? 'var(--logo-blue-dark)' : 'var(--warm-grey)';
+    btn.style.fontWeight = active ? '600' : '';
+  });
+  renderTrashTab();
+}
+
+function renderTrashTab() {
+  var el = document.getElementById('trash-content');
+  if (!el) return;
+  if (!trashData) { el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--warm-grey)">Loading…</div>'; return; }
+
+  if (trashTab === 'contacts') {
+    var items = trashData.contacts;
+    if (!items || !items.length) { el.innerHTML = '<div style="padding:24px;color:var(--warm-grey);font-size:13px">No contacts in trash.</div>'; return; }
+    var rows = items.map(function(i) {
+      return '<tr>' +
+        '<td style="padding:10px 12px;font-size:13px"><strong>' + escHtml(i.name||'—') + '</strong>' + (i.company ? '<br><span style="font-size:11px;color:var(--warm-grey)">'+escHtml(i.company)+'</span>' : '') + '</td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey)">' + escHtml(i.email||'—') + '</td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey)">' + i.days_since + ' day' + (i.days_since!==1?'s':'') + ' ago</td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:' + (i.days_remaining <= 3 ? '#B33A47' : 'var(--warm-grey)') + '">' + i.days_remaining + ' day' + (i.days_remaining!==1?'s':'') + ' left</td>' +
+        '<td style="padding:10px 12px;white-space:nowrap">' +
+          '<button onclick="restoreTrashItem('contact','+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;margin-right:4px">Restore</button>' +
+          '<button onclick="hardDeleteTrashItem('contact','+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;color:#B33A47">Delete</button>' +
+        '</td></tr>';
+    });
+    el.innerHTML = '<table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid var(--line)">' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Name</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Email</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Deleted</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Remaining</th>' +
+      '<th></th></tr></thead><tbody>' + rows.join('') + '</tbody></table>';
+  } else if (trashTab === 'pipeline') {
+    var items = trashData.pipeline;
+    if (!items || !items.length) { el.innerHTML = '<div style="padding:24px;color:var(--warm-grey);font-size:13px">No pipeline entries in trash.</div>'; return; }
+    var rows = items.map(function(i) {
+      return '<tr>' +
+        '<td style="padding:10px 12px;font-size:13px">' + escHtml(i.contact_name||'—') + '</td>' +
+        '<td style="padding:10px 12px;font-size:13px">' + escHtml(i.brand_name||'—') + '</td>' +
+        '<td style="padding:10px 12px;font-size:12px"><span class="pill blue">' + escHtml(i.status||'') + '</span></td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey)">' + i.days_since + ' day' + (i.days_since!==1?'s':'') + ' ago</td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:' + (i.days_remaining <= 3 ? '#B33A47' : 'var(--warm-grey)') + '">' + i.days_remaining + ' day' + (i.days_remaining!==1?'s':'') + ' left</td>' +
+        '<td style="padding:10px 12px;white-space:nowrap">' +
+          '<button onclick="restoreTrashItem('pipeline','+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;margin-right:4px">Restore</button>' +
+          '<button onclick="hardDeleteTrashItem('pipeline','+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;color:#B33A47">Delete</button>' +
+        '</td></tr>';
+    });
+    el.innerHTML = '<table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid var(--line)">' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Contact</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Brand</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Status</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Deleted</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Remaining</th>' +
+      '<th></th></tr></thead><tbody>' + rows.join('') + '</tbody></table>';
+  } else if (trashTab === 'orders') {
+    var items = trashData.orders;
+    if (!items || !items.length) { el.innerHTML = '<div style="padding:24px;color:var(--warm-grey);font-size:13px">No orders in trash.</div>'; return; }
+    var rows = items.map(function(i) {
+      return '<tr>' +
+        '<td style="padding:10px 12px;font-size:13px">' + escHtml(i.contact_name||'—') + '</td>' +
+        '<td style="padding:10px 12px;font-size:13px">' + escHtml(i.brand_name||'—') + '</td>' +
+        '<td style="padding:10px 12px;font-size:13px;font-weight:600">' + fmtVal(i.order_value) + '</td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey)">' + i.days_since + ' day' + (i.days_since!==1?'s':'') + ' ago</td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:' + (i.days_remaining <= 3 ? '#B33A47' : 'var(--warm-grey)') + '">' + i.days_remaining + ' day' + (i.days_remaining!==1?'s':'') + ' left</td>' +
+        '<td style="padding:10px 12px;white-space:nowrap">' +
+          '<button onclick="restoreTrashItem('order','+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;margin-right:4px">Restore</button>' +
+          '<button onclick="hardDeleteTrashItem('order','+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;color:#B33A47">Delete</button>' +
+        '</td></tr>';
+    });
+    el.innerHTML = '<table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid var(--line)">' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Contact</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Brand</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Value</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Deleted</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Remaining</th>' +
+      '<th></th></tr></thead><tbody>' + rows.join('') + '</tbody></table>';
+  } else if (trashTab === 'notes') {
+    var cNotes = (trashData.contact_notes || []).map(function(i) {
+      return '<tr>' +
+        '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey)">Contact</td>' +
+        '<td style="padding:10px 12px;font-size:13px">' + escHtml(i.contact_name||'—') + '</td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(i.body_preview||'') + '</td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey)">' + i.days_since + ' day' + (i.days_since!==1?'s':'') + ' ago</td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:' + (i.days_remaining <= 3 ? '#B33A47' : 'var(--warm-grey)') + '">' + i.days_remaining + ' day' + (i.days_remaining!==1?'s':'') + ' left</td>' +
+        '<td style="padding:10px 12px;white-space:nowrap">' +
+          '<button onclick="restoreTrashItem('contact_note','+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;margin-right:4px">Restore</button>' +
+          '<button onclick="hardDeleteTrashItem('contact_note','+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;color:#B33A47">Delete</button>' +
+        '</td></tr>';
+    });
+    var pNotes = (trashData.pipeline_notes || []).map(function(i) {
+      return '<tr>' +
+        '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey)">Pipeline</td>' +
+        '<td style="padding:10px 12px;font-size:13px">' + escHtml((i.contact_name||'—') + (i.brand_name?' / '+i.brand_name:'')) + '</td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(i.body_preview||'') + '</td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:var(--warm-grey)">' + i.days_since + ' day' + (i.days_since!==1?'s':'') + ' ago</td>' +
+        '<td style="padding:10px 12px;font-size:12px;color:' + (i.days_remaining <= 3 ? '#B33A47' : 'var(--warm-grey)') + '">' + i.days_remaining + ' day' + (i.days_remaining!==1?'s':'') + ' left</td>' +
+        '<td style="padding:10px 12px;white-space:nowrap">' +
+          '<button onclick="restoreTrashItem('pipeline_note','+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;margin-right:4px">Restore</button>' +
+          '<button onclick="hardDeleteTrashItem('pipeline_note','+i.id+')" class="btn btn-secondary" style="font-size:11px;padding:3px 10px;color:#B33A47">Delete</button>' +
+        '</td></tr>';
+    });
+    var allRows = cNotes.concat(pNotes);
+    if (!allRows.length) { el.innerHTML = '<div style="padding:24px;color:var(--warm-grey);font-size:13px">No notes in trash.</div>'; return; }
+    el.innerHTML = '<table style="width:100%;border-collapse:collapse"><thead><tr style="border-bottom:1px solid var(--line)">' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Type</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Contact / Brand</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Preview</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Deleted</th>' +
+      '<th style="padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--warm-grey)">Remaining</th>' +
+      '<th></th></tr></thead><tbody>' + allRows.join('') + '</tbody></table>';
+  }
+}
+
+async function loadTrash() {
+  trashData = null;
+  var el = document.getElementById('trash-content');
+  if (el) el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--warm-grey)">Loading…</div>';
+  var data = await apiFetch('/trash');
+  if (data) {
+    trashData = data;
+    renderTrashTab();
+  } else {
+    if (el) el.innerHTML = '<div style="text-align:center;padding:40px;color:#B33A47">Failed to load trash.</div>';
+  }
+}
+
+async function restoreTrashItem(itemType, itemId) {
+  const r = await apiFetch('/trash/'+itemType+'/'+itemId+'/restore', {method:'POST'});
+  if (r) {
+    showToast('Item restored');
+    await loadTrash();
+  }
+}
+
+async function hardDeleteTrashItem(itemType, itemId) {
+  if (!confirm('Permanently delete? This cannot be undone.')) return;
+  const r = await apiFetch('/trash/'+itemType+'/'+itemId, {method:'DELETE'});
+  if (r) {
+    showToast('Permanently deleted');
+    await loadTrash();
+  }
+}
+
 </script>
 </body>
 </html>

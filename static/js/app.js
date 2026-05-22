@@ -3473,7 +3473,6 @@ async function runGlobalSearch(q) {
   var box = document.getElementById('global-search-results');
   if (!box) return;
 
-  // Position dropdown under the input
   var rect = inp ? inp.getBoundingClientRect() : null;
   if (rect) {
     box.style.top  = (rect.bottom + 6) + 'px';
@@ -3503,9 +3502,9 @@ async function runGlobalSearch(q) {
   }
 
   function row(onclick, line1, line2) {
-    return '<div onclick="' + onclick + ';document.getElementById('global-search-results').style.display='none';document.getElementById('global-search-input').value='';" '
+    return '<div onclick="' + onclick + ';document.getElementById(\'global-search-results\').style.display=\'none\';document.getElementById(\'global-search-input\').value=\'\';" '
       + 'style="padding:9px 14px;cursor:pointer;transition:background .1s" '
-      + 'onmouseover="this.style.background='var(--off-white)'" onmouseout="this.style.background=''">'
+      + 'onmouseover="this.style.background=\'var(--off-white)\'" onmouseout="this.style.background=\'\'">'
       + '<div style="font-size:13px;font-weight:600;color:var(--navy)">' + line1 + '</div>'
       + (line2 ? '<div style="font-size:12px;color:var(--warm-grey);margin-top:1px">' + line2 + '</div>' : '')
       + '</div>';
@@ -3515,23 +3514,23 @@ async function runGlobalSearch(q) {
     return row(
       'openContactDetail(' + c.id + ')',
       escHtml(c.name),
-      [c.company, c.email].filter(Boolean).map(escHtml).join(' · ')
+      [c.company, c.email].filter(Boolean).map(escHtml).join(' \xB7 ')
     );
   }));
 
   html += section('Pipeline', '#7C3AED', (d.pipeline||[]).map(function(p) {
     return row(
-      'showPage('pipeline')',
+      'showPage(\'pipeline\')',
       escHtml(p.contact) + (p.brand ? ' — ' + escHtml(p.brand) : ''),
-      escHtml(p.status) + ' · $' + p.value
+      escHtml(p.status) + ' \xB7 $' + p.value
     );
   }));
 
   html += section('Orders', '#059669', (d.orders||[]).map(function(o) {
     return row(
-      'showPage('orders')',
+      'showPage(\'orders\')',
       escHtml(o.contact) + (o.brand ? ' — ' + escHtml(o.brand) : ''),
-      escHtml(o.status) + ' · $' + o.value
+      escHtml(o.status) + ' \xB7 $' + o.value
     );
   }));
 

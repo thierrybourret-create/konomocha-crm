@@ -2503,7 +2503,7 @@ function openPipelineDetail(id) {
       <div style="margin-bottom:12px"><label class="fl">Next Action</label>
         <input name="next_action" value="${(e.next_action||'').replace(/"/g,'&quot;')}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
       <div id="pe-close-reason-wrap" style="${isLostStatus(e.status)?'':'display:none'}"><label class="fl">Close Reason </label>
-        <input name="close_reason" id="pe-close-reason" required placeholder="Why was this deal lost?" value="${(e.close_reason||'').replace(/"/g,'&quot;')}" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
+        ${buildCloseReasonSelect(e.close_reason||'')}</div>
       <div id="pe-edit-error" style="display:none;color:#B33A47;font-size:13px;margin-bottom:12px;padding:10px;background:#FAE3E5;border-radius:8px"></div>
     </form>
     <div style="border-top:1px solid var(--line);padding-top:16px;margin-top:4px">
@@ -3188,6 +3188,30 @@ function onPipelineStatusChange(val) {
   if (wrap) wrap.style.display = isLostStatus(val) ? '' : 'none';
 }
 
+var CLOSE_REASONS = [
+  'Price too high',
+  'Found another agent / supplier',
+  'No budget',
+  'No response / ghosted',
+  'Not the right fit',
+  'Timing - postponed',
+  'Relationship ended',
+  'Other'
+];
+function buildCloseReasonSelect(currentVal) {
+  var style = 'width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)';
+  var html = '<select name="close_reason" id="pe-close-reason" required style="' + style + '">';
+  html += '<option value="">Select a reason…</option>';
+  if (currentVal && !CLOSE_REASONS.includes(currentVal)) {
+    html += '<option value="' + escHtml(currentVal) + '" selected>' + escHtml(currentVal) + '</option>';
+  }
+  CLOSE_REASONS.forEach(function(o) {
+    html += '<option value="' + o + '"' + (currentVal === o ? ' selected' : '') + '>' + o + '</option>';
+  });
+  html += '</select>';
+  return html;
+}
+
 async function loadReports() {
   var u = JSON.parse(localStorage.getItem('crm_user')||'{}');
   var ra = document.getElementById('rr-activity');
@@ -3199,11 +3223,13 @@ async function loadLostDealsReport() {
   var title = document.getElementById('report-overlay-title');
   if (title) title.textContent = 'Lost Deals';
   if (!body) return;
+  var ownerEl   = document.getElementById('ld-owner-filter');
+  var brandEl   = document.getElementById('ld-brand-filter');
+  var fromEl    = document.getElementById('ld-date-from');
+  var toEl      = document.getElementById('ld-date-to');
+  var companyEl = document.getElementById('ld-company-search');
+  var companySearch = ((companyEl && companyEl.value) || '').toLowerCase().trim();
   body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--warm-grey)">Loading…</div>';
-  var ownerEl = document.getElementById('ld-owner-filter');
-  var brandEl = document.getElementById('ld-brand-filter');
-  var fromEl  = document.getElementById('ld-date-from');
-  var toEl    = document.getElementById('ld-date-to');
   var params = new URLSearchParams();
   if (ownerEl && ownerEl.value) params.set('owner_id', ownerEl.value);
   if (brandEl && brandEl.value) params.set('brand_id', brandEl.value);
@@ -3213,7 +3239,7 @@ async function loadLostDealsReport() {
   if (!d) { body.innerHTML='<div style="padding:40px;text-align:center;color:#B33A47">Failed to load.</div>'; return; }
   var isAdmin = CURRENT_USER && CURRENT_USER.role === 'admin';
   var users  = (window._crmUsers || []);
-  var brands = (window.allBrands || []);
+  var brands = allBrands || [];
   var filters = '<div style="display:flex;flex-wrap:wrap;gap:10px;padding:16px 24px;border-bottom:1px solid var(--line);background:var(--off-white)">';
   if (isAdmin) {
     filters += '<div><label style="font-size:12px;color:var(--warm-grey);display:block;margin-bottom:4px">Owner</label>'
@@ -3231,6 +3257,8 @@ async function loadLostDealsReport() {
     + '<input id="ld-date-from" type="date" value="' + ((fromEl&&fromEl.value)||'') + '" onchange="loadLostDealsReport()" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px"/></div>';
   filters += '<div><label style="font-size:12px;color:var(--warm-grey);display:block;margin-bottom:4px">Closed to</label>'
     + '<input id="ld-date-to" type="date" value="' + ((toEl&&toEl.value)||'') + '" onchange="loadLostDealsReport()" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px"/></div>';
+  filters += '<div><label style="font-size:12px;color:var(--warm-grey);display:block;margin-bottom:4px">Company</label>'
+    + '<input id="ld-company-search" type="text" placeholder="Filter by company…" value="' + escHtml(companySearch) + '" onchange="loadLostDealsReport()" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;min-width:180px"/></div>';
   filters += '</div>';
   var winRateColor  = (d.win_rate_pct  >= 50) ? '#1A7F4B' : '#B33A47';
   var lossRateColor = (d.loss_rate_pct >= 50) ? '#B33A47' : '#1A7F4B';
@@ -3294,8 +3322,11 @@ async function loadLostDealsReport() {
       + '</div>';
   }
 
+  var filteredEntries = companySearch
+    ? (d.entries || []).filter(function(e){ return (e.contact_company||'').toLowerCase().includes(companySearch); })
+    : (d.entries || []);
   var tableHtml = '';
-  if (d.entries && d.entries.length) {
+  if (filteredEntries.length) {
     var isAdminCol = isAdmin ? '<th style="text-align:left;padding:10px 12px;font-weight:600;color:var(--navy)">Owner</th>' : '';
     tableHtml = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'
       + '<thead><tr style="background:var(--off-white)">'
@@ -3306,7 +3337,7 @@ async function loadLostDealsReport() {
       + '<th style="text-align:left;padding:10px 12px;font-weight:600;color:var(--navy)">Close Reason</th>'
       + '<th style="text-align:left;padding:10px 12px;font-weight:600;color:var(--navy)">Closed</th>'
       + isAdminCol + '</tr></thead><tbody>'
-      + d.entries.map(function(e, i) {
+      + filteredEntries.map(function(e, i) {
           var adminCol = isAdmin ? '<td style="padding:10px 12px">' + escHtml(e.owner_name||'—') + '</td>' : '';
           return '<tr style="border-top:1px solid var(--line)">'
             + '<td style="padding:10px 12px"><div style="font-weight:500">' + escHtml(e.contact_name||'—') + '</div>'

@@ -1580,6 +1580,21 @@
           </div>
         </div>
 
+        <!-- Close Reasons -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-head" style="cursor:pointer" onclick="toggleSection('admin-close-reasons-body')">
+            <div><div class="card-title">Close Reasons</div><div class="card-sub">Manage reasons for lost / closed deals</div></div>
+            <span id="admin-close-reasons-chevron" style="color:var(--warm-grey)">&#9654;</span>
+          </div>
+          <div id="admin-close-reasons-body" style="display:none">
+            <div style="padding:0 20px" id="admin-close-reasons-list"></div>
+            <div class="card-foot" style="gap:8px;">
+              <input id="new-close-reason-input" placeholder="New close reason…" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;flex:1;"/>
+              <button class="btn btn-primary" style="padding:6px 12px" onclick="addRefItem('close_reason')">Add</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Sales Regions -->
         <div class="card" style="margin-bottom:16px;">
           <div class="card-head" style="cursor:pointer" onclick="toggleSection('admin-regions-body')">
@@ -3188,28 +3203,27 @@ function onPipelineStatusChange(val) {
   if (wrap) wrap.style.display = isLostStatus(val) ? '' : 'none';
 }
 
-var CLOSE_REASONS = [
-  'Price too high',
-  'Found another agent / supplier',
-  'No budget',
-  'No response / ghosted',
-  'Not the right fit',
-  'Timing - postponed',
-  'Relationship ended',
-  'Other'
-];
 function buildCloseReasonSelect(currentVal) {
+  var reasons = (_stageList.close_reason || []).slice().sort(function(a,b){return a.position-b.position;});
   var style = 'width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)';
   var html = '<select name="close_reason" id="pe-close-reason" required style="' + style + '">';
   html += '<option value="">Select a reason…</option>';
-  if (currentVal && !CLOSE_REASONS.includes(currentVal)) {
+  var labels = reasons.map(function(r){ return r.label||r.name; });
+  if (currentVal && !labels.includes(currentVal)) {
     html += '<option value="' + escHtml(currentVal) + '" selected>' + escHtml(currentVal) + '</option>';
   }
-  CLOSE_REASONS.forEach(function(o) {
-    html += '<option value="' + o + '"' + (currentVal === o ? ' selected' : '') + '>' + o + '</option>';
+  reasons.forEach(function(r) {
+    var lbl = r.label||r.name;
+    html += '<option value="' + lbl + '"' + (currentVal === lbl ? ' selected' : '') + '>' + lbl + '</option>';
   });
   html += '</select>';
   return html;
+}
+
+function fmtDate(iso) {
+  if (!iso) return "—";
+  var d = iso.substring(0, 10);
+  return d.slice(8,10) + '/' + d.slice(5,7) + '/' + d.slice(0,4);
 }
 
 async function loadReports() {
@@ -3253,12 +3267,12 @@ async function loadLostDealsReport() {
     + '<option value="">All brands</option>'
     + brands.map(function(b){ return '<option value="' + b.id + '"' + ((brandEl&&brandEl.value==b.id)?' selected':'') + '>' + escHtml(b.name) + '</option>'; }).join('')
     + '</select></div>';
+  filters += '<div><label style="font-size:12px;color:var(--warm-grey);display:block;margin-bottom:4px">Company</label>'
+    + '<input id="ld-company-search" type="text" placeholder="Filter by company…" value="' + escHtml(companySearch) + '" onchange="loadLostDealsReport()" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;min-width:180px"/></div>';
   filters += '<div><label style="font-size:12px;color:var(--warm-grey);display:block;margin-bottom:4px">Closed from</label>'
     + '<input id="ld-date-from" type="date" value="' + ((fromEl&&fromEl.value)||'') + '" onchange="loadLostDealsReport()" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px"/></div>';
   filters += '<div><label style="font-size:12px;color:var(--warm-grey);display:block;margin-bottom:4px">Closed to</label>'
     + '<input id="ld-date-to" type="date" value="' + ((toEl&&toEl.value)||'') + '" onchange="loadLostDealsReport()" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px"/></div>';
-  filters += '<div><label style="font-size:12px;color:var(--warm-grey);display:block;margin-bottom:4px">Company</label>'
-    + '<input id="ld-company-search" type="text" placeholder="Filter by company…" value="' + escHtml(companySearch) + '" onchange="loadLostDealsReport()" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;min-width:180px"/></div>';
   filters += '</div>';
   var winRateColor  = (d.win_rate_pct  >= 50) ? '#1A7F4B' : '#B33A47';
   var lossRateColor = (d.loss_rate_pct >= 50) ? '#B33A47' : '#1A7F4B';
@@ -3347,7 +3361,7 @@ async function loadLostDealsReport() {
             + '<td style="padding:10px 12px"><span style="padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;background:#FEF2F2;border:1px solid #FCA5A5;color:#B33A47">' + escHtml(e.status||'') + '</span></td>'
             + '<td style="padding:10px 12px;text-align:right;font-family:monospace">' + fmtVal(e.potential_value) + '</td>'
             + '<td style="padding:10px 12px">' + escHtml(e.close_reason||'—') + '</td>'
-            + '<td style="padding:10px 12px;color:var(--warm-grey);white-space:nowrap">' + (e.closed_at ? e.closed_at.substring(0,10) : '—') + '</td>'
+            + '<td style="padding:10px 12px;color:var(--warm-grey);white-space:nowrap">' + fmtDate(e.closed_at) + '</td>'
             + adminCol + '</tr>';
         }).join('')
       + '</tbody></table></div>';
@@ -4102,7 +4116,7 @@ async function loadStageProbs() {
   if (!r.ok) return;
   var d = await r.json();
   _stageProbs = {};
-  _stageList = {pipeline: d.pipeline||[], order: d.order||[]};
+  _stageList = {pipeline: d.pipeline||[], order: d.order||[], close_reason: d.close_reason||[]};
   (d.pipeline||[]).concat(d.order||[]).forEach(function(s){ _stageProbs[s.name] = s; });
 }
 async function updateStageProb(id, value) {
@@ -4136,6 +4150,7 @@ function renderRefLists() {
   renderList('admin-countries-list',getCountries(), 'country');
   renderDbStageList('admin-statuses-list', 'pipeline');
   renderDbStageList('admin-order-statuses-list', 'order');
+  renderDbStageListSimple('admin-close-reasons-list', 'close_reason');
 }
 
 function renderDbStageList(elId, stageType) {
@@ -4150,23 +4165,35 @@ function renderDbStageList(elId, stageType) {
       </div></div>`
   ).join('');
 }
+function renderDbStageListSimple(elId, stageType) {
+  const el = document.getElementById(elId); if (!el) return;
+  const stages = (_stageList[stageType] || []).slice().sort((a,b)=>a.position-b.position);
+  el.innerHTML = stages.map(s =>
+    `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line)">
+      <span style="font-size:13px;flex:1">${s.label||s.name}</span>
+      <button onclick="deleteStageById(${s.id})" style="color:var(--accent-coral);font-size:12px;background:none;border:none;cursor:pointer">Remove</button>
+    </div>`
+  ).join('');
+}
 async function deleteStageById(id) {
   if (!confirm('Remove this stage?')) return;
   await fetch('/crm-staging/api/admin/stages/'+id, {method:'DELETE', headers:{Authorization:'Bearer '+TOKEN}});
   await loadStageProbs(); renderRefLists();
 }
 function addRefItem(type) {
-  const el = document.getElementById('new-'+type+'-input');
+  const inputId = type === 'close_reason' ? 'new-close-reason-input' : 'new-'+type+'-input';
+  const el = document.getElementById(inputId);
   const val = el.value.trim(); if(!val) return;
   if (type==='region') { const r=getRegions(); if(!r.includes(val)){r.push(val);r.sort();saveRegions(r);} el.value=''; renderRefLists(); populateFilterDropdowns(); return; }
   if (type==='tag')    { const t=getTags();    if(!t.includes(val)){t.push(val);t.sort();saveTags(t);}     el.value=''; renderRefLists(); populateFilterDropdowns(); return; }
   if (type==='country'){ const c=getCountries();if(!c.includes(val)){c.push(val);c.sort();saveCountries(c);} el.value=''; renderRefLists(); populateFilterDropdowns(); return; }
   // status + order_status → write to DB
-  const stageType = type==='status' ? 'pipeline' : 'order';
+  const stageType = type==='status' ? 'pipeline' : type==='order_status' ? 'order' : 'close_reason';
+  const prob = (stageType === 'close_reason') ? null : 0;
   fetch('/crm-staging/api/admin/stages', {
     method:'POST',
     headers:{Authorization:'Bearer '+TOKEN,'Content-Type':'application/json'},
-    body: JSON.stringify({stage_type:stageType, name:val, label:val, probability:0})
+    body: JSON.stringify({stage_type:stageType, name:val, label:val, probability:prob})
   }).then(()=>loadStageProbs()).then(()=>{ renderRefLists(); populateFilterDropdowns(); });
   el.value='';
 }

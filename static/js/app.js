@@ -107,7 +107,6 @@ function applyPageAccess() {
     document.getElementById('sb-hdr-admin').style.display = '';
     document.getElementById('nav-trash').style.display = '';
     document.getElementById('sb-body-admin').style.display = '';
-    var rc = document.getElementById('admin-roles-card'); if(rc) rc.style.display='';
     return;
   }
   // Use role's page_access if assigned, else user's own page_access
@@ -2794,7 +2793,6 @@ async function loadEmails() {
 
 // ---- Admin ----
 async function loadAdmin() {
-  if (CURRENT_USER?.role === 'admin') { var rc = document.getElementById('admin-roles-card'); if(rc) rc.style.display=''; }
   // Show users card to admin only
   if (CURRENT_USER?.role==='admin') {
     document.getElementById('admin-users-card').style.display='';
@@ -2807,13 +2805,31 @@ async function loadAdmin() {
 }
 
 
+function switchUserTab(tab) {
+  var up = document.getElementById('utab-users-pane');
+  var rp = document.getElementById('utab-roles-pane');
+  var ub = document.getElementById('utab-users');
+  var rb = document.getElementById('utab-roles');
+  if (!up || !rp) return;
+  if (tab === 'users') {
+    up.style.display = '';
+    rp.style.display = 'none';
+    ub.style.color = 'var(--logo-blue)'; ub.style.borderBottom = '2px solid var(--logo-blue)';
+    rb.style.color = 'var(--warm-grey)'; rb.style.borderBottom = 'none';
+  } else {
+    up.style.display = 'none';
+    rp.style.display = '';
+    rb.style.color = 'var(--logo-blue)'; rb.style.borderBottom = '2px solid var(--logo-blue)';
+    ub.style.color = 'var(--warm-grey)'; ub.style.borderBottom = 'none';
+  }
+}
+
 // ── Role management ───────────────────────────────────────────────────────────
 var _crmRoles = [];
 
 async function loadAdminRoles() {
   var d = await apiFetch('/roles'); if (!d) return;
   _crmRoles = d;
-  document.getElementById('admin-roles-meta').textContent = d.length + ' role' + (d.length !== 1 ? 's' : '');
   document.getElementById('admin-roles-tbody').innerHTML = d.length ? d.map(function(r) {
     var pages = r.page_access ? r.page_access.join(', ') : 'All pages';
     var rpts  = r.report_access ? r.report_access.length + ' report(s)' : 'All reports';

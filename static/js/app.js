@@ -1555,6 +1555,12 @@ let qFilter = 'all', qCurrentPage = 1, qPerPage = 50;
 
 
 function openReport(type) {
+  if (type === 'engagement') {
+    var lo2 = document.getElementById('report-overlay');
+    if (lo2) lo2.style.display = 'flex';
+    loadEngagementReport();
+    return;
+  }
   if (type === 'lost-deals') {
     var lo = document.getElementById('report-overlay');
     if (lo) lo.style.display = 'flex';
@@ -3519,6 +3525,115 @@ async function hardDeleteTrashItem(itemType, itemId) {
     showToast('Permanently deleted');
     await loadTrash();
   }
+}
+
+// ── Customer Engagement Report ───────────────────────────────────────────────
+var _engData = [];
+
+async function loadEngagementReport() {
+  const overlay = document.getElementById('report-overlay');
+  const title   = document.getElementById('report-overlay-title');
+  const body    = document.getElementById('report-overlay-body');
+  overlay.style.display = 'flex';
+  title.textContent = 'Customer Engagement';
+
+  const tags    = getTags();
+  const owners  = window._crmUsers || [];
+
+  body.innerHTML =
+    '<div style="display:flex;align-items:center;gap:8px;padding:12px 24px;flex-wrap:wrap;border-bottom:1px solid var(--line)">' +
+      '<select id="eng-days" onchange="runEngagementReport()" style="padding:6px 10px;font:inherit;font-size:13px;color:var(--navy);border:1px solid var(--line);border-radius:6px;background:var(--white)">' +
+        '<option value="30">No contact in 30+ days</option>' +
+        '<option value="60">No contact in 60+ days</option>' +
+        '<option value="90" selected>No contact in 90+ days</option>' +
+        '<option value="180">No contact in 180+ days</option>' +
+        '<option value="365">No contact in 365+ days</option>' +
+      '</select>' +
+      '<select id="eng-tag" onchange="runEngagementReport()" style="padding:6px 10px;font:inherit;font-size:13px;color:var(--navy);border:1px solid var(--line);border-radius:6px;background:var(--white)">' +
+        '<option value="">All tags</option>' +
+        tags.map(function(t){ return '<option>' + escHtml(t) + '</option>'; }).join('') +
+      '</select>' +
+      '<select id="eng-owner" onchange="runEngagementReport()" style="padding:6px 10px;font:inherit;font-size:13px;color:var(--navy);border:1px solid var(--line);border-radius:6px;background:var(--white)">' +
+        '<option value="">All owners</option>' +
+        owners.map(function(u){ return '<option value="' + u.id + '">' + escHtml(u.name) + '</option>'; }).join('') +
+      '</select>' +
+      '<span id="eng-count" style="font-size:12px;color:var(--warm-grey);margin-left:4px"></span>' +
+      '<button onclick="exportEngagementCSV()" style="margin-left:auto;padding:7px 18px;background:var(--logo-blue);color:#fff;border:none;border-radius:6px;font:inherit;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer">&#8595; Export CSV</button>' +
+    '</div>' +
+    '<table class="data" style="width:100%">' +
+      '<thead style="background:#EBF5FB"><tr>' +
+        '<th style="padding-left:24px">Contact</th>' +
+        '<th>Tag</th>' +
+        '<th>Owner</th>' +
+        '<th>Last Interaction</th>' +
+        '<th>Days Since</th>' +
+        '<th>Type</th>' +
+        '<th></th>' +
+      '</tr></thead>' +
+      '<tbody id="eng-tbody"><tr><td colspan="7" style="text-align:center;padding:40px;color:var(--warm-grey)">Loading…</td></tr></tbody>' +
+    '</table>';
+
+  runEngagementReport();
+}
+
+async function runEngagementReport() {
+  const days    = document.getElementById('eng-days')?.value    || 90;
+  const tag     = document.getElementById('eng-tag')?.value     || '';
+  const ownerId = document.getElementById('eng-owner')?.value   || '';
+  const tbody   = document.getElementById('eng-tbody');
+  const countEl = document.getElementById('eng-count');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--warm-grey)">Loading…</td></tr>';
+
+  var url = '/reports/customer-engagement?days=' + days;
+  if (tag)     url += '&tag='      + encodeURIComponent(tag);
+  if (ownerId) url += '&owner_id=' + ownerId;
+
+  const d = await apiFetch(url);
+  if (!d) { if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:#B33A47">Failed to load.</td></tr>'; return; }
+
+  _engData = d.results || [];
+  if (countEl) countEl.textContent = _engData.length + ' contact' + (_engData.length !== 1 ? 's' : '');
+
+  if (!_engData.length) {
+    if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--warm-grey)">No contacts match — great engagement!</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = _engData.map(function(r) {
+    var ds = r.days_since;
+    var dot = ds === null ? '#aaa' : ds > 180 ? '#B33A47' : ds > 90 ? '#D97706' : ds > 60 ? '#F59E0B' : 'var(--logo-blue)';
+    var dsTxt = ds === null ? '<span style="color:#aaa">Never</span>' : ds + ' days';
+    var lastTxt = r.last_interaction || '<span style="color:#aaa">—</span>';
+    var typePill = r.last_type
+      ? '<span style="font-size:11px;padding:2px 7px;border-radius:10px;background:var(--off-white);color:var(--warm-grey)">' + escHtml(r.last_type) + '</span>'
+      : '';
+    return '<tr>' +
+      '<td style="padding-left:24px"><div class="nm" style="cursor:pointer;color:var(--logo-blue)" onclick="closeReport();openContactDetail(' + r.id + ')">' + escHtml(r.name) + '</div>' +
+        (r.company ? '<div class="co">' + escHtml(r.company) + '</div>' : '') + '</td>' +
+      '<td style="font-size:12px;color:var(--warm-grey)">' + escHtml(r.tags) + '</td>' +
+      '<td style="font-size:13px">' + escHtml(r.owner_name) + '</td>' +
+      '<td style="font-size:13px">' + lastTxt + '</td>' +
+      '<td><span style="display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:600;color:' + dot + '">&#9679; ' + dsTxt + '</span></td>' +
+      '<td>' + typePill + '</td>' +
+      '<td><button class="btn btn-secondary" style="padding:3px 10px;font-size:12px" onclick="closeReport();openContactDetail(' + r.id + ')">Open</button></td>' +
+    '</tr>';
+  }).join('');
+}
+
+function exportEngagementCSV() {
+  if (!_engData.length) { showToast('No data to export'); return; }
+  var cols = ['Contact','Company','Email','Tags','Owner','Last Interaction','Days Since','Last Activity Type'];
+  var rows = _engData.map(function(r) { return [
+    r.name, r.company, r.email, r.tags, r.owner_name,
+    r.last_interaction || 'Never', r.days_since !== null ? r.days_since : '', r.last_type
+  ]; });
+  var csv = [cols].concat(rows).map(function(r) {
+    return r.map(function(v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(',');
+  }).join('\n');
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = 'customer_engagement.csv'; a.click();
+  showToast('Exported ' + _engData.length + ' contacts');
 }
 
 // ── Global Search ──────────────────────────────────────────────────────────

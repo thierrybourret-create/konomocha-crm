@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/crm-staging/static/css/app.css?v=20260522k" />
+<link rel="stylesheet" href="/crm-staging/static/css/app.css?v=20260522l" />
 </head>
 <body>
 <div style="background:#F5A623;color:#000;text-align:center;padding:6px;font-size:13px;font-weight:600;letter-spacing:1px;">STAGING — NOT PRODUCTION</div>
@@ -647,6 +647,14 @@
             <span style="color:var(--logo-blue);font-size:20px;font-weight:300">&#8594;</span>
           </div>
 
+          <div class="report-row" onclick="openReport('engagement')">
+            <div>
+              <div style="font-size:14px;font-weight:600;color:var(--navy)">Customer Engagement</div>
+              <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">Contacts with no recent interaction — filter by tag and inactivity period</div>
+            </div>
+            <span style="color:var(--logo-blue);font-size:20px;font-weight:300">&#8594;</span>
+          </div>
+
           <div class="report-row" onclick="openReport('quality')">
             <div>
               <div style="font-size:14px;font-weight:600;color:var(--navy)">Data Quality Audit</div>
@@ -866,7 +874,7 @@
             <div class="card-body" style="padding:24px 28px;line-height:1.8">
               <table style="border-collapse:collapse;font-size:13px;color:var(--navy)">
                 <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Application</td><td style="font-weight:600">Kizuna — Konomocha CRM</td></tr>
-                <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Version</td><td style="font-weight:600">v2.19</td></tr>
+                <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Version</td><td style="font-weight:600">v2.20</td></tr>
                 <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Last updated</td><td style="font-weight:600">21 May 2026</td></tr>
                 <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Developer</td><td style="font-weight:600">Thierry Bourret</td></tr>
                 <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Built with</td><td style="font-weight:600">FastAPI &middot; PostgreSQL &middot; Vanilla JS</td></tr>
@@ -898,7 +906,7 @@
   </main>
 </div><!-- /app-root -->
 
-<script src="/crm-staging/static/js/app.js?v=20260522k"></script>
+<script src="/crm-staging/static/js/app.js?v=20260522l"></script>
 
 
 </body>

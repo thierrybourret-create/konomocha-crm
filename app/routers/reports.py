@@ -871,3 +871,98 @@ def lost_deals_report(
             for reason, items in sorted(by_reason.items(), key=lambda x: -len(x[1]))
         },
     }
+
+
+# ── Customer Engagement Report ───────────────────────────────────────────────
+@router.get("/customer-engagement")
+def customer_engagement(
+    days:     int           = Query(30, ge=1),
+    owner_id: Optional[int] = Query(None),
+    tag:      Optional[str] = Query(None),
+    limit:    int           = Query(500, ge=1, le=2000),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    from sqlalchemy import text as _text
+    from datetime import date as _date, timezone as _tz
+
+    # Build WHERE clauses
+    where = ["c.deleted_at IS NULL",
+             "c.source NOT IN ('lacrm_company_import', 'email_auto')"]
+    params = {"days": days, "lim": limit}
+
+    if owner_id:
+        where.append("c.owner_id = :owner_id")
+        params["owner_id"] = owner_id
+
+    if tag:
+        where.append("c.tags ILIKE :tag")
+        params["tag"] = f"%{tag}%"
+
+    where_sql = " AND ".join(where)
+
+    sql = _text(f"""
+        WITH activity AS (
+            SELECT contact_id, sent_at         AS last_date, 'Email'    AS atype FROM email_logs      WHERE contact_id IS NOT NULL AND sent_at IS NOT NULL
+            UNION ALL
+            SELECT contact_id, created_at,                   'Note'             FROM contact_notes    WHERE deleted_at IS NULL AND contact_id IS NOT NULL
+            UNION ALL
+            SELECT contact_id, updated_at,                   'Pipeline'         FROM pipeline_entries WHERE deleted_at IS NULL AND contact_id IS NOT NULL AND updated_at IS NOT NULL
+            UNION ALL
+            SELECT contact_id, updated_at,                   'Order'            FROM orders           WHERE deleted_at IS NULL AND contact_id IS NOT NULL AND updated_at IS NOT NULL
+            UNION ALL
+            SELECT contact_id, completed_at,                 'Task'             FROM contact_tasks    WHERE completed = true AND contact_id IS NOT NULL AND completed_at IS NOT NULL
+        ),
+        ranked AS (
+            SELECT contact_id, last_date, atype,
+                   ROW_NUMBER() OVER (PARTITION BY contact_id ORDER BY last_date DESC) AS rn
+            FROM activity
+        ),
+        last_act AS (
+            SELECT contact_id, last_date AS last_interaction, atype AS last_type
+            FROM ranked WHERE rn = 1
+        )
+        SELECT c.id, c.name, c.company, c.email, c.tags,
+               u.name AS owner_name,
+               la.last_interaction, la.last_type
+        FROM contacts c
+        LEFT JOIN users u ON c.owner_id = u.id
+        LEFT JOIN last_act la ON la.contact_id = c.id
+        WHERE {where_sql}
+          AND (
+              la.last_interaction IS NULL
+              OR la.last_interaction < NOW() - INTERVAL '1 day' * :days
+          )
+        ORDER BY la.last_interaction ASC NULLS FIRST
+        LIMIT :lim
+    """)
+
+    rows = db.execute(sql, params).fetchall()
+    now = datetime.utcnow()
+
+    results = []
+    for r in rows:
+        last = r.last_interaction
+        if last:
+            # strip timezone if present
+            if hasattr(last, 'tzinfo') and last.tzinfo:
+                last = last.replace(tzinfo=None)
+            days_since = (now - last).days
+            last_iso = last.date().isoformat()
+        else:
+            days_since = None
+            last_iso = None
+        results.append({
+            "id":           r.id,
+            "name":         r.name,
+            "company":      r.company or "",
+            "email":        r.email or "",
+            "tags":         r.tags or "",
+            "owner_name":   r.owner_name or "",
+            "last_interaction": last_iso,
+            "days_since":   days_since,
+            "last_type":    r.last_type or "",
+        })
+
+    return {"total": len(results), "days_threshold": days, "results": results}
+

@@ -24,7 +24,7 @@ class PipelineCreate(BaseModel):
     notes: Optional[str] = None
 
 
-def entry_to_dict(e: PipelineEntry):
+def entry_to_dict(e: PipelineEntry, db: Session):
     prob = get_db_probabilities(db).get(e.status, 0)
     pv = float(e.potential_value) if e.potential_value else 0.0
     fob = e.fob_date.isoformat() if e.fob_date else None
@@ -130,7 +130,7 @@ def list_pipeline(
         "total_value": float(total_value),
         "page": page,
         "per_page": per_page,
-        "results": [entry_to_dict(e) for e in entries],
+        "results": [entry_to_dict(e, db) for e in entries],
     }
 
 
@@ -151,7 +151,7 @@ def get_entry(entry_id: int, db: Session = Depends(get_db), current_user: User =
     )
     if not e:
         raise HTTPException(status_code=404, detail="Entry not found")
-    return entry_to_dict(e)
+    return entry_to_dict(e, db)
 
 
 @router.post("")
@@ -162,7 +162,7 @@ def create_entry(data: PipelineCreate, db: Session = Depends(get_db), current_us
     db.add(e)
     db.commit()
     db.refresh(e)
-    return entry_to_dict(e)
+    return entry_to_dict(e, db)
 
 
 @router.put("/{entry_id}")
@@ -176,7 +176,7 @@ def update_entry(entry_id: int, data: PipelineCreate, db: Session = Depends(get_
         setattr(e, k, v)
     db.commit()
     db.refresh(e)
-    return entry_to_dict(e)
+    return entry_to_dict(e, db)
 
 
 @router.delete("/{entry_id}")

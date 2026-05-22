@@ -33,7 +33,7 @@ def get_dashboard(db: Session = Depends(get_db), current_user: User = Depends(ge
     if not is_admin:
         val_entries = val_entries.filter(PipelineEntry.owner_id == uid)
     total_pipeline_value = sum(
-        (row.potential_value or 0) * stage_prob_map.get(row.status, 0) / 100
+        float(row.potential_value or 0) * stage_prob_map.get(row.status, 0) / 100
         for row in val_entries.all()
     )
 

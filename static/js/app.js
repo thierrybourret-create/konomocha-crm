@@ -3035,17 +3035,19 @@ async function deleteRole(id, name) {
 async function loadAdminUsers() {
   const d = await apiFetch('/users'); if(!d) return;
   document.getElementById('admin-meta').textContent=d.length+' users';
-  document.getElementById('admin-users-tbody').innerHTML=d.map(u=>`
-    <tr>
+  document.getElementById('admin-users-tbody').innerHTML=d.map(u=>{
+    var roleName = u.role==='admin' ? 'Administrator' : (u.crm_role ? escHtml(u.crm_role.name) : '<span style="color:var(--warm-grey)">No role</span>');
+    var roleClass = u.role==='admin' ? 'green' : 'blue';
+    return `<tr>
       <td class="contact-cell"><div class="nm">${escHtml(u.name.split(' ').slice(1).join(' ')||'—')}</div><div class="co">${escHtml(u.name.split(' ')[0])}</div></td>
       <td style="color:var(--warm-grey)">${escHtml(u.email)}</td>
-      <td><span class="pill ${u.role==='admin'?'green':'blue'}">${u.role}</span></td>
-      <td style="font-size:12px;color:var(--warm-grey)">${u.crm_role ? escHtml(u.crm_role.name) : '—'}</td>
+      <td><span class="pill ${roleClass}">${roleName}</span></td>
       <td style="display:flex;gap:6px">
-        <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px" onclick="openEditUserModal(${u.id},'${escHtml(u.name)}','${escHtml(u.email)}','${u.role}',${u.role_id||0})">Edit</button>
+        <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px" onclick="openEditUserModal(${u.id},'${escHtml(u.name)}','${escHtml(u.email)}',${u.role_id||0},${u.role==='admin'})">Edit</button>
         ${u.email!==CURRENT_USER?.email?`<button class="btn btn-secondary" style="padding:4px 10px;font-size:12px;color:var(--accent-coral)" onclick="deleteUser(${u.id},'${u.name}')">Remove</button>`:''}
       </td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 var _stageProbs = {};
@@ -3147,84 +3149,64 @@ function removeRefItem(type, idx) {
 }
 
 function openNewUserModal() {
-  document.getElementById('modal-title').innerHTML='New User';
-  document.getElementById('modal-body').innerHTML=`
-    <form onsubmit="saveNewUser(event)">
-      <div style="margin-bottom:12px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Full Name</label>
-        <input name="name" required style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
-      <div style="margin-bottom:12px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Email</label>
-        <input name="email" type="email" required style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
-      <div style="margin-bottom:12px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Password</label>
-        <input name="password" type="password" required minlength="8" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
-      <div style="margin-bottom:24px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Role</label>
-        <select name="role" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">
-          <option value="agent">Agent</option><option value="admin">Admin</option>
-        </select></div>
-      <div id="nu-error" style="display:none;color:#B33A47;font-size:13px;margin-bottom:12px;padding:10px;background:#FAE3E5;border-radius:8px"></div>
-      <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button type="button" onclick="document.getElementById('modal').style.display='none'" class="btn btn-secondary">Cancel</button>
-        <button type="submit" class="btn btn-primary">Create User</button>
-      </div>
-    </form>`;
-  // inject role selector before submit buttons
-  var rolesHtml='<div style="margin-bottom:24px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Assigned Role <span style="font-weight:400;text-transform:none;letter-spacing:0">(leave blank = full access)</span></label>'
-    + '<select name="role_id" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">'
-    + '<option value="0">— No role (full access) —</option>'
-    + _crmRoles.map(function(r){ return '<option value="'+r.id+'">'+escHtml(r.name)+'</option>'; }).join('')
-    + '</select></div>';
-  document.getElementById('modal-body').innerHTML = document.getElementById('modal-body').innerHTML.replace(
-    '<div id="nu-error"',
-    rolesHtml + '<div id="nu-error"'
-  );
+  var LBL = 'font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px';
+  var INP = 'width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit';
+  var roleOpts = '<option value="admin">Administrator</option>' +
+    _crmRoles.map(function(r){ return '<option value="'+r.id+'">'+escHtml(r.name)+'</option>'; }).join('');
+  document.getElementById('modal-title').innerHTML = 'New User';
+  document.getElementById('modal-body').innerHTML =
+    '<form onsubmit="saveNewUser(event)">' +
+    '<div style="margin-bottom:12px"><label style="'+LBL+'">Full Name</label><input name="name" required style="'+INP+'"/></div>' +
+    '<div style="margin-bottom:12px"><label style="'+LBL+'">Email</label><input name="email" type="email" required style="'+INP+'"/></div>' +
+    '<div style="margin-bottom:12px"><label style="'+LBL+'">Password</label><input name="password" type="password" required minlength="8" style="'+INP+'"/></div>' +
+    '<div style="margin-bottom:24px"><label style="'+LBL+'">Role</label>' +
+    '<select name="unified_role" style="'+INP+';background:var(--white)">' + roleOpts + '</select></div>' +
+    '<div id="nu-error" style="display:none;color:#B33A47;font-size:13px;margin-bottom:12px;padding:10px;background:#FAE3E5;border-radius:8px"></div>' +
+    '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+    '<button type="button" onclick="document.getElementById(\'modal\').style.display=\'none\'" class="btn btn-secondary">Cancel</button>' +
+    '<button type="submit" class="btn btn-primary">Create User</button></div></form>';
   document.getElementById('modal').style.display='flex';
 }
+
 async function saveNewUser(e) {
   e.preventDefault();
   const fd=new FormData(e.target);
-  var roleIdVal = parseInt(fd.get('role_id')||'0') || null;
-  const r=await apiFetch('/users',{method:'POST',body:JSON.stringify({name:fd.get('name'),email:fd.get('email'),password:fd.get('password'),role:fd.get('role'),role_id:roleIdVal})});
+  var unified=fd.get('unified_role');
+  var isAdmin=unified==='admin';
+  var payload={name:fd.get('name'),email:fd.get('email'),password:fd.get('password'),
+    role:isAdmin?'admin':'agent', role_id:isAdmin?null:(parseInt(unified)||null)};
+  const r=await apiFetch('/users',{method:'POST',body:JSON.stringify(payload)});
   if(r){document.getElementById('modal').style.display='none';loadAdminUsers();populateOwnerFilter();}
   else{document.getElementById('nu-error').textContent='Failed. Email may be in use.';document.getElementById('nu-error').style.display='block';}
 }
 
-function openEditUserModal(id,name,email,role,pageAccess) {
-  document.getElementById('modal-title').innerHTML='Edit User';
-  document.getElementById('modal-body').innerHTML=`
-    <form onsubmit="saveEditUser(event,${id})">
-      <div style="margin-bottom:12px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Full Name</label>
-        <input name="name" value="${name}" required style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
-      <div style="margin-bottom:12px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Email</label>
-        <input name="email" type="email" value="${email}" required style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
-      <div style="margin-bottom:12px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">New Password <span style="font-weight:400;text-transform:none;letter-spacing:0">(leave blank to keep)</span></label>
-        <input name="password" type="password" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit"/></div>
-      <div style="margin-bottom:24px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Role</label>
-        <select name="role" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">
-          <option value="agent" ${role==='agent'?'selected':''}>Agent</option>
-          <option value="admin" ${role==='admin'?'selected':''}>Admin</option>
-        </select></div>
-      <div id="eu-error" style="display:none;color:#B33A47;font-size:13px;margin-bottom:12px;padding:10px;background:#FAE3E5;border-radius:8px"></div>
-      <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button type="button" onclick="document.getElementById('modal').style.display='none'" class="btn btn-secondary">Cancel</button>
-        <button type="submit" class="btn btn-primary">Save Changes</button>
-      </div>
-    </form>`;
-  // inject role selector
-  var rolesHtml2='<div style="margin-bottom:24px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Assigned Role <span style="font-weight:400;text-transform:none;letter-spacing:0">(leave blank = full access)</span></label>'
-    + '<select name="role_id" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">'
-    + '<option value="0">— No role (full access) —</option>'
-    + _crmRoles.map(function(r){ return '<option value="'+r.id+'"'+(r.id===pageAccess?' selected':'')+'>'+escHtml(r.name)+'</option>'; }).join('')
-    + '</select></div>';
-  document.getElementById('modal-body').innerHTML = document.getElementById('modal-body').innerHTML.replace(
-    '<div id="eu-error"',
-    rolesHtml2 + '<div id="eu-error"'
-  );
+function openEditUserModal(id,name,email,roleId,isAdmin) {
+  var LBL = 'font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px';
+  var INP = 'width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit';
+  var roleOpts = '<option value="admin"'+(isAdmin?' selected':'')+'>Administrator</option>' +
+    _crmRoles.map(function(r){ return '<option value="'+r.id+'"'+(!isAdmin&&r.id===roleId?' selected':'')+'>'+escHtml(r.name)+'</option>'; }).join('');
+  document.getElementById('modal-title').innerHTML = 'Edit User';
+  document.getElementById('modal-body').innerHTML =
+    '<form onsubmit="saveEditUser(event,'+id+')">' +
+    '<div style="margin-bottom:12px"><label style="'+LBL+'">Full Name</label><input name="name" value="'+name+'" required style="'+INP+'"/></div>' +
+    '<div style="margin-bottom:12px"><label style="'+LBL+'">Email</label><input name="email" type="email" value="'+email+'" required style="'+INP+'"/></div>' +
+    '<div style="margin-bottom:12px"><label style="'+LBL+'">New Password <span style="font-weight:400;text-transform:none;letter-spacing:0">(leave blank to keep)</span></label><input name="password" type="password" style="'+INP+'"/></div>' +
+    '<div style="margin-bottom:24px"><label style="'+LBL+'">Role</label>' +
+    '<select name="unified_role" style="'+INP+';background:var(--white)">' + roleOpts + '</select></div>' +
+    '<div id="eu-error" style="display:none;color:#B33A47;font-size:13px;margin-bottom:12px;padding:10px;background:#FAE3E5;border-radius:8px"></div>' +
+    '<div style="display:flex;gap:8px;justify-content:flex-end">' +
+    '<button type="button" onclick="document.getElementById(\'modal\').style.display=\'none\'" class="btn btn-secondary">Cancel</button>' +
+    '<button type="submit" class="btn btn-primary">Save Changes</button></div></form>';
   document.getElementById('modal').style.display='flex';
 }
+
 async function saveEditUser(e,id) {
   e.preventDefault();
   const fd=new FormData(e.target);
-  var roleIdVal2 = parseInt(fd.get('role_id')||'0') || null;
-  const payload={name:fd.get('name'),email:fd.get('email'),role:fd.get('role'),role_id:roleIdVal2||0};
+  var unified=fd.get('unified_role');
+  var isAdmin=unified==='admin';
+  const payload={name:fd.get('name'),email:fd.get('email'),
+    role:isAdmin?'admin':'agent', role_id:isAdmin?null:(parseInt(unified)||null)};
   if(fd.get('password')) payload.password=fd.get('password');
   const btn=e.target.querySelector('[type=submit]'); btn.textContent='Saving…'; btn.disabled=true;
   const r=await apiFetch('/users/'+id,{method:'PUT',body:JSON.stringify(payload)});

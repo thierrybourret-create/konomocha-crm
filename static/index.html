@@ -1634,7 +1634,7 @@
 // Kizuna (Konomocha CRM) v2.10
 // ============================================================
 
-const API = '/crm/api';
+const API = '/crm-staging/api';
 let TOKEN = localStorage.getItem('crm_token');
 let CURRENT_USER = JSON.parse(localStorage.getItem('crm_user') || 'null');
 
@@ -3873,7 +3873,7 @@ async function loadAdminUsers() {
 var _stageProbs = {};
 var _stageList = {pipeline: [], order: []};
 async function loadStageProbs() {
-  var r = await fetch('/crm/api/admin/stages', {headers:{Authorization:'Bearer '+TOKEN}});
+  var r = await fetch('/crm-staging/api/admin/stages', {headers:{Authorization:'Bearer '+TOKEN}});
   if (!r.ok) return;
   var d = await r.json();
   _stageProbs = {};
@@ -3881,7 +3881,7 @@ async function loadStageProbs() {
   (d.pipeline||[]).concat(d.order||[]).forEach(function(s){ _stageProbs[s.name] = s; });
 }
 async function updateStageProb(id, value) {
-  await fetch('/crm/api/admin/stages/' + id, {
+  await fetch('/crm-staging/api/admin/stages/' + id, {
     method: 'PUT',
     headers: {Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json'},
     body: JSON.stringify({probability: value})
@@ -3927,7 +3927,7 @@ function renderDbStageList(elId, stageType) {
 }
 async function deleteStageById(id) {
   if (!confirm('Remove this stage?')) return;
-  await fetch('/crm/api/admin/stages/'+id, {method:'DELETE', headers:{Authorization:'Bearer '+TOKEN}});
+  await fetch('/crm-staging/api/admin/stages/'+id, {method:'DELETE', headers:{Authorization:'Bearer '+TOKEN}});
   await loadStageProbs(); renderRefLists();
 }
 function addRefItem(type) {
@@ -3938,7 +3938,7 @@ function addRefItem(type) {
   if (type==='country'){ const c=getCountries();if(!c.includes(val)){c.push(val);c.sort();saveCountries(c);} el.value=''; renderRefLists(); populateFilterDropdowns(); return; }
   // status + order_status → write to DB
   const stageType = type==='status' ? 'pipeline' : 'order';
-  fetch('/crm/api/admin/stages', {
+  fetch('/crm-staging/api/admin/stages', {
     method:'POST',
     headers:{Authorization:'Bearer '+TOKEN,'Content-Type':'application/json'},
     body: JSON.stringify({stage_type:stageType, name:val, label:val, probability:0})

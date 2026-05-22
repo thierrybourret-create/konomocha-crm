@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/crm-staging/static/css/app.css?v=20260522j" />
+<link rel="stylesheet" href="/crm-staging/static/css/app.css?v=20260522k" />
 </head>
 <body>
 <div style="background:#F5A623;color:#000;text-align:center;padding:6px;font-size:13px;font-weight:600;letter-spacing:1px;">STAGING — NOT PRODUCTION</div>
@@ -746,6 +746,21 @@
           </div>
         </div>
 
+        <!-- Contact Sources -->
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-head" style="cursor:pointer" onclick="toggleSection('admin-sources-body')">
+            <div><div class="card-title">Contact Sources</div><div class="card-sub">Where contacts come from</div></div>
+            <span id="admin-sources-chevron" style="color:var(--warm-grey)">&#9654;</span>
+          </div>
+          <div id="admin-sources-body" style="display:none">
+            <div style="padding:0 20px" id="admin-sources-list"></div>
+            <div class="card-foot" style="gap:8px;">
+              <input id="new-source-input" placeholder="New source..." style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px;flex:1;"/>
+              <button class="btn btn-primary" style="padding:6px 12px" onclick="addRefItem('source')">Add</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Countries -->
         <div class="card" style="margin-bottom:16px;">
           <div class="card-head" style="cursor:pointer" onclick="toggleSection('admin-countries-body')">
@@ -851,7 +866,7 @@
             <div class="card-body" style="padding:24px 28px;line-height:1.8">
               <table style="border-collapse:collapse;font-size:13px;color:var(--navy)">
                 <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Application</td><td style="font-weight:600">Kizuna — Konomocha CRM</td></tr>
-                <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Version</td><td style="font-weight:600">v2.18</td></tr>
+                <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Version</td><td style="font-weight:600">v2.19</td></tr>
                 <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Last updated</td><td style="font-weight:600">21 May 2026</td></tr>
                 <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Developer</td><td style="font-weight:600">Thierry Bourret</td></tr>
                 <tr><td style="color:var(--warm-grey);padding-right:32px;padding-bottom:6px">Built with</td><td style="font-weight:600">FastAPI &middot; PostgreSQL &middot; Vanilla JS</td></tr>
@@ -883,7 +898,7 @@
   </main>
 </div><!-- /app-root -->
 
-<script src="/crm-staging/static/js/app.js?v=20260522j"></script>
+<script src="/crm-staging/static/js/app.js?v=20260522k"></script>
 
 
 </body>

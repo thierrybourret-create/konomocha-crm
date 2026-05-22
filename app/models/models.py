@@ -39,6 +39,7 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     role            = Column(SAEnum(UserRole), default=UserRole.agent, nullable=False)
     is_active       = Column(Boolean, default=True)
+    page_access     = Column(Text, nullable=True)
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
     pipeline_entries = relationship("PipelineEntry", back_populates="owner")
     email_logs       = relationship("EmailLog", back_populates="logged_by")

@@ -1,3 +1,4 @@
+import json
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -13,6 +14,7 @@ class UserCreate(BaseModel):
     email: str
     password: str
     role: UserRole = UserRole.agent
+    page_access: Optional[list] = None
 
 def user_to_dict(u: User):
     return {"id": u.id, "name": u.name, "email": u.email, "role": u.role, "is_active": u.is_active}
@@ -25,7 +27,8 @@ def list_users(db: Session = Depends(get_db), current_user: User = Depends(requi
 def create_user(data: UserCreate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
     if db.query(User).filter(User.email == data.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
-    u = User(name=data.name, email=data.email, hashed_password=hash_password(data.password), role=data.role)
+    u = User(name=data.name, email=data.email, hashed_password=hash_password(data.password), role=data.role,
+                page_access=json.dumps(data.page_access) if data.page_access is not None else None)
     db.add(u)
     db.commit()
     db.refresh(u)
@@ -37,6 +40,7 @@ class UserUpdate(BaseModel):
     email: Optional[str] = None
     password: Optional[str] = None
     role: Optional[UserRole] = None
+    page_access: Optional[list] = None
 
 @router.put("/{user_id}")
 def update_user(user_id: int, data: UserUpdate, db: Session = Depends(get_db), current_user: User = Depends(require_admin)):
@@ -48,6 +52,7 @@ def update_user(user_id: int, data: UserUpdate, db: Session = Depends(get_db), c
     if data.email: u.email = data.email
     if data.role:  u.role  = data.role
     if data.password: u.hashed_password = hash_password(data.password)
+    if page_access in (data.model_fields_set if hasattr(data,model_fields_set) else vars(data)): u.page_access = json.dumps(data.page_access) if data.page_access else None
     db.commit()
     db.refresh(u)
     return user_to_dict(u)

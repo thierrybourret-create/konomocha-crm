@@ -18,6 +18,7 @@ function isLostStatus(st) {
 }
 const DEF_ORDER_STATUSES = ['PO Received','PI Confirmed','Deposit Paid','Shipped','Payment Received','Cancelled'];
 const DEF_TAGS      = ['Agent','CloseOut','DND','Distributor','Manufacturer','Network','Principal','Retailer','Stationery'];
+const DEF_SOURCES   = ['Cold Outreach','Direct','LACRM','Other','Referral','Trade Show','Website'];
 const DEF_COUNTRIES = ['Afghanistan','Albania','Algeria','Angola','Argentina','Armenia','Australia','Austria','Azerbaijan','Bahrain','Bangladesh','Belarus','Belgium','Bosnia','Botswana','Brazil','Bulgaria','Cambodia','Canada','Chile','China','Colombia','Costa Rica','Croatia','Cyprus','Czech Republic','Denmark','Dominican Republic','Ecuador','Egypt','El Salvador','Estonia','Fiji','Finland','France','Georgia','Germany','Ghana','Gibraltar','Greece','Hong Kong','Hungary','Iceland','India','Indonesia','Iran','Iraq','Ireland','Israel','Italy','Jamaica','Japan','Jordan','Kazakhstan','Kenya','Korea','Kuwait','Latvia','Lebanon','Liechtenstein','Lithuania','Luxembourg','Macedonia','Madagascar','Malaysia','Malta','Mauritius','Mexico','Moldova','Mongolia','Morocco','Myanmar','Namibia','Netherlands','New Zealand','Nigeria','Norway','Oman','Pakistan','Palestine','Panama','Paraguay','Peru','Philippines','Poland','Portugal','Puerto Rico','Qatar','Romania','Russia','Saudi Arabia','Senegal','Serbia','Singapore','Slovakia','Slovenia','South Africa','South Korea','Spain','Sri Lanka','Sweden','Switzerland','Taiwan','Thailand','Trinidad and Tobago','Tunisia','Turkey','Ukraine','United Arab Emirates','United Kingdom','United States of America','Uruguay','Venezuela','Vietnam','Zimbabwe'];
 // Reset countries if the list version changed
 (function(){
@@ -33,6 +34,8 @@ function getTags()      { return JSON.parse(localStorage.getItem('crm_tags')    
 function getCountries() { return JSON.parse(localStorage.getItem('crm_countries') || JSON.stringify(DEF_COUNTRIES)); }
 function saveRegions(v)   { localStorage.setItem('crm_regions',   JSON.stringify(v)); }
 function saveTags(v)      { localStorage.setItem('crm_tags',      JSON.stringify(v)); }
+function getSources() { return JSON.parse(localStorage.getItem('crm_sources') || JSON.stringify(DEF_SOURCES)); }
+function saveSources(v) { localStorage.setItem('crm_sources', JSON.stringify(v)); }
 function saveCountries(v) { localStorage.setItem('crm_countries', JSON.stringify(v)); }
 function getPipelineStatuses() { return JSON.parse(localStorage.getItem('crm_pipeline_statuses') || JSON.stringify(DEF_PIPELINE_STATUSES)); }
 function savePipelineStatuses(v) { localStorage.setItem('crm_pipeline_statuses', JSON.stringify(v)); }
@@ -81,23 +84,13 @@ function showApp() {
   document.getElementById('user-avatar').textContent = ini;
   document.getElementById('user-name').textContent   = CURRENT_USER.name;
   document.getElementById('user-role').textContent   = CURRENT_USER.role === 'admin' ? 'Administrator' : 'Agent';
-  // Admin nav
-  if (CURRENT_USER.role === 'admin') {
-    document.getElementById('sb-hdr-admin').style.display = '';
-    document.getElementById('nav-trash').style.display = '';
-    document.getElementById('sb-body-admin').style.display = '';
-  }
-  // Orders — admin only
-  if (CURRENT_USER.role !== 'admin') {
-    document.querySelectorAll('[data-view="orders"]').forEach(el => el.style.display='none');
-    var rrc = document.getElementById('rr-commission'); if(rrc) rrc.style.display='none';
-    var rrb = document.getElementById('rr-bonus'); if(rrb) rrb.style.display='none';
-  }
+  applyPageAccess();
 }
 
 // ---- Navigation ----
 const TITLES = { dashboard:'Dashboard', contacts:'Contacts', companies:'Companies', pipeline:'Pipeline', brands:'Brands', orders:'Orders', tasks:'Tasks', email:'Email Log', reports:'Reports', admin:'Admin', trash:'Trash' };
 function activate(view) {
+  if (!canAccess(view)) { showToast("You don't have access to this page."); return; }
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-'+view));
   document.querySelectorAll('.sb-item[data-view]').forEach(n => n.classList.toggle('active', n.dataset.view === view));
   const crumb = document.getElementById('crumb-here');
@@ -107,11 +100,49 @@ function activate(view) {
 }
 document.querySelectorAll('.sb-item[data-view]').forEach(n => n.addEventListener('click', () => activate(n.dataset.view)));
 
+function applyPageAccess() {
+  if (!CURRENT_USER) return;
+  if (CURRENT_USER.role === 'admin') {
+    document.getElementById('sb-hdr-admin').style.display = '';
+    document.getElementById('nav-trash').style.display = '';
+    document.getElementById('sb-body-admin').style.display = '';
+    return;
+  }
+  var allowed = CURRENT_USER.page_access; // null = all pages
+  var allPages = ['dashboard','contacts','companies','pipeline','orders','tasks','email','reports'];
+  allPages.forEach(function(page) {
+    var visible = !allowed || allowed.includes(page);
+    document.querySelectorAll('[data-view="' + page + '"]').forEach(function(el) {
+      el.style.display = visible ? '' : 'none';
+    });
+    if (page === 'orders' && !visible) {
+      var rrc = document.getElementById('rr-commission'); if(rrc) rrc.style.display='none';
+      var rrb = document.getElementById('rr-bonus'); if(rrb) rrb.style.display='none';
+    }
+    if (page === 'reports' && !visible) {
+      var rrDiv = document.querySelector('.rr-cards'); if(rrDiv) rrDiv.style.display='none';
+    }
+  });
+}
+
+function canAccess(view) {
+  if (!CURRENT_USER || CURRENT_USER.role === 'admin') return true;
+  var allowed = CURRENT_USER.page_access;
+  if (!allowed) return true;
+  return allowed.includes(view);
+}
+
 // ---- Helpers ----
 const STATUS_CLASS = { 'Deposit Paid':'green','Order Placed':'green','On Hold':'amber','Stalled':'amber','Closed / No Action':'grey','Cancelled':'grey' };
 function statusClass(s) { return STATUS_CLASS[s] || 'blue'; }
 
 function fmtNum(n) { return Number(n||0).toLocaleString('en-GB'); }
+function sourceLabel(s) {
+  if (!s || s === 'manual') return 'Direct';
+  if (s === 'lacrm_import' || s === 'lacrm_company_import') return 'LACRM';
+  if (s === 'email_auto') return 'Email (auto)';
+  return s;
+}
 function fmtShort(n) {
   n = Number(n)||0;
   if (n>=1000000) return (n/1000000).toFixed(1)+'M';
@@ -718,6 +749,11 @@ async function openNewContactModal(type) {
             ${tags.map(t=>`<option>${t}</option>`).join('')}
           </select></div>
       </div>
+      ${!isCompany ? `<div style="margin-bottom:12px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Source</label>
+        <select name="source" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">
+          <option value="">— Select —</option>
+          ${getSources().map(s=>`<option>${s}</option>`).join('')}
+        </select></div>` : ''}
       <div style="margin-bottom:12px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:4px">Assigned To</label>
         <select name="owner_id" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 12px;font:inherit;background:var(--white)">
           <option value="">— Select —</option>
@@ -778,6 +814,7 @@ async function saveNewContact(e, type) {
     tags: fd.get('tags') || (isCompany?'Company':'Contact'),
     notes: fd.get('notes')||null,
     owner_id: fd.get('owner_id') ? parseInt(fd.get('owner_id')) : null,
+    source: fd.get('source')||null,
   };
   const btn = e.target.querySelector('[type=submit]');
   btn.textContent='Saving…'; btn.disabled=true;
@@ -2754,7 +2791,7 @@ async function loadAdminUsers() {
       <td style="color:var(--warm-grey)">${escHtml(u.email)}</td>
       <td><span class="pill ${u.role==='admin'?'green':'blue'}">${u.role}</span></td>
       <td style="display:flex;gap:6px">
-        <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px" onclick="openEditUserModal(${u.id},'${u.name}','${u.email}','${u.role}')">Edit</button>
+        <button class="btn btn-secondary" style="padding:4px 10px;font-size:12px" onclick="openEditUserModal(${u.id},'${escHtml(u.name)}','${escHtml(u.email)}','${u.role}',${JSON.stringify(u.page_access||null)})">Edit</button>
         ${u.email!==CURRENT_USER?.email?`<button class="btn btn-secondary" style="padding:4px 10px;font-size:12px;color:var(--accent-coral)" onclick="deleteUser(${u.id},'${u.name}')">Remove</button>`:''}
       </td>
     </tr>`).join('');
@@ -2798,6 +2835,7 @@ function renderRefLists() {
   };
   renderList('admin-regions-list',  getRegions(),   'region');
   renderList('admin-tags-list',     getTags(),      'tag');
+  renderList('admin-sources-list',  getSources(),   'source');
   renderList('admin-countries-list',getCountries(), 'country');
   renderDbStageList('admin-statuses-list', 'pipeline');
   renderDbStageList('admin-order-statuses-list', 'order');
@@ -2837,6 +2875,7 @@ function addRefItem(type) {
   const val = el.value.trim(); if(!val) return;
   if (type==='region') { const r=getRegions(); if(!r.includes(val)){r.push(val);r.sort();saveRegions(r);} el.value=''; renderRefLists(); populateFilterDropdowns(); return; }
   if (type==='tag')    { const t=getTags();    if(!t.includes(val)){t.push(val);t.sort();saveTags(t);}     el.value=''; renderRefLists(); populateFilterDropdowns(); return; }
+  if (type==='source') { const src=getSources(); if(!src.includes(val)){src.push(val);src.sort();saveSources(src);} el.value=''; renderRefLists(); return; }
   if (type==='country'){ const c=getCountries();if(!c.includes(val)){c.push(val);c.sort();saveCountries(c);} el.value=''; renderRefLists(); populateFilterDropdowns(); return; }
   // status + order_status → write to DB
   const stageType = type==='status' ? 'pipeline' : type==='order_status' ? 'order' : 'close_reason';
@@ -2851,6 +2890,7 @@ function addRefItem(type) {
 function removeRefItem(type, idx) {
   if (type==='region') { const r=getRegions(); r.splice(idx,1); saveRegions(r); }
   if (type==='tag')    { const t=getTags();    t.splice(idx,1); saveTags(t);    }
+  if (type==='source') { const src=getSources(); src.splice(idx,1); saveSources(src); }
   if (type==='country'){ const c=getCountries();c.splice(idx,1);saveCountries(c); }
   renderRefLists(); populateFilterDropdowns();
 }
@@ -2875,17 +2915,30 @@ function openNewUserModal() {
         <button type="submit" class="btn btn-primary">Create User</button>
       </div>
     </form>`;
+  // inject page access checkboxes before submit buttons
+  var var allPages=['dashboard','contacts','companies','pipeline','orders','tasks','email','reports'];
+var pageLabels={dashboard:'Dashboard',contacts:'Contacts',companies:'Companies',pipeline:'Pipeline',orders:'Orders',tasks:'Tasks',email:'Emails',reports:'Reports'};
+var accessHtml=`<div style="margin-bottom:24px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:8px">Page Access <span style="font-weight:400;text-transform:none;letter-spacing:0">(leave all unchecked = access to all)</span></label>`
+  + `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px">`
+  + allPages.map(p=>`<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" name="page_${p}" value="${p}" style="cursor:pointer"> ${pageLabels[p]}</label>`).join('')
+  + `</div></div>`;
+  document.getElementById('modal-body').innerHTML = document.getElementById('modal-body').innerHTML.replace(
+    '<div id="nu-error"',
+    accessHtml + '<div id="nu-error"'
+  );
   document.getElementById('modal').style.display='flex';
 }
 async function saveNewUser(e) {
   e.preventDefault();
   const fd=new FormData(e.target);
-  const r=await apiFetch('/users',{method:'POST',body:JSON.stringify({name:fd.get('name'),email:fd.get('email'),password:fd.get('password'),role:fd.get('role')})});
+  var checkedPages=[...e.target.querySelectorAll('input[type=checkbox]:checked')].map(cb=>cb.value);
+  var pageAccess=checkedPages.length?checkedPages:null;
+  const r=await apiFetch('/users',{method:'POST',body:JSON.stringify({name:fd.get('name'),email:fd.get('email'),password:fd.get('password'),role:fd.get('role'),page_access:pageAccess})});
   if(r){document.getElementById('modal').style.display='none';loadAdminUsers();populateOwnerFilter();}
   else{document.getElementById('nu-error').textContent='Failed. Email may be in use.';document.getElementById('nu-error').style.display='block';}
 }
 
-function openEditUserModal(id,name,email,role) {
+function openEditUserModal(id,name,email,role,pageAccess) {
   document.getElementById('modal-title').innerHTML='Edit User';
   document.getElementById('modal-body').innerHTML=`
     <form onsubmit="saveEditUser(event,${id})">
@@ -2906,12 +2959,31 @@ function openEditUserModal(id,name,email,role) {
         <button type="submit" class="btn btn-primary">Save Changes</button>
       </div>
     </form>`;
+  // inject page access checkboxes
+  var var allPages=['dashboard','contacts','companies','pipeline','orders','tasks','email','reports'];
+var pageLabels={dashboard:'Dashboard',contacts:'Contacts',companies:'Companies',pipeline:'Pipeline',orders:'Orders',tasks:'Tasks',email:'Emails',reports:'Reports'};
+var accessHtml=`<div style="margin-bottom:24px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:8px">Page Access <span style="font-weight:400;text-transform:none;letter-spacing:0">(leave all unchecked = access to all)</span></label>`
+  + `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px">`
+  + allPages.map(p=>`<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" name="page_${p}" value="${p}" style="cursor:pointer"> ${pageLabels[p]}</label>`).join('')
+  + `</div></div>`;
+  // pre-tick current access
+  document.getElementById('modal-body').innerHTML = document.getElementById('modal-body').innerHTML.replace(
+    '<div id="eu-error"',
+    accessHtml + '<div id="eu-error"'
+  );
+  if (pageAccess && pageAccess.length) {
+    pageAccess.forEach(function(p) {
+      var cb = document.querySelector('input[name="page_'+p+'"]');
+      if (cb) cb.checked = true;
+    });
+  }
   document.getElementById('modal').style.display='flex';
 }
 async function saveEditUser(e,id) {
   e.preventDefault();
   const fd=new FormData(e.target);
-  const payload={name:fd.get('name'),email:fd.get('email'),role:fd.get('role')};
+  var checkedPages2=[...e.target.querySelectorAll('input[type=checkbox]:checked')].map(cb=>cb.value);
+  const payload={name:fd.get('name'),email:fd.get('email'),role:fd.get('role'),page_access:checkedPages2.length?checkedPages2:null};
   if(fd.get('password')) payload.password=fd.get('password');
   const btn=e.target.querySelector('[type=submit]'); btn.textContent='Saving…'; btn.disabled=true;
   const r=await apiFetch('/users/'+id,{method:'PUT',body:JSON.stringify(payload)});

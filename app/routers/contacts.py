@@ -24,6 +24,7 @@ class ContactCreate(BaseModel):
     tags: Optional[str] = None
     notes: Optional[str] = None
     owner_id: Optional[int] = None
+    source: Optional[str] = None
 
 class ContactUpdate(ContactCreate):
     pass
@@ -127,9 +128,9 @@ def list_contacts(
     q = db.query(Contact).filter(Contact.deleted_at.is_(None))
 
     if source == "contacts":
-        q = q.filter(Contact.source.in_(["lacrm_import", "manual"]))
+        q = q.filter(Contact.source.notin_(["lacrm_company_import", "email_auto"]))
     elif source == "companies":
-        q = q.filter(Contact.source.in_(["lacrm_company_import"]))
+        q = q.filter(Contact.source == "lacrm_company_import")
     elif source:
         q = q.filter(Contact.source == source)
 
@@ -176,7 +177,7 @@ def create_contact(data: ContactCreate, db: Session = Depends(get_db), current_u
     name = ((data.first_name or "") + " " + (data.last_name or "")).strip() or data.name or "Unknown"
     c = Contact(name=name, company=data.company, email=data.email, phone=data.phone,
                 job_title=data.job_title, country=data.country, address=data.address, tags=data.tags, notes=data.notes,
-                owner_id=data.owner_id, source="manual")
+                owner_id=data.owner_id, source=data.source or "manual")
     db.add(c)
     db.commit()
     db.refresh(c)

@@ -742,49 +742,115 @@ def lost_deals_report(
 ):
     from app.routers.pipeline import get_db_probabilities
     from sqlalchemy.orm import joinedload as _jl
+    from sqlalchemy import func as _func
+    from app.models.models import Order as _Order
+    from datetime import datetime as _dt, timedelta as _td, date as _date
 
     probs = get_db_probabilities(db)
     lost_statuses = [s for s, p in probs.items() if p == 0]
 
+    # ── Lost pipeline entries ──────────────────────────────────────────────
     q = (
         db.query(PipelineEntry)
         .options(_jl(PipelineEntry.contact), _jl(PipelineEntry.brand), _jl(PipelineEntry.owner))
         .filter(PipelineEntry.deleted_at.is_(None), PipelineEntry.status.in_(lost_statuses))
     )
-
     if current_user.role != "admin":
         q = q.filter(PipelineEntry.owner_id == current_user.id)
     if owner_id:
         q = q.filter(PipelineEntry.owner_id == owner_id)
     if brand_id:
         q = q.filter(PipelineEntry.brand_id == brand_id)
+
+    date_from_dt = None
+    date_to_dt   = None
     if date_from:
         try:
-            from datetime import datetime as _dt
-            q = q.filter(PipelineEntry.closed_at >= _dt.fromisoformat(date_from))
+            date_from_dt = _dt.fromisoformat(date_from)
+            q = q.filter(PipelineEntry.closed_at >= date_from_dt)
         except ValueError:
             pass
     if date_to:
         try:
-            from datetime import datetime as _dt
-            from datetime import timedelta as _td
-            q = q.filter(PipelineEntry.closed_at < _dt.fromisoformat(date_to) + _td(days=1))
+            date_to_dt = _dt.fromisoformat(date_to) + _td(days=1)
+            q = q.filter(PipelineEntry.closed_at < date_to_dt)
         except ValueError:
             pass
 
     q = q.order_by(PipelineEntry.closed_at.desc().nullslast(), PipelineEntry.updated_at.desc())
     entries = q.all()
 
+    # ── Won deals (orders) ────────────────────────────────────────────────
+    won_q = db.query(_Order).filter(_Order.deleted_at.is_(None))
+    if current_user.role != "admin":
+        won_q = won_q.filter(_Order.owner_id == current_user.id)
+    if owner_id:
+        won_q = won_q.filter(_Order.owner_id == owner_id)
+    if brand_id:
+        won_q = won_q.filter(_Order.brand_id == brand_id)
+    if date_from_dt:
+        won_q = won_q.filter(_Order.order_date >= date_from_dt.date())
+    if date_to_dt:
+        won_q = won_q.filter(_Order.order_date < date_to_dt.date())
+    won_entries = won_q.all()
+
+    total_lost  = len(entries)
+    total_won   = len(won_entries)
+    total_closed = total_lost + total_won
+    win_rate_pct  = round(total_won  / total_closed * 100, 1) if total_closed > 0 else 0
+    loss_rate_pct = round(total_lost / total_closed * 100, 1) if total_closed > 0 else 0
+
+    # ── By-owner breakdown ────────────────────────────────────────────────
+    owner_stats = {}
+    for e in entries:
+        oid = e.owner_id
+        name = e.owner.name if e.owner else "Unknown"
+        owner_stats.setdefault(oid, {"name": name, "lost": 0, "won": 0})
+        owner_stats[oid]["lost"] += 1
+    for o in won_entries:
+        oid = o.owner_id
+        # owner name: try to get from already-loaded data
+        owner_stats.setdefault(oid, {"name": None, "lost": 0, "won": 0})
+        owner_stats[oid]["won"] += 1
+    # Fetch owner names for any won entries not seen in lost entries
+    missing_ids = [oid for oid, v in owner_stats.items() if v["name"] is None and oid is not None]
+    if missing_ids:
+        from app.models.models import User as _User
+        names = {u.id: u.name for u in db.query(_User).filter(_User.id.in_(missing_ids)).all()}
+        for oid in missing_ids:
+            owner_stats[oid]["name"] = names.get(oid, "Unknown")
+    by_owner = []
+    for oid, v in sorted(owner_stats.items(), key=lambda x: -(x[1]["lost"] + x[1]["won"])):
+        closed = v["lost"] + v["won"]
+        by_owner.append({
+            "owner_id":       oid,
+            "owner_name":     v["name"] or "Unknown",
+            "won":            v["won"],
+            "lost":           v["lost"],
+            "win_rate_pct":   round(v["won"]  / closed * 100, 1) if closed > 0 else 0,
+            "loss_rate_pct":  round(v["lost"] / closed * 100, 1) if closed > 0 else 0,
+        })
+
+    # ── By-reason grouping ────────────────────────────────────────────────
     by_reason = {}
     for e in entries:
         reason = (e.close_reason or "").strip() or "No reason given"
         by_reason.setdefault(reason, []).append(e)
 
-    total_value = sum(float(e.potential_value or 0) for e in entries)
+    total_lost_value = sum(float(e.potential_value or 0) for e in entries)
+    total_won_value  = sum(float(o.order_value  or 0) for o in won_entries)
 
     return {
-        "total": len(entries),
-        "total_value": round(total_value, 2),
+        "total_lost":       total_lost,
+        "total_won":        total_won,
+        "total_lost_value": round(total_lost_value, 2),
+        "total_won_value":  round(total_won_value,  2),
+        "win_rate_pct":     win_rate_pct,
+        "loss_rate_pct":    loss_rate_pct,
+        # legacy key for any old callers
+        "total":            total_lost,
+        "total_value":      round(total_lost_value, 2),
+        "by_owner":         by_owner,
         "entries": [
             {
                 "id":              e.id,

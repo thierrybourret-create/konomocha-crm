@@ -3232,11 +3232,27 @@ async function loadLostDealsReport() {
   filters += '<div><label style="font-size:12px;color:var(--warm-grey);display:block;margin-bottom:4px">Closed to</label>'
     + '<input id="ld-date-to" type="date" value="' + ((toEl&&toEl.value)||'') + '" onchange="loadLostDealsReport()" style="border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit;font-size:13px"/></div>';
   filters += '</div>';
-  var summaryHtml = '<div style="display:flex;gap:32px;padding:16px 24px;border-bottom:1px solid var(--line)">'
-    + '<div><div style="font-size:12px;color:var(--warm-grey);margin-bottom:2px">Total lost deals</div>'
-    + '<div style="font-size:22px;font-weight:700;color:var(--navy)">' + d.total + '</div></div>'
-    + '<div><div style="font-size:12px;color:var(--warm-grey);margin-bottom:2px">Total potential value</div>'
-    + '<div style="font-size:22px;font-weight:700;color:var(--navy)">' + fmtVal(d.total_value) + '</div></div>'
+  var winRateColor  = (d.win_rate_pct  >= 50) ? '#1A7F4B' : '#B33A47';
+  var lossRateColor = (d.loss_rate_pct >= 50) ? '#B33A47' : '#1A7F4B';
+  var summaryHtml = '<div style="display:flex;flex-wrap:wrap;gap:0;border-bottom:1px solid var(--line)">'
+    + '<div style="padding:16px 24px;border-right:1px solid var(--line);min-width:120px">'
+    + '<div style="font-size:11px;color:var(--warm-grey);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Won deals</div>'
+    + '<div style="font-size:26px;font-weight:700;color:#1A7F4B">' + (d.total_won||0) + '</div>'
+    + '<div style="font-size:11px;color:var(--warm-grey);margin-top:2px">' + fmtVal(d.total_won_value||0) + '</div>'
+    + '</div>'
+    + '<div style="padding:16px 24px;border-right:1px solid var(--line);min-width:120px">'
+    + '<div style="font-size:11px;color:var(--warm-grey);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Lost deals</div>'
+    + '<div style="font-size:26px;font-weight:700;color:#B33A47">' + (d.total_lost||d.total||0) + '</div>'
+    + '<div style="font-size:11px;color:var(--warm-grey);margin-top:2px">' + fmtVal(d.total_lost_value||d.total_value||0) + '</div>'
+    + '</div>'
+    + '<div style="padding:16px 24px;border-right:1px solid var(--line);min-width:110px">'
+    + '<div style="font-size:11px;color:var(--warm-grey);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Win rate</div>'
+    + '<div style="font-size:26px;font-weight:700;color:"+winRateColor+'">' + (d.win_rate_pct||0) + '%</div>'
+    + '</div>'
+    + '<div style="padding:16px 24px;min-width:110px">'
+    + '<div style="font-size:11px;color:var(--warm-grey);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Loss rate</div>'
+    + '<div style="font-size:26px;font-weight:700;color:"+lossRateColor+'">' + (d.loss_rate_pct||0) + '%</div>'
+    + '</div>'
     + '</div>';
   var reasonsHtml = '';
   var reasonKeys = Object.keys(d.by_reason || {});
@@ -3250,6 +3266,34 @@ async function loadLostDealsReport() {
         }).join('')
       + '</div></div>';
   }
+  var byOwnerHtml = '';
+  if (d.by_owner && d.by_owner.length > 1) {
+    byOwnerHtml = '<div style="padding:16px 24px;border-bottom:1px solid var(--line)">'
+      + '<div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:10px">Win / Loss by Owner</div>'
+      + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">'
+      + '<thead><tr style="background:var(--off-white)">'
+      + '<th style="text-align:left;padding:8px 12px;font-weight:600;color:var(--navy)">Owner</th>'
+      + '<th style="text-align:right;padding:8px 12px;font-weight:600;color:#1A7F4B">Won</th>'
+      + '<th style="text-align:right;padding:8px 12px;font-weight:600;color:#B33A47">Lost</th>'
+      + '<th style="text-align:right;padding:8px 12px;font-weight:600;color:var(--navy)">Win %</th>'
+      + '<th style="text-align:left;padding:8px 12px;font-weight:600;color:var(--navy)"> </th>'
+      + '</tr></thead><tbody>'
+      + d.by_owner.map(function(o) {
+          var bar = '<div style="display:flex;height:6px;border-radius:3px;overflow:hidden;width:100px;background:var(--line)">'
+            + '<div style="background:#1A7F4B;width:"+o.win_rate_pct+'%></div>'
+            + '</div>';
+          return '<tr style="border-top:1px solid var(--line)">'
+            + '<td style="padding:8px 12px;font-weight:500">' + escHtml(o.owner_name||'—') + '</td>'
+            + '<td style="padding:8px 12px;text-align:right;color:#1A7F4B;font-weight:600">' + o.won + '</td>'
+            + '<td style="padding:8px 12px;text-align:right;color:#B33A47;font-weight:600">' + o.lost + '</td>'
+            + '<td style="padding:8px 12px;text-align:right;font-weight:600">' + o.win_rate_pct + '%</td>'
+            + '<td style="padding:8px 12px">' + bar + '</td>'
+            + '</tr>';
+        }).join('')
+      + '</tbody></table></div>'
+      + '</div>';
+  }
+
   var tableHtml = '';
   if (d.entries && d.entries.length) {
     var isAdminCol = isAdmin ? '<th style="text-align:left;padding:10px 12px;font-weight:600;color:var(--navy)">Owner</th>' : '';
@@ -3279,7 +3323,7 @@ async function loadLostDealsReport() {
   } else {
     tableHtml = '<div style="padding:40px;text-align:center;color:var(--warm-grey)">No lost deals found.</div>';
   }
-  body.innerHTML = filters + summaryHtml + reasonsHtml + tableHtml;
+  body.innerHTML = filters + summaryHtml + reasonsHtml + byOwnerHtml + tableHtml;
 }
 
 function setQFilter(f) {

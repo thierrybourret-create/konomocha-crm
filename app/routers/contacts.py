@@ -318,28 +318,36 @@ def merge_contacts(
     db.query(ContactNote).filter(ContactNote.contact_id == dup_id).update({"contact_id": master_id})
     db.query(ContactTask).filter(ContactTask.contact_id == dup_id).update({"contact_id": master_id})
 
-    # Attachments: move DB rows + files on disk
+    # Attachments: update DB rows first, then move files AFTER commit
     UPLOAD_DIR = "/home/thierry/konomocha-crm/uploads"
     atts = db.query(ContactAttachment).filter(ContactAttachment.contact_id == dup_id).all()
+    att_names = [att.stored_name for att in atts]
     if atts:
+        db.query(ContactAttachment).filter(ContactAttachment.contact_id == dup_id).update({"contact_id": master_id})
+
+    db.delete(dup)
+    db.commit()  # commit all DB changes before touching the filesystem
+
+    # Move files on disk after successful commit
+    if att_names:
         master_dir = _os.path.join(UPLOAD_DIR, str(master_id))
         dup_dir    = _os.path.join(UPLOAD_DIR, str(dup_id))
         _os.makedirs(master_dir, exist_ok=True)
-        for att in atts:
-            src = _os.path.join(dup_dir, att.stored_name)
-            dst = _os.path.join(master_dir, att.stored_name)
-            if _os.path.exists(src):
-                shutil.move(src, dst)
-        db.query(ContactAttachment).filter(ContactAttachment.contact_id == dup_id).update({"contact_id": master_id})
+        for stored_name in att_names:
+            src = _os.path.join(dup_dir, stored_name)
+            dst = _os.path.join(master_dir, stored_name)
+            try:
+                if _os.path.exists(src):
+                    shutil.move(src, dst)
+            except Exception as exc:
+                from app.logger import app_logger
+                app_logger.error("merge_contacts: failed to move " + src + " -> " + dst + ": " + str(exc))
 
     # Try to remove the now-empty dup upload dir
     dup_dir = _os.path.join(UPLOAD_DIR, str(dup_id))
     if _os.path.exists(dup_dir):
         try: _os.rmdir(dup_dir)
         except: pass
-
-    db.delete(dup)
-    db.commit()
     db.refresh(master)
     return {"ok": True, "master": contact_to_dict(master)}
 

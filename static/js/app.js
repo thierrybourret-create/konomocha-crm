@@ -3517,6 +3517,15 @@ document.getElementById('login-form')?.addEventListener('submit',async function(
 });
 
 // ---- Collapsible sections ----
+function toggleSbSection(section) {
+  var body = document.getElementById('sb-body-' + section);
+  var chev = document.getElementById('sb-chevron-' + section);
+  if (!body) return;
+  var hidden = body.style.display === 'none';
+  body.style.display = hidden ? '' : 'none';
+  if (chev) chev.textContent = hidden ? '▲' : '▼';
+}
+
 function toggleSection(id) {
   var el = document.getElementById(id);
   if (!el) return;

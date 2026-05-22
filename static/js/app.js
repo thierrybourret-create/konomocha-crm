@@ -552,11 +552,14 @@ async function loadContactTimeline(contactId) {
     note:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
     task:    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
     task_done:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>',
+    attachment:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>',
+    contact:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
   };
   var TYPE_COLOR = {
     pipeline_created:'#2563EB', pipeline_updated:'#7C3AED', pipeline_deleted:'#B33A47',
     order_created:'#059669', order_updated:'#0891B2',
     email:'var(--logo-blue)', note:'#D97706', task:'var(--warm-grey)', task_done:'#059669',
+    attachment:'#7C3AED', contact_created:'var(--warm-grey)',
   };
   el.innerHTML = d.events.map(function(ev) {
     var color = TYPE_COLOR[ev.type] || 'var(--warm-grey)';

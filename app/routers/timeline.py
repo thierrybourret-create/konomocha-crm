@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import or_
 from app.database import get_db
 from app.models.models import (
-    PipelineEntry, Order, EmailLog, ContactNote, ContactTask, AuditLog, User, Contact
+    PipelineEntry, Order, EmailLog, ContactNote, ContactTask, AuditLog, User, Contact, ContactAttachment
 )
 from app.auth import get_current_user
 
@@ -158,6 +158,39 @@ def get_timeline(
             "detail":    (n.body or "")[:200],
             "actor":     n.author.name if n.author else None,
             "entity_id": n.id,
+        })
+
+    # ── Attachments ───────────────────────────────────────────────────────
+    attachments = (
+        db.query(ContactAttachment)
+        .options(joinedload(ContactAttachment.uploaded_by))
+        .filter(ContactAttachment.contact_id == contact_id)
+        .all()
+    )
+    for att in attachments:
+        size_kb = f"{att.file_size // 1024} KB" if att.file_size else ""
+        events.append({
+            "type":      "attachment",
+            "timestamp": _ts(att.created_at),
+            "icon":      "attachment",
+            "title":     "File attached",
+            "detail":    att.filename + (f" ({size_kb})" if size_kb else ""),
+            "actor":     att.uploaded_by.name if att.uploaded_by else None,
+            "entity_id": att.id,
+        })
+
+    # ── Contact created ────────────────────────────────────────────────────
+    if contact_obj is None:
+        contact_obj = db.query(Contact).filter(Contact.id == contact_id).first()
+    if contact_obj:
+        events.append({
+            "type":      "contact_created",
+            "timestamp": _ts(contact_obj.created_at),
+            "icon":      "contact",
+            "title":     "Contact created",
+            "detail":    contact_obj.source or "",
+            "actor":     None,
+            "entity_id": contact_id,
         })
 
     # ── Imported note (contact.notes field — historical data) ──────────────

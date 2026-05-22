@@ -10,7 +10,7 @@ from app.auth import get_current_user, require_admin
 from app.constants import (ORDER_STATUSES, ORDER_STATUS_LABELS, ORDER_STATUS_DATES,
                             BONUS_RATE, COMMISSION_LAG_DAYS)
 from pydantic import BaseModel
-from app.audit import log_audit, diff_and_log, log_created_order, ORDER_TRACKED
+from app.audit import log_audit, diff_and_log, log_created_order, fmt_num, ORDER_TRACKED
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
@@ -183,6 +183,7 @@ def update_order(order_id: int, data: OrderCreate, db: Session = Depends(get_db)
                  contact_name=_cname, brand_name=_bname,
                  old_obj=type('S', (), _snap)(), new_data=_update,
                  tracked_fields=ORDER_TRACKED,
+                 resolve={'order_value': fmt_num, 'gross_commission_rate': fmt_num, 'testing_cost_deduction': fmt_num},
                  user_id=current_user.id, user_name=current_user.name)
     db.commit()
     return order_to_dict(o)

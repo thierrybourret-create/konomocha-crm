@@ -3,6 +3,11 @@ from app.models.models import AuditLog
 from decimal import Decimal
 
 
+def fmt_num(v):
+    """Format a numeric value as x,xxx.xx"""
+    try: return "{:,.2f}".format(float(str(v)))
+    except (ValueError, TypeError): return str(v) if v is not None else ""
+
 def _values_equal(a, b):
     """Compare two values; treat numerically-equal floats/decimals as equal."""
     if a is None and b is None:
@@ -85,7 +90,7 @@ def log_created_pipeline(db, e, user_id, user_name):
     if e.status:
         parts.append('Status: ' + e.status)
     if e.potential_value:
-        parts.append('Value: $' + '{:,.0f}'.format(float(e.potential_value)))
+        parts.append('Value: $' + fmt_num(e.potential_value))
     if e.owner:
         parts.append('Owner: ' + e.owner.name)
     if e.fob_date:
@@ -103,7 +108,7 @@ def log_created_order(db, o, user_id, user_name):
     """Log an order creation with its key initial values as new_value summary."""
     parts = []
     if o.order_value:
-        parts.append('Value: $' + '{:,.0f}'.format(float(o.order_value)))
+        parts.append('Value: $' + fmt_num(o.order_value))
     if o.status:
         parts.append('Status: ' + o.status)
     if o.owner:

@@ -1420,14 +1420,6 @@
       <div class="page-body" style="padding:0">
         <div style="max-width:720px">
 
-          <div class="report-row" onclick="openReport('quality')">
-            <div>
-              <div style="font-size:14px;font-weight:600;color:var(--navy)">Data Quality Audit</div>
-              <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">Contact completeness, field validation and region checks</div>
-            </div>
-            <span style="color:var(--logo-blue);font-size:20px;font-weight:300">&#8594;</span>
-          </div>
-
           <div class="report-row" id="rr-activity" style="display:none" onclick="openReport('activity')">
             <div>
               <div style="font-size:14px;font-weight:600;color:var(--navy)">Activity Report</div>
@@ -1436,10 +1428,10 @@
             <span style="color:var(--logo-blue);font-size:20px;font-weight:300">&#8594;</span>
           </div>
 
-          <div class="report-row" onclick="openReport('tasks')">
+          <div class="report-row" id="rr-bonus" onclick="loadBonusReport()">
             <div>
-              <div style="font-size:14px;font-weight:600;color:var(--navy)">Task Report</div>
-              <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">All tasks across contacts, filterable by status</div>
+              <div style="font-size:14px;font-weight:600;color:var(--navy)">Bonus Report</div>
+              <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">Quarterly bonus summary for Zeal and Erna</div>
             </div>
             <span style="color:var(--logo-blue);font-size:20px;font-weight:300">&#8594;</span>
           </div>
@@ -1452,10 +1444,18 @@
             <span style="color:var(--logo-blue);font-size:20px;font-weight:300">&#8594;</span>
           </div>
 
-          <div class="report-row" id="rr-bonus" onclick="loadBonusReport()">
+          <div class="report-row" onclick="openReport('quality')">
             <div>
-              <div style="font-size:14px;font-weight:600;color:var(--navy)">Bonus Report</div>
-              <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">Quarterly bonus summary for Zeal and Erna</div>
+              <div style="font-size:14px;font-weight:600;color:var(--navy)">Data Quality Audit</div>
+              <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">Contact completeness, field validation and region checks</div>
+            </div>
+            <span style="color:var(--logo-blue);font-size:20px;font-weight:300">&#8594;</span>
+          </div>
+
+          <div class="report-row" onclick="openReport('lost-deals')">
+            <div>
+              <div style="font-size:14px;font-weight:600;color:var(--navy)">Lost Deals</div>
+              <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">Pipeline entries closed, stalled or cancelled &#8212; grouped by close reason</div>
             </div>
             <span style="color:var(--logo-blue);font-size:20px;font-weight:300">&#8594;</span>
           </div>
@@ -1475,10 +1475,10 @@
             <button class="btn btn-primary" onclick="event.stopPropagation();downloadPrincipalReport()">&#8595; Download Report</button>
           </div>
 
-          <div class="report-row" onclick="openReport('lost-deals')">
+          <div class="report-row" onclick="openReport('tasks')">
             <div>
-              <div style="font-size:14px;font-weight:600;color:var(--navy)">Lost Deals</div>
-              <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">Pipeline entries closed, stalled or cancelled &#8212; grouped by close reason</div>
+              <div style="font-size:14px;font-weight:600;color:var(--navy)">Task Report</div>
+              <div style="font-size:12px;color:var(--warm-grey);margin-top:2px">All tasks across contacts, filterable by status</div>
             </div>
             <span style="color:var(--logo-blue);font-size:20px;font-weight:300">&#8594;</span>
           </div>

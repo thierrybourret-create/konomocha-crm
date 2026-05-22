@@ -2916,7 +2916,7 @@ function openNewUserModal() {
       </div>
     </form>`;
   // inject page access checkboxes before submit buttons
-  var var allPages=['dashboard','contacts','companies','pipeline','orders','tasks','email','reports'];
+  var allPages=['dashboard','contacts','companies','pipeline','orders','tasks','email','reports'];
 var pageLabels={dashboard:'Dashboard',contacts:'Contacts',companies:'Companies',pipeline:'Pipeline',orders:'Orders',tasks:'Tasks',email:'Emails',reports:'Reports'};
 var accessHtml=`<div style="margin-bottom:24px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:8px">Page Access <span style="font-weight:400;text-transform:none;letter-spacing:0">(leave all unchecked = access to all)</span></label>`
   + `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px">`
@@ -2960,7 +2960,7 @@ function openEditUserModal(id,name,email,role,pageAccess) {
       </div>
     </form>`;
   // inject page access checkboxes
-  var var allPages=['dashboard','contacts','companies','pipeline','orders','tasks','email','reports'];
+  var allPages=['dashboard','contacts','companies','pipeline','orders','tasks','email','reports'];
 var pageLabels={dashboard:'Dashboard',contacts:'Contacts',companies:'Companies',pipeline:'Pipeline',orders:'Orders',tasks:'Tasks',email:'Emails',reports:'Reports'};
 var accessHtml=`<div style="margin-bottom:24px"><label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--warm-grey);display:block;margin-bottom:8px">Page Access <span style="font-weight:400;text-transform:none;letter-spacing:0">(leave all unchecked = access to all)</span></label>`
   + `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px">`

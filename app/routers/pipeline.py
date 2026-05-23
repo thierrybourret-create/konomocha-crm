@@ -1,9 +1,8 @@
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, contains_eager
 from sqlalchemy import or_, func
 from typing import Optional
-from datetime import date, timedelta
 from decimal import Decimal
 from app.database import get_db
 from app.models.models import PipelineEntry, Contact, Brand, User, PipelineNote
@@ -226,13 +225,13 @@ def update_entry(entry_id: int, data: PipelineCreate, db: Session = Depends(get_
             e.closed_at = datetime.utcnow()
     if close_reason is not None:
         e.close_reason = close_reason.strip() or None
+    e.last_activity_at = datetime.utcnow()  # set before commit so it saves in one write
     db.commit()
     db.refresh(e)
     # build new_data including close_reason for diff
     _new_data = dict(update_data)
     if close_reason is not None:
         _new_data['close_reason'] = close_reason
-    e.last_activity_at = datetime.utcnow()
     diff_and_log(db, entity_type='pipeline', entity_id=entry_id,
                  contact_name=_cname, brand_name=_bname,
                  old_obj=type('S', (), _snap)(), new_data=_new_data,

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from app.database import get_db
 from app.models.models import AppStage, User
@@ -15,7 +15,7 @@ class StageCreate(BaseModel):
     label: str
     probability: Optional[int] = None
     position: Optional[int] = None
-    stale_days: Optional[int] = None
+    stale_days: Optional[int] = Field(None, ge=1, le=3650)
 
 
 class StageUpdate(BaseModel):
@@ -23,7 +23,7 @@ class StageUpdate(BaseModel):
     label: Optional[str] = None
     probability: Optional[int] = None
     position: Optional[int] = None
-    stale_days: Optional[int] = None
+    stale_days: Optional[int] = Field(None, ge=1, le=3650)
 
 
 def require_admin(current_user: User = Depends(get_current_user)):

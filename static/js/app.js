@@ -294,49 +294,30 @@ function exportTable(tbodyId, headers, filename) {
 }
 
 // ---- Dashboard ----
-async function loadStaleWidget() {
+// renderStaleWidget: synchronous — called with pre-computed data from /dashboard response.
+// No extra fetch needed (fixes the expensive /pipeline?per_page=500 call on every dashboard load).
+function renderStaleWidget(staleDeals, staleCount) {
   var el = document.getElementById('stale-deals-widget');
   if (!el) return;
-  var stagesCfg = await loadPipelineStagesCfg();
-  var d = await apiFetch('/pipeline?per_page=500');
-  if (!d) return;
-  var today = new Date();
-  var stale = d.results.filter(function(e) {
-    if (e.closed_at) return false;
-    var stageCfg = (stagesCfg || {})[e.status] || {};
-    if (stageCfg.probability === 0) return false;
-    var actTs = e.last_activity_at || e.updated_at;
-    var daysIdle = actTs ? Math.floor((today - new Date(actTs)) / 86400000) : 0;
-    var staleDays = stageCfg.stale_days || 14;
-    return daysIdle >= Math.floor(staleDays * 0.75); // amber + red
-  }).map(function(e) {
-    var actTs = e.last_activity_at || e.updated_at;
-    var daysIdle = actTs ? Math.floor((today - new Date(actTs)) / 86400000) : 0;
-    var stageCfg = (stagesCfg || {})[e.status] || {};
-    var staleDays = stageCfg.stale_days || 14;
-    var sm = staleMeta(daysIdle, staleDays);
-    return { e: e, daysIdle: daysIdle, color: sm.borderColor };
-  }).sort(function(a, b) { return b.daysIdle - a.daysIdle; });
-
   var titleEl = document.getElementById('stale-widget-title');
   var bodyEl  = document.getElementById('stale-widget-body');
-  if (titleEl) titleEl.textContent = stale.length + ' deal' + (stale.length !== 1 ? 's' : '') + ' need attention';
-  if (!stale.length) {
-    el.style.display = 'none'; return;
-  }
+  if (titleEl) titleEl.textContent = staleCount + ' deal' + (staleCount !== 1 ? 's' : '') + ' need attention';
+  if (!staleDeals || !staleDeals.length) { el.style.display = 'none'; return; }
   el.style.display = '';
   if (bodyEl) {
-    bodyEl.innerHTML = stale.slice(0, 8).map(function(item) {
-      var e = item.e;
-      var label = escHtml(e.contact_company || e.contact_name || '—');
-      var brand = e.brand_name ? ' <span style="color:var(--warm-grey)">· ' + escHtml(e.brand_name) + '</span>' : '';
-      var badge = '<span style="font-size:10px;font-weight:600;color:#fff;background:' + item.color + ';border-radius:4px;padding:1px 6px">' + item.daysIdle + 'd</span>';
-      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer" onclick="openPipelineDetail(' + e.id + ')" onmouseenter="this.style.background=\'var(--off-white)\'" onmouseleave="this.style.background=\'\'" >'
+    bodyEl.innerHTML = staleDeals.map(function(item) {
+      // Use staleMeta so colour logic lives in one place (fixes background:null bug)
+      var sm    = staleMeta(item.days_idle, item.stale_days);
+      var color = sm.borderColor || '#f59e0b'; // amber fallback (should never be null here)
+      var label = escHtml(item.contact_company || item.contact_name || '—');
+      var brand = item.brand_name ? ' <span style="color:var(--warm-grey)">· ' + escHtml(item.brand_name) + '</span>' : '';
+      var badge = '<span style="font-size:10px;font-weight:600;color:#fff;background:' + color + ';border-radius:4px;padding:1px 6px">' + item.days_idle + 'd</span>';
+      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer" onclick="openPipelineDetail(' + item.id + ')" onmouseenter="this.style.background=\'var(--off-white)\'" onmouseleave="this.style.background=\'\'" >'
         + '<div style="font-size:13px;color:var(--navy);font-weight:500">' + label + brand + '</div>'
         + badge
         + '</div>';
     }).join('')
-    + (stale.length > 8 ? '<div style="font-size:12px;color:var(--warm-grey);padding:8px 0">' + (stale.length - 8) + ' more…</div>' : '');
+    + (staleCount > 8 ? '<div style="font-size:12px;color:var(--warm-grey);padding:8px 0">' + (staleCount - 8) + ' more…</div>' : '');
   }
 }
 
@@ -452,8 +433,8 @@ async function loadDashboard() {
     }
   }
 
-  // Stale deals widget (no await — loads asynchronously)
-  loadStaleWidget();
+  // Stale deals widget — data comes from the dashboard response, no extra fetch
+  renderStaleWidget(d.stale_deals || [], d.stale_count || 0);
 }
 
 // ---- Contacts ----
@@ -1203,7 +1184,7 @@ async function renderBoard() {
           var borderStyle = '';
           var badgeHtml = '';
           var stageCfg = stagesCfg[e.status] || {};
-          var isClosed = !!e.closed_at || (stageCfg.probability === 0);
+          var isClosed = !!e.closed_at; // closed_at is set by backend whenever prob hits 0
           if (isClosed) {
             borderStyle = 'border-left:3px solid #9ca3af;';
           } else {
@@ -3118,18 +3099,24 @@ async function loadAdminUsers() {
 
 var _stageProbs = {};
 var _stageList = {pipeline: [], order: []};
-var _pipelineStagesCfg = null; // null = not loaded; object keyed by stage name
+var _pipelineStagesCfg = null;        // keyed by stage name once resolved
+var _pipelineStagesCfgPromise = null;  // in-flight or resolved promise; prevents duplicate fetches
 async function loadPipelineStagesCfg() {
   if (_pipelineStagesCfg) return _pipelineStagesCfg;
-  var arr = await apiFetch('/pipeline/stages');
-  _pipelineStagesCfg = {};
-  if (arr) arr.forEach(function(s) { _pipelineStagesCfg[s.name] = s; });
-  return _pipelineStagesCfg;
+  if (!_pipelineStagesCfgPromise) {
+    _pipelineStagesCfgPromise = apiFetch('/pipeline/stages').then(function(arr) {
+      _pipelineStagesCfg = {};
+      if (arr) arr.forEach(function(s) { _pipelineStagesCfg[s.name] = s; });
+      return _pipelineStagesCfg;
+    });
+  }
+  return _pipelineStagesCfgPromise;
 }
 // Invalidate stage config cache when admin changes stages
-function invalidatePipelineStagesCfg() { _pipelineStagesCfg = null; }
+function invalidatePipelineStagesCfg() { _pipelineStagesCfg = null; _pipelineStagesCfgPromise = null; }
 
 async function loadStageProbs() {
+  invalidatePipelineStagesCfg(); // admin reloaded stages — bust the public config cache too
   var r = await fetch('/crm-staging/api/admin/stages', {headers:{Authorization:'Bearer '+TOKEN}});
   if (!r.ok) return;
   var d = await r.json();
@@ -3150,20 +3137,22 @@ function staleMeta(daysIdle, staleDays) {
 }
 
 async function updateStaleDays(id, value) {
-  await fetch('/crm-staging/api/admin/stages/' + id, {
+  var r = await fetch('/crm-staging/api/admin/stages/' + id, {
     method: 'PUT',
     headers: {Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json'},
     body: JSON.stringify({stale_days: value})
   });
+  if (!r.ok) { showToast('Failed to save stale days (' + r.status + ')'); return; }
   invalidatePipelineStagesCfg();
 }
 
 async function updateStageProb(id, value) {
-  await fetch('/crm-staging/api/admin/stages/' + id, {
+  var r = await fetch('/crm-staging/api/admin/stages/' + id, {
     method: 'PUT',
     headers: {Authorization:'Bearer '+TOKEN, 'Content-Type':'application/json'},
     body: JSON.stringify({probability: value})
   });
+  if (!r.ok) showToast('Failed to save probability (' + r.status + ')');
 }
 function renderRefLists() {
   const renderList = (elId, items, type) => {

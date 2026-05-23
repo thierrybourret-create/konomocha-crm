@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import date
+from datetime import date, datetime
 from app.database import get_db
-from app.models.models import PipelineEntry, Order, EmailLog, User, ContactTask, Contact, AppStage
+from app.models.models import PipelineEntry, Order, EmailLog, User, ContactTask, Contact, Brand, AppStage
 from app.auth import get_current_user
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
@@ -17,6 +17,7 @@ def get_dashboard(db: Session = Depends(get_db), current_user: User = Depends(ge
     # ── Pipeline stages from DB ───────────────────────────────────────────────
     pipeline_stages    = db.query(AppStage).filter(AppStage.stage_type == 'pipeline').all()
     stage_prob_map     = {s.name: (s.probability or 0) for s in pipeline_stages}
+    stage_stale_map    = {s.name: (s.stale_days or 14)  for s in pipeline_stages}
     active_stage_names = [name for name, prob in stage_prob_map.items() if prob > 0]
 
     # ── Pipeline KPIs ─────────────────────────────────────────────────────────
@@ -94,6 +95,46 @@ def get_dashboard(db: Session = Depends(get_db), current_user: User = Depends(ge
                       ContactTask.assigned_to_id == uid).scalar() or 0)
         team_workload = [{"id": uid, "name": current_user.name, "tasks_today": tt, "tasks_overdue": to}]
 
+    # ── Stale deals (server-side; avoids expensive client-side full pipeline fetch) ─
+    _now = datetime.utcnow()
+    stale_q = (
+        db.query(
+            PipelineEntry.id,
+            PipelineEntry.status,
+            PipelineEntry.last_activity_at,
+            PipelineEntry.updated_at,
+            Contact.name.label('cname'),
+            Contact.company.label('ccompany'),
+            Brand.name.label('bname'),
+        )
+        .join(Contact, PipelineEntry.contact_id == Contact.id, isouter=True)
+        .join(Brand,   PipelineEntry.brand_id   == Brand.id,   isouter=True)
+        .filter(
+            PipelineEntry.status.in_(active_stage_names),
+            PipelineEntry.deleted_at.is_(None),
+            PipelineEntry.closed_at.is_(None),
+        )
+    )
+    if not is_admin:
+        stale_q = stale_q.filter(PipelineEntry.owner_id == uid)
+    stale_list = []
+    for row in stale_q.all():
+        act_ts    = row.last_activity_at or row.updated_at
+        days_idle = int((_now - act_ts).total_seconds() // 86400) if act_ts else 0
+        threshold = stage_stale_map.get(row.status, 14)
+        pct       = days_idle / threshold if threshold > 0 else 0
+        if pct >= 0.75:
+            stale_list.append({
+                'id':              row.id,
+                'contact_name':    row.cname,
+                'contact_company': row.ccompany,
+                'brand_name':      row.bname,
+                'status':          row.status,
+                'days_idle':       days_idle,
+                'stale_days':      threshold,
+            })
+    stale_list.sort(key=lambda x: x['days_idle'], reverse=True)
+
     return {
         "is_admin":              is_admin,
         "total_active_pipeline": total_active,
@@ -128,4 +169,6 @@ def get_dashboard(db: Session = Depends(get_db), current_user: User = Depends(ge
             for t in today_tasks
         ],
         "team_workload": team_workload,
+        "stale_count":   len(stale_list),
+        "stale_deals":   stale_list[:8],
     }

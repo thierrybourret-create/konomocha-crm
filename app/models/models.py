@@ -105,7 +105,8 @@ class PipelineEntry(Base):
     updated_at      = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     deleted_at      = Column(DateTime(timezone=True), nullable=True, default=None)
     close_reason    = Column(String(500), nullable=True)
-    closed_at       = Column(DateTime(timezone=True), nullable=True)
+    closed_at         = Column(DateTime(timezone=True), nullable=True)
+    last_activity_at  = Column(DateTime(timezone=True), server_default=func.now())
     contact     = relationship("Contact", back_populates="pipeline_entries")
     brand       = relationship("Brand",   back_populates="pipeline_entries")
     owner       = relationship("User",    back_populates="pipeline_entries")
@@ -221,6 +222,7 @@ class AppStage(Base):
     label       = Column(String, nullable=False)   # display label
     probability = Column(Integer, nullable=True)   # 0-100, null for order stages
     position    = Column(Integer, nullable=False, default=0)
+    stale_days  = Column(Integer, nullable=True, default=14)
 
 
 class AuditLog(Base):

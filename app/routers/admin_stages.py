@@ -15,6 +15,7 @@ class StageCreate(BaseModel):
     label: str
     probability: Optional[int] = None
     position: Optional[int] = None
+    stale_days: Optional[int] = None
 
 
 class StageUpdate(BaseModel):
@@ -22,6 +23,7 @@ class StageUpdate(BaseModel):
     label: Optional[str] = None
     probability: Optional[int] = None
     position: Optional[int] = None
+    stale_days: Optional[int] = None
 
 
 def require_admin(current_user: User = Depends(get_current_user)):
@@ -38,7 +40,8 @@ def get_stages(db: Session = Depends(get_db), _=Depends(require_admin)):
     return {
         "pipeline": [
             {"id": s.id, "name": s.name, "label": s.label,
-              "probability": s.probability, "position": s.position}
+              "probability": s.probability, "position": s.position,
+              "stale_days": s.stale_days if s.stale_days is not None else 14}
             for s in stages if s.stage_type == 'pipeline'
         ],
         "order": [
@@ -69,6 +72,7 @@ def create_stage(
         label=data.label,
         probability=data.probability,
         position=data.position if data.position is not None else max_pos,
+        stale_days=data.stale_days,
     )
     db.add(stage)
     db.commit()
@@ -76,6 +80,7 @@ def create_stage(
     return {
         "id": stage.id, "name": stage.name, "label": stage.label,
         "probability": stage.probability, "position": stage.position,
+        "stale_days": stage.stale_days if stage.stale_days is not None else 14,
     }
 
 
@@ -97,10 +102,13 @@ def update_stage(
         stage.probability = data.probability
     if data.position is not None:
         stage.position = data.position
+    if data.stale_days is not None:
+        stage.stale_days = data.stale_days
     db.commit()
     return {
         "id": stage.id, "name": stage.name, "label": stage.label,
         "probability": stage.probability, "position": stage.position,
+        "stale_days": stage.stale_days if stage.stale_days is not None else 14,
     }
 
 

@@ -294,6 +294,52 @@ function exportTable(tbodyId, headers, filename) {
 }
 
 // ---- Dashboard ----
+async function loadStaleWidget() {
+  var el = document.getElementById('stale-deals-widget');
+  if (!el) return;
+  var stagesCfg = await loadPipelineStagesCfg();
+  var d = await apiFetch('/pipeline?per_page=500');
+  if (!d) return;
+  var today = new Date();
+  var stale = d.results.filter(function(e) {
+    if (e.closed_at) return false;
+    var stageCfg = (stagesCfg || {})[e.status] || {};
+    if (stageCfg.probability === 0) return false;
+    var actTs = e.last_activity_at || e.updated_at;
+    var daysIdle = actTs ? Math.floor((today - new Date(actTs)) / 86400000) : 0;
+    var staleDays = stageCfg.stale_days || 14;
+    return daysIdle >= Math.floor(staleDays * 0.75); // amber + red
+  }).map(function(e) {
+    var actTs = e.last_activity_at || e.updated_at;
+    var daysIdle = actTs ? Math.floor((today - new Date(actTs)) / 86400000) : 0;
+    var stageCfg = (stagesCfg || {})[e.status] || {};
+    var staleDays = stageCfg.stale_days || 14;
+    var sm = staleMeta(daysIdle, staleDays);
+    return { e: e, daysIdle: daysIdle, color: sm.borderColor };
+  }).sort(function(a, b) { return b.daysIdle - a.daysIdle; });
+
+  var titleEl = document.getElementById('stale-widget-title');
+  var bodyEl  = document.getElementById('stale-widget-body');
+  if (titleEl) titleEl.textContent = stale.length + ' deal' + (stale.length !== 1 ? 's' : '') + ' need attention';
+  if (!stale.length) {
+    el.style.display = 'none'; return;
+  }
+  el.style.display = '';
+  if (bodyEl) {
+    bodyEl.innerHTML = stale.slice(0, 8).map(function(item) {
+      var e = item.e;
+      var label = escHtml(e.contact_company || e.contact_name || '—');
+      var brand = e.brand_name ? ' <span style="color:var(--warm-grey)">· ' + escHtml(e.brand_name) + '</span>' : '';
+      var badge = '<span style="font-size:10px;font-weight:600;color:#fff;background:' + item.color + ';border-radius:4px;padding:1px 6px">' + item.daysIdle + 'd</span>';
+      return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer" onclick="openPipelineDetail(' + e.id + ')" onmouseenter="this.style.background=\'var(--off-white)\'" onmouseleave="this.style.background=\'\'" >'
+        + '<div style="font-size:13px;color:var(--navy);font-weight:500">' + label + brand + '</div>'
+        + badge
+        + '</div>';
+    }).join('')
+    + (stale.length > 8 ? '<div style="font-size:12px;color:var(--warm-grey);padding:8px 0">' + (stale.length - 8) + ' more…</div>' : '');
+  }
+}
+
 async function loadDashboard() {
   const d = await apiFetch('/dashboard');
   if (!d) return;
@@ -405,6 +451,9 @@ async function loadDashboard() {
       tw.innerHTML = '<div style="padding:20px;color:var(--warm-grey);text-align:center;grid-column:span 3">No tasks due today.</div>';
     }
   }
+
+  // Stale deals widget (no await — loads asynchronously)
+  loadStaleWidget();
 }
 
 // ---- Contacts ----
@@ -1115,9 +1164,11 @@ async function renderBoard() {
   if (pipelineFilters.brand_id) p.set('brand_id', pipelineFilters.brand_id);
   if (pipelineFilters.owner_id) p.set('owner_id', pipelineFilters.owner_id);
   if (pipelineFilters.statuses && pipelineFilters.statuses.length) p.set('statuses', pipelineFilters.statuses.join(','));
-  var d = await apiFetch('/pipeline?' + p);
+  var results = await Promise.all([apiFetch('/pipeline?' + p), loadPipelineStagesCfg()]);
+  var d = results[0], stagesCfg = results[1] || {};
   if (!d) return;
   pipelineData = d.results;
+  var today = new Date();
   var groupBy = (document.getElementById('board-group-by')||{}).value || 'status';
   var colKeys = [], getKey;
   if (groupBy === 'status') {
@@ -1148,9 +1199,24 @@ async function renderBoard() {
       + '</div>'
       + '<div style="padding:8px;max-height:calc(100vh - 280px);overflow-y:auto">'
       + cards.map(function(e) {
-          return '<div onclick="openPipelineDetail(' + e.id + ')" style="background:var(--white);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:6px;cursor:pointer">'
-            + '<div style="font-weight:600;color:var(--navy);font-size:13px;margin-bottom:2px">' + escHtml(e.contact_company||e.contact_name||'—') + '</div>'
-            + '<div style="font-size:11px;color:var(--warm-grey);margin-bottom:4px">' + escHtml(e.brand_name||'') + (groupBy!=='status'?' · <span class="pill ' + statusClass(e.status) + '" style="font-size:10px">' + escHtml(e.status) + '</span>':'') + '</div>'
+          // --- Staleness border & badge ---
+          var borderStyle = '';
+          var badgeHtml = '';
+          var stageCfg = stagesCfg[e.status] || {};
+          var isClosed = !!e.closed_at || (stageCfg.probability === 0);
+          if (isClosed) {
+            borderStyle = 'border-left:3px solid #9ca3af;';
+          } else {
+            var actTs = e.last_activity_at || e.updated_at;
+            var daysIdle = actTs ? Math.floor((today - new Date(actTs)) / 86400000) : 0;
+            var staleDays = stageCfg.stale_days || 14;
+            var sm = staleMeta(daysIdle, staleDays);
+            if (sm.borderColor) borderStyle = 'border-left:3px solid ' + sm.borderColor + ';';
+            if (sm.badge) badgeHtml = '<span style="font-size:10px;font-weight:600;color:#fff;background:' + sm.borderColor + ';border-radius:4px;padding:1px 5px;margin-left:4px;vertical-align:middle">' + sm.badge + '</span>';
+          }
+          return '<div onclick="openPipelineDetail(' + e.id + ')" style="background:var(--white);border:1px solid var(--line);' + borderStyle + 'border-radius:8px;padding:10px 12px;margin-bottom:6px;cursor:pointer">'
+            + '<div style="font-weight:600;color:var(--navy);font-size:13px;margin-bottom:2px">' + escHtml(e.contact_company||e.contact_name||'---') + badgeHtml + '</div>'
+            + '<div style="font-size:11px;color:var(--warm-grey);margin-bottom:4px">' + escHtml(e.brand_name||'') + (groupBy!=='status'?' &middot; <span class="pill ' + statusClass(e.status) + '" style="font-size:10px">' + escHtml(e.status) + '</span>':'') + '</div>'
             + '<div style="display:flex;justify-content:space-between;align-items:center">'
             + '<span style="font-size:12px;font-weight:600;color:var(--logo-blue-dark)">USD ' + fmtNum(e.potential_value||0) + '</span>'
             + ownerAv(e.owner_name)
@@ -3052,6 +3118,17 @@ async function loadAdminUsers() {
 
 var _stageProbs = {};
 var _stageList = {pipeline: [], order: []};
+var _pipelineStagesCfg = null; // null = not loaded; object keyed by stage name
+async function loadPipelineStagesCfg() {
+  if (_pipelineStagesCfg) return _pipelineStagesCfg;
+  var arr = await apiFetch('/pipeline/stages');
+  _pipelineStagesCfg = {};
+  if (arr) arr.forEach(function(s) { _pipelineStagesCfg[s.name] = s; });
+  return _pipelineStagesCfg;
+}
+// Invalidate stage config cache when admin changes stages
+function invalidatePipelineStagesCfg() { _pipelineStagesCfg = null; }
+
 async function loadStageProbs() {
   var r = await fetch('/crm-staging/api/admin/stages', {headers:{Authorization:'Bearer '+TOKEN}});
   if (!r.ok) return;
@@ -3060,6 +3137,27 @@ async function loadStageProbs() {
   _stageList = {pipeline: d.pipeline||[], order: d.order||[], close_reason: d.close_reason||[]};
   (d.pipeline||[]).concat(d.order||[]).forEach(function(s){ _stageProbs[s.name] = s; });
 }
+// ---- Staleness helpers ----
+function staleMeta(daysIdle, staleDays) {
+  // Returns {borderColor, badge} for a pipeline card based on idle days vs threshold.
+  // Green: < 25% of threshold. Amber: 75-100%. Red: >= 100%. Null: neutral (25-75%).
+  if (!staleDays || staleDays <= 0) staleDays = 14;
+  var pct = daysIdle / staleDays;
+  if (pct >= 1.0) return { borderColor: '#ef4444', badge: daysIdle + 'd' };
+  if (pct >= 0.75) return { borderColor: '#f59e0b', badge: daysIdle + 'd' };
+  if (pct < 0.25) return { borderColor: '#22c55e', badge: null };
+  return { borderColor: null, badge: null };
+}
+
+async function updateStaleDays(id, value) {
+  await fetch('/crm-staging/api/admin/stages/' + id, {
+    method: 'PUT',
+    headers: {Authorization: 'Bearer ' + TOKEN, 'Content-Type': 'application/json'},
+    body: JSON.stringify({stale_days: value})
+  });
+  invalidatePipelineStagesCfg();
+}
+
 async function updateStageProb(id, value) {
   await fetch('/crm-staging/api/admin/stages/' + id, {
     method: 'PUT',
@@ -3098,14 +3196,22 @@ function renderRefLists() {
 function renderDbStageList(elId, stageType) {
   const el = document.getElementById(elId); if (!el) return;
   const stages = (_stageList[stageType] || []).slice().sort((a,b)=>a.position-b.position);
-  el.innerHTML = stages.map(s =>
-    `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line)">
-      <span style="font-size:13px;flex:1">${s.label||s.name}</span>
-      <div style="display:flex;align-items:center;gap:10px">
-        <input type="number" min="0" max="100" value="${s.probability||0}" data-sid="${s.id}" style="width:50px;text-align:center;border:1px solid var(--line);border-radius:4px;padding:2px 4px;font-size:12px" onchange="updateStageProb(parseInt(this.dataset.sid),parseInt(this.value))">%
-        <button onclick="deleteStageById(${s.id})" style="color:var(--accent-coral);font-size:12px;background:none;border:none;cursor:pointer">Remove</button>
-      </div></div>`
-  ).join('');
+  el.innerHTML = stages.map(s => {
+    var staleDaysHtml = stageType === 'pipeline'
+      ? '<label style="font-size:11px;color:var(--warm-grey);display:flex;align-items:center;gap:3px">Stale '
+        + '<input type="number" min="1" max="365" value="' + (s.stale_days != null ? s.stale_days : 14) + '" data-sid="' + s.id + '" style="width:44px;text-align:center;border:1px solid var(--line);border-radius:4px;padding:2px 4px;font-size:12px" onchange="updateStaleDays(parseInt(this.dataset.sid),parseInt(this.value))">'
+        + 'd</label>'
+      : '';
+    return '<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line)">'
+      + '<span style="font-size:13px;flex:1">' + (s.label||s.name) + '</span>'
+      + '<div style="display:flex;align-items:center;gap:10px">'
+      + staleDaysHtml
+      + '<label style="font-size:11px;color:var(--warm-grey);display:flex;align-items:center;gap:3px">Prob '
+        + '<input type="number" min="0" max="100" value="' + (s.probability||0) + '" data-sid="' + s.id + '" style="width:44px;text-align:center;border:1px solid var(--line);border-radius:4px;padding:2px 4px;font-size:12px" onchange="updateStageProb(parseInt(this.dataset.sid),parseInt(this.value))">'
+        + '%</label>'
+      + '<button onclick="deleteStageById(' + s.id + ')" style="color:var(--accent-coral);font-size:12px;background:none;border:none;cursor:pointer">Remove</button>'
+      + '</div></div>';
+  }).join('');
 }
 function renderDbStageListSimple(elId, stageType) {
   const el = document.getElementById(elId); if (!el) return;
@@ -3120,6 +3226,7 @@ function renderDbStageListSimple(elId, stageType) {
 async function deleteStageById(id) {
   if (!confirm('Remove this stage?')) return;
   await fetch('/crm-staging/api/admin/stages/'+id, {method:'DELETE', headers:{Authorization:'Bearer '+TOKEN}});
+  invalidatePipelineStagesCfg();
   await loadStageProbs(); renderRefLists();
 }
 function addRefItem(type) {
@@ -3137,7 +3244,7 @@ function addRefItem(type) {
     method:'POST',
     headers:{Authorization:'Bearer '+TOKEN,'Content-Type':'application/json'},
     body: JSON.stringify({stage_type:stageType, name:val, label:val, probability:prob})
-  }).then(()=>loadStageProbs()).then(()=>{ renderRefLists(); populateFilterDropdowns(); });
+  }).then(()=>{ invalidatePipelineStagesCfg(); return loadStageProbs(); }).then(()=>{ renderRefLists(); populateFilterDropdowns(); });
   el.value='';
 }
 function removeRefItem(type, idx) {

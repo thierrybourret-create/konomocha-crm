@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/crm-staging/static/css/app.css?v=20260522q" />
+<link rel="stylesheet" href="/crm-staging/static/css/app.css?v=20260523a" />
 </head>
 <body>
 <div style="background:#F5A623;color:#000;text-align:center;padding:6px;font-size:13px;font-weight:600;letter-spacing:1px;">STAGING — NOT PRODUCTION</div>
@@ -214,6 +214,20 @@
             <div class="card-body" id="bonus-widget-body" style="padding:0 20px 16px">
               <div style="color:var(--warm-grey);font-size:13px">Loading…</div>
             </div>
+          </div>
+        </div>
+
+        <!-- Stale deals widget -->
+        <div id="stale-deals-widget" style="display:none;margin-bottom:20px">
+          <div class="card">
+            <div class="card-head">
+              <div>
+                <div class="card-title" id="stale-widget-title">Deals needing attention</div>
+                <div class="card-sub">Approaching or past activity threshold</div>
+              </div>
+              <div class="right"><a class="link-blue" style="cursor:pointer" onclick="activate('pipeline')">View all &rarr;</a></div>
+            </div>
+            <div class="card-body" id="stale-widget-body" style="padding:0 20px 8px"></div>
           </div>
         </div>
 
@@ -927,7 +941,7 @@
   </main>
 </div><!-- /app-root -->
 
-<script src="/crm-staging/static/js/app.js?v=20260522q"></script>
+<script src="/crm-staging/static/js/app.js?v=20260523a"></script>
 
 
 </body>

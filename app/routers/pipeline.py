@@ -52,6 +52,7 @@ def entry_to_dict(e: PipelineEntry, db: Session):
         "close_reason": e.close_reason,
         "closed_at": e.closed_at.isoformat() if e.closed_at else None,
         "updated_at": e.updated_at.isoformat() if e.updated_at else None,
+        "last_activity_at": e.last_activity_at.isoformat() if e.last_activity_at else None,
     }
 
 
@@ -65,6 +66,23 @@ def get_db_probabilities(db):
         return {s.name: (s.probability or 0) for s in stages}
     from app.constants import PIPELINE_PROBABILITIES
     return PIPELINE_PROBABILITIES
+
+@router.get("/stages")
+def get_pipeline_stages(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+    """Public endpoint: returns pipeline stage names + stale_days threshold for all authenticated users."""
+    from app.models.models import AppStage
+    stages = db.query(AppStage).filter(AppStage.stage_type == 'pipeline').order_by(AppStage.position, AppStage.id).all()
+    return [
+        {
+            "id": s.id,
+            "name": s.name,
+            "label": s.label,
+            "probability": s.probability,
+            "stale_days": s.stale_days if s.stale_days is not None else 14,
+        }
+        for s in stages
+    ]
+
 
 @router.get("/probabilities")
 def get_probabilities(current_user=Depends(get_current_user)):
@@ -214,6 +232,7 @@ def update_entry(entry_id: int, data: PipelineCreate, db: Session = Depends(get_
     _new_data = dict(update_data)
     if close_reason is not None:
         _new_data['close_reason'] = close_reason
+    e.last_activity_at = datetime.utcnow()
     diff_and_log(db, entity_type='pipeline', entity_id=entry_id,
                  contact_name=_cname, brand_name=_bname,
                  old_obj=type('S', (), _snap)(), new_data=_new_data,
@@ -271,6 +290,7 @@ def add_pipeline_note(entry_id: int, data: PipelineNoteCreate, db: Session = Dep
         raise HTTPException(status_code=404, detail="Not found")
     note = PipelineNote(pipeline_id=entry_id, body=data.body, author_id=current_user.id)
     db.add(note)
+    e.last_activity_at = datetime.utcnow()
     db.commit()
     db.refresh(note)
     return {"id": note.id, "body": note.body, "author_name": current_user.name,

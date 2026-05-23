@@ -414,7 +414,7 @@ async function loadDashboard() {
       sb.innerHTML = '<div style="padding:12px 16px">'
         + d.pipeline_by_stage.map(function(s) {
             var pct = maxCnt ? Math.round(s.count / maxCnt * 100) : 0;
-            var valStr = s.value > 0 ? ' &middot; <span style="color:var(--logo-blue-dark)">USD ' + fmtShort(s.value) + '</span>' : '';
+            var valStr = s.value > 0 && s.probability > 0 ? ' &middot; <span style="color:var(--logo-blue-dark)">USD ' + fmtShort(s.value * s.probability / 100) + '</span>' : '';
             return '<div style="margin-bottom:10px">'
               + '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">'
               + '<span style="color:var(--navy)">' + escHtml(s.status) + '</span>'

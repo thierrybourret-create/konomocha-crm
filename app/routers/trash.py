@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
@@ -11,8 +11,9 @@ RETENTION_DAYS = 20
 
 
 def _purge_expired(db: Session):
-    cutoff = datetime.utcnow() - timedelta(days=RETENTION_DAYS)
-    # Hard-delete items where deleted_at is older than retention period
+    cutoff = datetime.now(timezone.utc) - timedelta(days=RETENTION_DAYS)
+    # #40: purge child records BEFORE contacts to respect FK constraints
+    # 1. Notes (child of contacts and pipeline entries)
     db.query(ContactNote).filter(
         ContactNote.deleted_at.isnot(None),
         ContactNote.deleted_at < cutoff
@@ -21,14 +22,17 @@ def _purge_expired(db: Session):
         PipelineNote.deleted_at.isnot(None),
         PipelineNote.deleted_at < cutoff
     ).delete(synchronize_session=False)
+    # 2. Orders (child of contacts)
     db.query(Order).filter(
         Order.deleted_at.isnot(None),
         Order.deleted_at < cutoff
     ).delete(synchronize_session=False)
+    # 3. Pipeline entries (child of contacts)
     db.query(PipelineEntry).filter(
         PipelineEntry.deleted_at.isnot(None),
         PipelineEntry.deleted_at < cutoff
     ).delete(synchronize_session=False)
+    # 4. Contacts last — children already removed above
     db.query(Contact).filter(
         Contact.deleted_at.isnot(None),
         Contact.deleted_at < cutoff
@@ -39,7 +43,8 @@ def _purge_expired(db: Session):
 def _days_since(dt):
     if dt is None:
         return 0
-    delta = datetime.utcnow() - dt.replace(tzinfo=None) if dt.tzinfo else datetime.utcnow() - dt
+    aware_dt = dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    delta = datetime.now(timezone.utc) - aware_dt
     return max(0, delta.days)
 
 

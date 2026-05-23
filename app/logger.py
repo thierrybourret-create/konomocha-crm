@@ -2,7 +2,9 @@ import logging
 import logging.handlers
 import os
 
-LOG_DIR = "/home/thierry/logs"
+# #10: use env var so staging/production can point to different log dirs
+LOG_DIR = os.getenv("LOG_DIR", "/home/thierry/logs")
+os.makedirs(LOG_DIR, exist_ok=True)
 LOG_FILE = os.path.join(LOG_DIR, "kizuna.log")
 
 

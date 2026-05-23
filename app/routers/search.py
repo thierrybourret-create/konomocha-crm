@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, contains_eager
 from app.database import get_db
 from app.models.models import Contact, PipelineEntry, Order, Brand, User
 from app.auth import get_current_user
@@ -50,6 +50,10 @@ def global_search(
         db.query(PipelineEntry)
         .join(Contact, PipelineEntry.contact_id == Contact.id)
         .join(Brand,   PipelineEntry.brand_id   == Brand.id)
+        .options(
+            contains_eager(PipelineEntry.contact),
+            contains_eager(PipelineEntry.brand),
+        )
         .filter(
             PipelineEntry.deleted_at.is_(None),
             (
@@ -63,24 +67,28 @@ def global_search(
         .limit(limit)
         .all()
     )
-    pipeline = []
-    for e in pipeline_q:
-        c = db.query(Contact).filter(Contact.id == e.contact_id).first()
-        b = db.query(Brand).filter(Brand.id == e.brand_id).first()
-        pipeline.append({
+    # #22: relationships already loaded via contains_eager — no per-row queries
+    pipeline = [
+        {
             "id":         e.id,
             "contact_id": e.contact_id,
-            "contact":    c.name if c else "",
-            "brand":      b.name if b else "",
+            "contact":    e.contact.name if e.contact else "",
+            "brand":      e.brand.name   if e.brand   else "",
             "status":     e.status or "",
             "value":      "{:,.2f}".format(float(e.potential_value)) if e.potential_value else "0.00",
-        })
+        }
+        for e in pipeline_q
+    ]
 
     # ── Orders ────────────────────────────────────────────────────────────
     orders_q = (
         db.query(Order)
         .join(Contact, Order.contact_id == Contact.id)
         .join(Brand,   Order.brand_id   == Brand.id)
+        .options(
+            contains_eager(Order.contact),
+            contains_eager(Order.brand),
+        )
         .filter(
             Order.deleted_at.is_(None),
             (
@@ -94,17 +102,16 @@ def global_search(
         .limit(limit)
         .all()
     )
-    orders = []
-    for o in orders_q:
-        c = db.query(Contact).filter(Contact.id == o.contact_id).first()
-        b = db.query(Brand).filter(Brand.id == o.brand_id).first()
-        orders.append({
+    orders = [
+        {
             "id":         o.id,
             "contact_id": o.contact_id,
-            "contact":    c.name if c else "",
-            "brand":      b.name if b else "",
+            "contact":    o.contact.name if o.contact else "",
+            "brand":      o.brand.name   if o.brand   else "",
             "status":     o.status or "",
             "value":      "{:,.2f}".format(float(o.order_value)) if o.order_value else "0.00",
-        })
+        }
+        for o in orders_q
+    ]
 
     return {"contacts": contacts, "pipeline": pipeline, "orders": orders}

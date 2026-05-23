@@ -4,14 +4,9 @@ from typing import Optional
 from app.database import get_db
 from app.models.models import Brand, User
 from app.auth import get_current_user, require_admin
-from pydantic import BaseModel
+from app.schemas.brands import BrandCreate
 
 router = APIRouter(prefix="/api/brands", tags=["brands"])
-
-class BrandCreate(BaseModel):
-    name: str
-    notes: Optional[str] = None
-    is_active: bool = True
 
 def brand_to_dict(b: Brand):
     return {"id": b.id, "name": b.name, "notes": b.notes, "is_active": b.is_active}
@@ -142,7 +137,7 @@ def brand_report(brand_id: int, db: Session = Depends(get_db), current_user: Use
             e.status,
             float(e.potential_value) if e.potential_value else 0,
             e.next_action or "",
-            e.due_date.strftime("%d %b %Y") if e.due_date else "",
+            e.fob_date.strftime("%d %b %Y") if e.fob_date else "",
             e.owner.name if e.owner else "",
         ]
         for ci, val in enumerate(row_data, 1):

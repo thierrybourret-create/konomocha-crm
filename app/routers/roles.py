@@ -4,18 +4,9 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.models import CRMRole, User
 from app.auth import require_admin
-from pydantic import BaseModel
-from typing import Optional
+from app.schemas.roles import RoleCreate, RoleUpdate
 
 router = APIRouter(prefix="/api/roles", tags=["roles"])
-
-class RoleCreate(BaseModel):
-    name: str
-    permissions: Optional[dict] = None
-
-class RoleUpdate(BaseModel):
-    name: Optional[str] = None
-    permissions: Optional[dict] = None
 
 def role_to_dict(r: CRMRole):
     perms = None

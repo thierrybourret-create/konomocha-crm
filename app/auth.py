@@ -9,8 +9,14 @@ from app.database import get_db
 from app.models.models import User
 import os
 
-SECRET_KEY = os.getenv("SECRET_KEY", "changeme")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY or len(SECRET_KEY) < 32:
+    raise RuntimeError(
+        "SECRET_KEY environment variable is required and must be at least 32 characters. "
+        "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+    )
 ALGORITHM = "HS256"
+# #33: 8h default; override via ACCESS_TOKEN_EXPIRE_MINUTES env var
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 480))
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

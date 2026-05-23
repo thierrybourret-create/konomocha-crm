@@ -8,6 +8,7 @@ import io, csv
 from app.database import get_db
 from app.models.models import Contact, PipelineEntry, Order, EmailLog, User, ContactNote, ContactTask
 from app.auth import get_current_user, require_admin
+from app.utils import get_db_probabilities
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -95,15 +96,6 @@ def _row(c):
 
 
 
-def get_db_probabilities(db):
-    """Load pipeline probabilities from DB, fall back to constants."""
-    from app.models.models import AppStage
-    stages = db.query(AppStage).filter(AppStage.stage_type == 'pipeline').all()
-    if stages:
-        return {s.name: (s.probability or 0) for s in stages}
-    from app.constants import PIPELINE_PROBABILITIES
-    return PIPELINE_PROBABILITIES
-
 @router.get("/contact-quality")
 def contact_quality(
     filter:       str = Query("all"),
@@ -115,7 +107,9 @@ def contact_quality(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user),
 ):
-    q = db.query(Contact)
+    from sqlalchemy.orm import joinedload as _jl
+    # #21: filter soft-deleted contacts; eager-load owner to avoid N+1 on _row()
+    q = db.query(Contact).options(_jl(Contact.owner)).filter(Contact.deleted_at.is_(None))
     if contact_type == "contacts":
         q = q.filter(Contact.source.notin_(("lacrm_company_import", "pipeline_import")))
     elif contact_type == "companies":
@@ -477,6 +471,14 @@ def commission_forecast(db: Session = Depends(get_db), current_user=Depends(requ
     # Generate 24 months: Apr 2026 to Mar 2028
     start = _date(2026, 4, 1)
     months_data = []
+    # #23/#24: load once before the loop — was 48+ queries, now 3
+    _probs = get_db_probabilities(db)
+    _conf_orders = db.query(Order).filter(
+        Order.status.in_(['shipped', 'fully_paid', 'commission_invoiced']),
+        Order.ship_date.isnot(None),
+    ).all()
+    _pipe_entries = db.query(PipelineEntry).filter(PipelineEntry.fob_date.isnot(None)).all()
+
     for i in range(24):
         m_start = add_months(start, i)
         m_end = add_months(start, i + 1)
@@ -488,22 +490,17 @@ def commission_forecast(db: Session = Depends(get_db), current_user=Depends(requ
             Order.commission_paid_date >= m_start,
             Order.commission_paid_date < m_end,
         ).scalar() or 0
-        # Confirmed: shipped (not commission_paid) where ship_date+30 in this month
-        conf_orders = db.query(Order).filter(
-            Order.status.in_(['shipped', 'fully_paid', 'commission_invoiced']),
-            Order.ship_date.isnot(None),
-        ).all()
+        # Confirmed: shipped orders where ship_date+lag in this month
         confirmed = sum(
-            float(o.net_commission or 0) for o in conf_orders
+            float(o.net_commission or 0) for o in _conf_orders
             if o.ship_date and m_start <= (o.ship_date + timedelta(days=COMMISSION_LAG_DAYS)) < m_end
         )
-        # Weighted pipeline: fob_date+30 in this month, prob > 0
-        pipe_entries = db.query(PipelineEntry).filter(PipelineEntry.fob_date.isnot(None)).all()
+        # Weighted pipeline: fob_date+lag in this month, prob > 0
         weighted = sum(
-            float(e.potential_value or 0) * get_db_probabilities(db).get(e.status, 0) / 100
-            for e in pipe_entries
+            float(e.potential_value or 0) * _probs.get(e.status, 0) / 100
+            for e in _pipe_entries
             if e.fob_date and m_start <= (e.fob_date + timedelta(days=COMMISSION_LAG_DAYS)) < m_end
-              and get_db_probabilities(db).get(e.status, 0) > 0
+              and _probs.get(e.status, 0) > 0
         )
         months_data.append({
             "month":            month_key,
@@ -543,20 +540,29 @@ def bonus_report(
     from datetime import date as _date
     from app.models.models import Order, User
     from app.constants import quarter_date_range, quarter_label
-    q_num = int(quarter[1]) if quarter and len(quarter) >= 2 else 1
+    # #35: validate quarter format explicitly instead of brittle int(quarter[1])
+    _quarter_map = {"Q1": 1, "Q2": 2, "Q3": 3, "Q4": 4}
+    if quarter not in _quarter_map:
+        raise HTTPException(status_code=422, detail="quarter must be one of Q1, Q2, Q3, Q4")
+    q_num = _quarter_map[quarter]
     q_start, q_end = quarter_date_range(fy, q_num)
     agents = db.query(User).filter(User.role == "agent", User.is_active == True).all()
+    # #27: single query for all agents instead of N queries
+    _all_orders = db.query(Order).options(
+        joinedload(Order.contact), joinedload(Order.brand)
+    ).filter(
+        Order.owner_id.in_([a.id for a in agents]),
+        Order.status == "commission_paid",
+        Order.commission_paid_date >= q_start,
+        Order.commission_paid_date < q_end,
+    ).all()
+    _orders_by_agent: dict = {}
+    for _o in _all_orders:
+        _orders_by_agent.setdefault(_o.owner_id, []).append(_o)
     result_agents = []
     grand_total = 0.0
     for agent in agents:
-        orders = db.query(Order).options(
-            joinedload(Order.contact), joinedload(Order.brand)
-        ).filter(
-            Order.owner_id == agent.id,
-            Order.status == "commission_paid",
-            Order.commission_paid_date >= q_start,
-            Order.commission_paid_date < q_end,
-        ).all()
+        orders = _orders_by_agent.get(agent.id, [])
         agent_orders = []
         total_net = 0.0
         total_bonus = 0.0
@@ -671,7 +677,11 @@ def bonus_summary(
             fy = fsy
         if quarter is None:
             quarter = f"Q{q_num}"
-    q_num = int(quarter[1])  # e.g. "Q1" -> 1
+    # #35: validate quarter format
+    _quarter_map = {"Q1": 1, "Q2": 2, "Q3": 3, "Q4": 4}
+    if quarter not in _quarter_map:
+        raise HTTPException(status_code=422, detail="quarter must be one of Q1, Q2, Q3, Q4")
+    q_num = _quarter_map[quarter]
     q_start, q_end = quarter_date_range(fy, q_num)
     VISIBLE_STATUSES = ['shipped', 'fully_paid', 'commission_invoiced', 'commission_paid', 'bonus_paid']
     staff_users = db.query(User).filter(
@@ -687,6 +697,8 @@ def bonus_summary(
         ).filter(
             Order.owner_id == user.id,
             Order.status.in_(VISIBLE_STATUSES),
+            Order.commission_paid_date >= q_start,
+            Order.commission_paid_date < q_end,
         ).all()
         order_list = []
         total_bonus_earned = 0.0
@@ -740,7 +752,7 @@ def lost_deals_report(
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    from app.routers.pipeline import get_db_probabilities
+    from app.utils import get_db_probabilities
     from sqlalchemy.orm import joinedload as _jl
     from sqlalchemy import func as _func
     from app.models.models import Order as _Order

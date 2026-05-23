@@ -1,35 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, Field
 from typing import Optional
 from app.database import get_db
 from app.models.models import AppStage, User
-from app.auth import get_current_user
+from app.auth import get_current_user, require_admin
+from app.schemas.admin_stages import StageCreate, StageUpdate
 
 router = APIRouter(prefix="/admin/stages", tags=["admin-stages"])
-
-
-class StageCreate(BaseModel):
-    stage_type: str          # 'pipeline' or 'order'
-    name: str
-    label: str
-    probability: Optional[int] = None
-    position: Optional[int] = None
-    stale_days: Optional[int] = Field(None, ge=1, le=3650)
-
-
-class StageUpdate(BaseModel):
-    name: Optional[str] = None
-    label: Optional[str] = None
-    probability: Optional[int] = None
-    position: Optional[int] = None
-    stale_days: Optional[int] = Field(None, ge=1, le=3650)
-
-
-def require_admin(current_user: User = Depends(get_current_user)):
-    if current_user.role != 'admin':
-        raise HTTPException(status_code=403, detail="Admin only")
-    return current_user
 
 
 @router.get("")

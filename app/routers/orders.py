@@ -1,42 +1,19 @@
-from datetime import datetime
+from datetime import datetime, date, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional
-from datetime import date, timedelta
 from decimal import Decimal
 from app.database import get_db
 from app.models.models import Order, User, Contact
 from app.auth import get_current_user, require_admin
 from app.constants import (ORDER_STATUSES, ORDER_STATUS_LABELS, ORDER_STATUS_DATES,
                             BONUS_RATE, COMMISSION_LAG_DAYS)
-from pydantic import BaseModel
+from app.schemas.orders import OrderCreate, OrderStatusUpdate, BonusPaidRequest
+from app.permissions import has_scope_all
 from app.audit import log_audit, diff_and_log, log_created_order, fmt_num, ORDER_TRACKED
 
 router = APIRouter(prefix="/api/orders", tags=["orders"])
 
-
-class OrderCreate(BaseModel):
-    contact_id: int
-    brand_id: int
-    order_date: date
-    order_value: Decimal
-    gross_commission_rate: Decimal = Decimal("0")
-    testing_cost_deduction: Decimal = Decimal("0")
-    owner_id: Optional[int] = None
-    status: str = "po_received"
-    notes: Optional[str] = None
-    po_date: Optional[date] = None
-    deposit_date: Optional[date] = None
-    ship_date: Optional[date] = None
-    fully_paid_date: Optional[date] = None
-    commission_invoiced_date: Optional[date] = None
-    commission_paid_date: Optional[date] = None
-    bonus_paid_date: Optional[date] = None
-
-
-class OrderStatusUpdate(BaseModel):
-    status: str
-    status_date: Optional[date] = None  # if None, use today
 
 
 def compute_net(order_value, rate, deduction):
@@ -116,14 +93,8 @@ def list_orders(
     current_user: User = Depends(get_current_user),
 ):
     q = _base_query(db).filter(Order.deleted_at.is_(None))
-    if str(current_user.role) != 'admin':
-        _p = None
-        if current_user.crm_role and current_user.crm_role.permissions:
-            try: import json as _j; _p = _j.loads(current_user.crm_role.permissions)
-            except: pass
-        _sc = (_p or {}).get('pages', {}).get('orders', 'own') if _p else 'own'
-        if _sc != 'all':
-            q = q.filter(Order.owner_id == current_user.id)
+    if not has_scope_all(current_user, "orders"):
+        q = q.filter(Order.owner_id == current_user.id)
     elif owner_id:
         q = q.filter(Order.owner_id == owner_id)
     if status:
@@ -167,6 +138,26 @@ def create_order(data: OrderCreate, db: Session = Depends(get_db), current_user:
     return order_to_dict(o)
 
 
+@router.put("/mark-bonus-paid")
+def mark_bonus_paid(
+    data: BonusPaidRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.role != 'admin':
+        raise HTTPException(status_code=403, detail="Admin only")
+    today = date.today()
+    updated = 0
+    for oid in data.order_ids:
+        o = db.query(Order).filter(Order.id == oid, Order.status == 'commission_paid', Order.deleted_at.is_(None)).first()
+        if o:
+            o.status = 'bonus_paid'
+            o.bonus_paid_date = today
+            updated += 1
+    db.commit()
+    return {"updated": updated}
+
+
 @router.put("/{order_id}")
 def update_order(order_id: int, data: OrderCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     o = _base_query(db).filter(Order.id == order_id, Order.deleted_at.is_(None)).first()
@@ -175,6 +166,10 @@ def update_order(order_id: int, data: OrderCreate, db: Session = Depends(get_db)
     if current_user.role != "admin" and o.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not your order")
     _update = data.dict(exclude_unset=True)
+    # Only admins may reassign owner, brand, or contact on an existing order
+    if current_user.role != "admin":
+        for _restricted in ("owner_id", "brand_id", "contact_id"):
+            _update.pop(_restricted, None)
     _snap  = {f: getattr(o, f, None) for f in ORDER_TRACKED}
     _cname = o.contact.name if o.contact else None
     _bname = o.brand.name   if o.brand   else None
@@ -233,7 +228,7 @@ def delete_order(order_id: int, db: Session = Depends(get_db), current_user: Use
         raise HTTPException(status_code=404, detail="Order not found")
     _cname = o.contact.name if o.contact else None
     _bname = o.brand.name   if o.brand   else None
-    o.deleted_at = datetime.utcnow()
+    o.deleted_at = datetime.now(timezone.utc)
     log_audit(db, entity_type='order', entity_id=order_id,
               contact_name=_cname, brand_name=_bname,
               action='deleted', user_id=current_user.id, user_name=current_user.name)
@@ -241,26 +236,3 @@ def delete_order(order_id: int, db: Session = Depends(get_db), current_user: Use
     return {"ok": True}
 
 
-class BonusPaidRequest(BaseModel):
-    order_ids: list
-
-
-@router.put("/mark-bonus-paid")
-def mark_bonus_paid(
-    data: BonusPaidRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    if current_user.role != 'admin':
-        raise HTTPException(status_code=403, detail="Admin only")
-    from datetime import date as _date
-    today = _date.today()
-    updated = 0
-    for oid in data.order_ids:
-        o = db.query(Order).filter(Order.id == oid, Order.status == 'commission_paid', Order.deleted_at.is_(None)).first()
-        if o:
-            o.status = 'bonus_paid'
-            o.bonus_paid_date = today
-            updated += 1
-    db.commit()
-    return {"updated": updated}

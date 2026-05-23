@@ -995,7 +995,17 @@ async function loadPipeline() {
 }
 
 function openPipelineDetail(id) {
-  const e = pipelineData.find(x=>x.id===id); if(!e) return;
+  // #44: if the entry isn't in local state (e.g. clicked from dashboard), fetch it first
+  const e = pipelineData.find(x=>x.id===id);
+  if (!e) {
+    apiFetch('/pipeline/'+id).then(function(fetched) {
+      if (!fetched) return;
+      // Temporarily add to pipelineData so openPipelineDetail can find it
+      pipelineData.push(fetched);
+      openPipelineDetail(id);
+    });
+    return;
+  }
   const statuses = getPipelineStatuses();
   const users = window._crmUsers || [];
   document.getElementById('modal-title').innerHTML = escHtml((e.contact_company||e.contact_name||'') + ' — ' + (e.brand_name||''));

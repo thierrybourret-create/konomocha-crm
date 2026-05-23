@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from app.database import get_db
 from app.models.models import PipelineEntry, Order, EmailLog, User, ContactTask, Contact, Brand, AppStage
 from app.auth import get_current_user
@@ -28,18 +28,23 @@ def get_dashboard(db: Session = Depends(get_db), current_user: User = Depends(ge
     total_active     = pq.count()
     overdue_pipeline = pq.filter(PipelineEntry.fob_date < today).count()
 
-    # Weighted pipeline value: potential_value x (stage_probability / 100)
-    val_entries = db.query(PipelineEntry.status, PipelineEntry.potential_value)\
-        .filter(PipelineEntry.status.in_(active_stage_names))
+    # Weighted pipeline value: SQL GROUP BY aggregate — one round-trip, not one row per entry (#26)
+    stage_agg = (
+        db.query(PipelineEntry.status, func.sum(PipelineEntry.potential_value).label("sv"))
+        .filter(PipelineEntry.status.in_(active_stage_names), PipelineEntry.deleted_at.is_(None))
+    )
     if not is_admin:
-        val_entries = val_entries.filter(PipelineEntry.owner_id == uid)
+        stage_agg = stage_agg.filter(PipelineEntry.owner_id == uid)
     total_pipeline_value = sum(
-        float(row.potential_value or 0) * stage_prob_map.get(row.status, 0) / 100
-        for row in val_entries.all()
+        float(sv or 0) * stage_prob_map.get(status, 0) / 100
+        for status, sv in stage_agg.group_by(PipelineEntry.status).all()
     )
 
     # ── Commission due (via order owner) ──────────────────────────────────────
-    comm_q = db.query(func.sum(Order.net_commission)).filter(Order.status != "paid")
+    comm_q = db.query(func.sum(Order.net_commission)).filter(
+        Order.status.notin_(["commission_paid", "bonus_paid"]),
+        Order.deleted_at.is_(None),
+    )
     if not is_admin:
         comm_q = comm_q.filter(Order.owner_id == uid)
     commission_due = comm_q.scalar() or 0
@@ -96,7 +101,7 @@ def get_dashboard(db: Session = Depends(get_db), current_user: User = Depends(ge
         team_workload = [{"id": uid, "name": current_user.name, "tasks_today": tt, "tasks_overdue": to}]
 
     # ── Stale deals (server-side; avoids expensive client-side full pipeline fetch) ─
-    _now = datetime.utcnow()
+    _now = datetime.now(timezone.utc)
     stale_q = (
         db.query(
             PipelineEntry.id,
@@ -119,7 +124,9 @@ def get_dashboard(db: Session = Depends(get_db), current_user: User = Depends(ge
         stale_q = stale_q.filter(PipelineEntry.owner_id == uid)
     stale_list = []
     for row in stale_q.all():
-        act_ts    = row.last_activity_at or row.updated_at
+        act_ts = row.last_activity_at or row.updated_at
+        if act_ts and act_ts.tzinfo is None:
+            act_ts = act_ts.replace(tzinfo=timezone.utc)
         days_idle = int((_now - act_ts).total_seconds() // 86400) if act_ts else 0
         threshold = stage_stale_map.get(row.status, 14)
         pct       = days_idle / threshold if threshold > 0 else 0

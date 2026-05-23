@@ -1,33 +1,19 @@
 import os
-from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Query
+import uuid
+import shutil
+from datetime import datetime, date as _date_type, timezone
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
 from typing import Optional
 from app.database import get_db
 from app.models.models import Contact, User, ContactNote
 from app.auth import get_current_user
-from pydantic import BaseModel
+from app.schemas.contacts import ContactCreate, ContactUpdate, NoteCreate, TaskCreate, TaskUpdate, MergeRequest
+from app.permissions import has_scope_all
 
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])
-
-class ContactCreate(BaseModel):
-    name: Optional[str] = None
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    company: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    job_title: Optional[str] = None
-    country: Optional[str] = None
-    address: Optional[str] = None
-    tags: Optional[str] = None
-    notes: Optional[str] = None
-    owner_id: Optional[int] = None
-    source: Optional[str] = None
-
-class ContactUpdate(ContactCreate):
-    pass
 
 def contact_to_dict(c):
     parts = (c.name or "").split(" ", 1)
@@ -156,13 +142,8 @@ def list_contacts(
         sort_col = sort_col.desc()
     q = q.order_by(sort_col)
 
-    if str(current_user.role) != 'admin':
-        _p = None
-        if current_user.crm_role and current_user.crm_role.permissions:
-            try: import json as _j; _p = _j.loads(current_user.crm_role.permissions)
-            except: pass
-        if (_p or {}).get('pages', {}).get('contacts') == 'own':
-            q = q.filter(Contact.owner_id == current_user.id)
+    if not has_scope_all(current_user, "contacts"):
+        q = q.filter(Contact.owner_id == current_user.id)
     total = q.count()
     results = q.offset((page - 1) * per_page).limit(per_page).all()
     return {
@@ -181,7 +162,10 @@ def get_contact(contact_id: int, db: Session = Depends(get_db), current_user: Us
 
 @router.post("")
 def create_contact(data: ContactCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    name = ((data.first_name or "") + " " + (data.last_name or "")).strip() or data.name or "Unknown"
+    # #16: require a name rather than silently defaulting to "Unknown"
+    name = ((data.first_name or "") + " " + (data.last_name or "")).strip() or (data.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="A contact name is required (provide first_name, last_name, or name)")
     c = Contact(name=name, company=data.company, email=data.email, phone=data.phone,
                 job_title=data.job_title, country=data.country, address=data.address, tags=data.tags, notes=data.notes,
                 owner_id=data.owner_id, source=data.source or "manual")
@@ -212,13 +196,10 @@ def delete_contact(contact_id: int, db: Session = Depends(get_db), current_user:
     c = db.query(Contact).filter(Contact.id == contact_id, Contact.deleted_at.is_(None)).first()
     if not c:
         raise HTTPException(status_code=404, detail="Not found")
-    c.deleted_at = datetime.utcnow()
+    c.deleted_at = datetime.now(timezone.utc)
     db.commit()
     return {"ok": True}
 
-
-class NoteCreate(BaseModel):
-    body: str
 
 @router.get("/{contact_id}/notes")
 def get_contact_notes(contact_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -253,16 +234,15 @@ def delete_contact_note(contact_id: int, note_id: int, db: Session = Depends(get
         raise HTTPException(status_code=404, detail="Not found")
     if current_user.role != "admin" and note.author_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
-    note.deleted_at = datetime.utcnow()
+    note.deleted_at = datetime.now(timezone.utc)
     db.commit()
     return {"ok": True}
 
 
-import uuid, shutil
-from fastapi import UploadFile, File
-from fastapi.responses import FileResponse
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/home/thierry/konomocha-crm/uploads")
 
-UPLOAD_DIR = "/home/thierry/konomocha-crm/uploads"
+ALLOWED_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg", ".xlsx", ".xls", ".doc", ".docx", ".csv", ".txt"}
+MAX_UPLOAD_SIZE = 20 * 1024 * 1024  # 20 MB
 
 @router.post("/{contact_id}/attachments")
 async def upload_attachment(
@@ -275,14 +255,22 @@ async def upload_attachment(
     contact = db.query(Contact).filter(Contact.id == contact_id, Contact.deleted_at.is_(None)).first()
     if not contact:
         raise HTTPException(status_code=404, detail="Not found")
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"File type not allowed. Allowed types: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
+        )
+    contents = await file.read()
+    if len(contents) > MAX_UPLOAD_SIZE:
+        raise HTTPException(status_code=413, detail="File too large. Maximum size is 20 MB")
     dest_dir = os.path.join(UPLOAD_DIR, str(contact_id))
     os.makedirs(dest_dir, exist_ok=True)
-    ext = os.path.splitext(file.filename)[1] if file.filename else ""
     stored = str(uuid.uuid4()) + ext
     dest = os.path.join(dest_dir, stored)
     with open(dest, "wb") as f:
-        shutil.copyfileobj(file.file, f)
-    size = os.path.getsize(dest)
+        f.write(contents)
+    size = len(contents)
     att = ContactAttachment(contact_id=contact_id, filename=file.filename, stored_name=stored,
                             file_size=size, uploaded_by_id=current_user.id)
     db.add(att)
@@ -304,7 +292,10 @@ def download_attachment(contact_id: int, att_id: int, db: Session = Depends(get_
     att = db.query(ContactAttachment).filter(ContactAttachment.id == att_id, ContactAttachment.contact_id == contact_id).first()
     if not att:
         raise HTTPException(status_code=404, detail="Not found")
-    path = os.path.join(UPLOAD_DIR, str(contact_id), att.stored_name)
+    safe_name = os.path.basename(att.stored_name)
+    path = os.path.abspath(os.path.join(UPLOAD_DIR, str(contact_id), safe_name))
+    if not path.startswith(os.path.abspath(UPLOAD_DIR)):
+        raise HTTPException(status_code=400, detail="Invalid file path")
     return FileResponse(path, filename=att.filename)
 
 @router.delete("/{contact_id}/attachments/{att_id}")
@@ -321,11 +312,6 @@ def delete_attachment(contact_id: int, att_id: int, db: Session = Depends(get_db
     return {"ok": True}
 
 
-class TaskCreate(BaseModel):
-    title: str
-    due_date: Optional[str] = None
-    assigned_to_id: Optional[int] = None
-
 @router.get("/{contact_id}/tasks")
 def list_tasks(contact_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     from app.models.models import ContactTask
@@ -339,14 +325,16 @@ def list_tasks(contact_id: int, db: Session = Depends(get_db), current_user: Use
 @router.post("/{contact_id}/tasks")
 def create_task(contact_id: int, data: TaskCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     from app.models.models import ContactTask
-    from datetime import date as _date
     contact = db.query(Contact).filter(Contact.id == contact_id, Contact.deleted_at.is_(None)).first()
     if not contact:
         raise HTTPException(status_code=404, detail="Not found")
     due = None
     if data.due_date:
-        try: due = _date.fromisoformat(data.due_date)
-        except: pass
+        # #19: raise 422 on invalid due_date instead of silently ignoring it
+        try:
+            due = _date_type.fromisoformat(data.due_date)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=422, detail="Invalid due_date format. Use YYYY-MM-DD")
     t = ContactTask(contact_id=contact_id, title=data.title, due_date=due,
                     assigned_to_id=data.assigned_to_id, created_by_id=current_user.id)
     db.add(t)
@@ -356,9 +344,6 @@ def create_task(contact_id: int, data: TaskCreate, db: Session = Depends(get_db)
             "completed": t.completed, "assigned_to": t.assigned_to.name if t.assigned_to else None,
             "created_by": current_user.name, "created_at": t.created_at.isoformat()}
 
-
-class MergeRequest(BaseModel):
-    duplicate_id: int
 
 @router.get("/{master_id}/merge-preview/{dup_id}")
 def merge_preview(
@@ -394,8 +379,9 @@ def merge_contacts(
     if master_id == dup_id:
         raise HTTPException(status_code=400, detail="Cannot merge a contact with itself")
     from app.models.models import PipelineEntry, EmailLog, Order, ContactAttachment, ContactTask
-    master = db.query(Contact).filter(Contact.id == master_id, Contact.deleted_at.is_(None)).first()
-    dup    = db.query(Contact).filter(Contact.id == dup_id, Contact.deleted_at.is_(None)).first()
+    # #36: acquire row locks before merging to prevent concurrent merge corruption
+    master = db.query(Contact).filter(Contact.id == master_id, Contact.deleted_at.is_(None)).with_for_update().first()
+    dup    = db.query(Contact).filter(Contact.id == dup_id, Contact.deleted_at.is_(None)).with_for_update().first()
     if not master or not dup:
         raise HTTPException(status_code=404, detail="Contact not found")
 
@@ -409,7 +395,6 @@ def merge_contacts(
     db.query(ContactTask).filter(ContactTask.contact_id == dup_id).update({"contact_id": master_id})
 
     # Attachments: update DB rows first, then move files AFTER commit
-    UPLOAD_DIR = "/home/thierry/konomocha-crm/uploads"
     atts = db.query(ContactAttachment).filter(ContactAttachment.contact_id == dup_id).all()
     att_names = [att.stored_name for att in atts]
     if atts:
@@ -442,14 +427,23 @@ def merge_contacts(
     return {"ok": True, "master": contact_to_dict(master)}
 
 @router.put("/{contact_id}/tasks/{task_id}")
-def update_task(contact_id: int, task_id: int, data: dict, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def update_task(contact_id: int, task_id: int, data: TaskUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     from app.models.models import ContactTask
-    from datetime import datetime as _dt
+    from datetime import date as _date
     t = db.query(ContactTask).filter(ContactTask.id == task_id, ContactTask.contact_id == contact_id).first()
     if not t:
         raise HTTPException(status_code=404, detail="Not found")
-    if "completed" in data:
-        t.completed = data["completed"]
-        t.completed_at = _dt.utcnow() if data["completed"] else None
+    if current_user.role != "admin" and t.assigned_to_id != current_user.id and t.created_by_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this task")
+    if data.completed is not None:
+        t.completed = data.completed
+        t.completed_at = datetime.now(timezone.utc) if data.completed else None
+    if data.title is not None:
+        t.title = data.title
+    if data.due_date is not None:
+        try:
+            t.due_date = _date.fromisoformat(data.due_date)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Invalid due_date format. Use YYYY-MM-DD")
     db.commit()
     return {"ok": True}

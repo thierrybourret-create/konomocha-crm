@@ -1,3 +1,5 @@
+import os
+import secrets as _secrets
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional
@@ -39,19 +41,8 @@ def list_emails(
     emails = q.order_by(EmailLog.sent_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
     return {"total": total, "results": [email_to_dict(e) for e in emails]}
 
-from typing import Optional as _Opt
-from pydantic import BaseModel as _BM
 from datetime import datetime as _dt
-
-class EmailCreate(_BM):
-    direction: str
-    from_address: _Opt[str] = None
-    to_address:   _Opt[str] = None
-    subject:      _Opt[str] = None
-    body_snippet: _Opt[str] = None
-    sent_at:      _Opt[str] = None
-    raw_message_id: _Opt[str] = None
-    bcc_address:    _Opt[str] = None
+from app.schemas.emails import EmailCreate
 
 @router.post("")
 def log_email(data: EmailCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -60,7 +51,8 @@ def log_email(data: EmailCreate, db: Session = Depends(get_db), current_user: Us
     match_addr = data.from_address if data.direction == "inbound" else data.to_address
     contact = None
     if match_addr:
-        contact = db.query(Contact).filter(Contact.email == match_addr).first()
+        # #42: lock the row to serialise concurrent inbound emails from the same address
+        contact = db.query(Contact).filter(Contact.email == match_addr).with_for_update().first()
         if not contact:
             # Auto-create incomplete contact — will appear in quality report
             raw = match_addr.split("@")[0].replace(".", " ").replace("_", " ").title()
@@ -89,7 +81,9 @@ def log_email(data: EmailCreate, db: Session = Depends(get_db), current_user: Us
     return {**email_to_dict(log), "contact_created": contact is not None and contact.source == "email_auto"}
 
 
-INBOUND_TOKEN = 'e7038dae70931811874e2f8c5335b3717c99ce205f7796e29e4ed3113aea3bc8'
+_INBOUND_TOKEN = os.getenv("INBOUND_TOKEN")
+if not _INBOUND_TOKEN:
+    raise RuntimeError("INBOUND_TOKEN environment variable is required")
 
 from fastapi import Request as _Request
 
@@ -97,7 +91,7 @@ from fastapi import Request as _Request
 async def receive_inbound_email(request: _Request, db: Session = Depends(get_db)):
     """Called by the Postfix pipe script when a BCC email arrives."""
     token = request.headers.get('X-Inbound-Token', '')
-    if token != INBOUND_TOKEN:
+    if not _secrets.compare_digest(token, _INBOUND_TOKEN):
         raise HTTPException(status_code=403, detail="Forbidden")
 
     try:

@@ -4,24 +4,9 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.models import User, UserRole, CRMRole
 from app.auth import require_admin, hash_password
-from pydantic import BaseModel
-from typing import Optional
+from app.schemas.users import UserCreate, UserUpdate
 
 router = APIRouter(prefix="/api/users", tags=["users"])
-
-class UserCreate(BaseModel):
-    name: str
-    email: str
-    password: str
-    role: UserRole = UserRole.agent
-    role_id: Optional[int] = None
-
-class UserUpdate(BaseModel):
-    name: Optional[str] = None
-    email: Optional[str] = None
-    password: Optional[str] = None
-    role: Optional[UserRole] = None
-    role_id: Optional[int] = None
 
 def user_to_dict(u: User):
     crm = None
@@ -67,5 +52,7 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User 
         raise HTTPException(status_code=400, detail="Cannot delete your own account")
     u = db.query(User).filter(User.id == user_id).first()
     if not u: raise HTTPException(status_code=404, detail="User not found")
-    db.delete(u); db.commit()
+    # Soft-delete: preserve FK references (pipeline, orders, emails all reference user.id)
+    u.is_active = False
+    db.commit()
     return {"ok": True}

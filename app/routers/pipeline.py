@@ -1,4 +1,4 @@
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, contains_eager
 from sqlalchemy import or_, func
@@ -9,25 +9,17 @@ from app.models.models import PipelineEntry, Contact, Brand, User, PipelineNote
 from app.auth import get_current_user
 from app.constants import PIPELINE_PROBABILITIES, COMMISSION_LAG_DAYS
 from app.audit import log_audit, diff_and_log, log_created_pipeline, fmt_num, PIPELINE_TRACKED
-from pydantic import BaseModel
+from app.schemas.pipeline import PipelineCreate, PipelineNoteCreate, PipelineNoteUpdate
+from app.permissions import has_scope_all
+from app.utils import get_db_probabilities
 
 router = APIRouter(prefix="/api/pipeline", tags=["pipeline"])
 
 
-class PipelineCreate(BaseModel):
-    contact_id: int
-    brand_id: int
-    status: str
-    potential_value: Decimal
-    next_action: Optional[str] = None
-    fob_date: Optional[date] = None
-    owner_id: int
-    notes: Optional[str] = None
-    close_reason: Optional[str] = None
-
-
-def entry_to_dict(e: PipelineEntry, db: Session):
-    prob = get_db_probabilities(db).get(e.status, 0)
+def entry_to_dict(e: PipelineEntry, db: Session = None, prob_map: dict = None):
+    if prob_map is None:
+        prob_map = get_db_probabilities(db) if db else {}
+    prob = prob_map.get(e.status, 0)
     pv = float(e.potential_value) if e.potential_value else 0.0
     fob = e.fob_date.isoformat() if e.fob_date else None
     comm_exp = (e.fob_date + timedelta(days=COMMISSION_LAG_DAYS)).isoformat() if e.fob_date else None
@@ -53,18 +45,6 @@ def entry_to_dict(e: PipelineEntry, db: Session):
         "updated_at": e.updated_at.isoformat() if e.updated_at else None,
         "last_activity_at": e.last_activity_at.isoformat() if e.last_activity_at else None,
     }
-
-
-
-
-def get_db_probabilities(db):
-    """Load pipeline probabilities from DB, fall back to constants."""
-    from app.models.models import AppStage
-    stages = db.query(AppStage).filter(AppStage.stage_type == 'pipeline').all()
-    if stages:
-        return {s.name: (s.probability or 0) for s in stages}
-    from app.constants import PIPELINE_PROBABILITIES
-    return PIPELINE_PROBABILITIES
 
 @router.get("/stages")
 def get_pipeline_stages(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
@@ -129,13 +109,8 @@ def list_pipeline(
         q = q.filter(PipelineEntry.status == status)
     if brand_id:
         q = q.filter(PipelineEntry.brand_id == brand_id)
-    if str(current_user.role) != 'admin':
-        _p = None
-        if current_user.crm_role and current_user.crm_role.permissions:
-            try: import json as _j; _p = _j.loads(current_user.crm_role.permissions)
-            except: pass
-        if (_p or {}).get('pages', {}).get('pipeline') == 'own':
-            q = q.filter(PipelineEntry.owner_id == current_user.id)
+    if not has_scope_all(current_user, "pipeline"):
+        q = q.filter(PipelineEntry.owner_id == current_user.id)
     elif owner_id:
         q = q.filter(PipelineEntry.owner_id == owner_id)
     if contact_id:
@@ -153,14 +128,16 @@ def list_pipeline(
     q = q.order_by(sort_col.desc() if sort_dir == "desc" else sort_col)
 
     total = q.count()
-    total_value = db.query(func.sum(PipelineEntry.potential_value)).filter(PipelineEntry.deleted_at.is_(None)).scalar() or 0
+    # #17: apply same filters as q; #25: load prob_map once for all rows
+    total_value = q.with_entities(func.sum(PipelineEntry.potential_value)).scalar() or 0
+    prob_map = get_db_probabilities(db)
     entries = q.offset((page - 1) * per_page).limit(per_page).all()
     return {
         "total": total,
         "total_value": float(total_value),
         "page": page,
         "per_page": per_page,
-        "results": [entry_to_dict(e, db) for e in entries],
+        "results": [entry_to_dict(e, prob_map=prob_map) for e in entries],
     }
 
 
@@ -188,10 +165,20 @@ def get_entry(entry_id: int, db: Session = Depends(get_db), current_user: User =
 def create_entry(data: PipelineCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if current_user.role == "agent" and data.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Agents can only create entries assigned to themselves")
-    e = PipelineEntry(**data.dict())
     probs = get_db_probabilities(db)
+    # #41: reject unknown pipeline statuses
+    if probs and data.status not in probs:
+        raise HTTPException(status_code=422, detail=f"Unknown pipeline status: '{data.status}'")
+    # #37: require close_reason when creating a zero-probability (closed) status entry
+    if probs.get(data.status, 1) == 0 and not (data.close_reason or "").strip():
+        raise HTTPException(status_code=422, detail="close_reason is required for closed/lost statuses")
+    # #39: validate owner_id refers to an existing active user
+    if data.owner_id is not None:
+        if not db.query(User).filter(User.id == data.owner_id, User.is_active == True).first():
+            raise HTTPException(status_code=422, detail="owner_id does not refer to an active user")
+    e = PipelineEntry(**data.dict())
     if probs.get(data.status, 1) == 0 and e.closed_at is None:
-        e.closed_at = datetime.utcnow()
+        e.closed_at = datetime.now(timezone.utc)
     if e.close_reason:
         e.close_reason = e.close_reason.strip() or None
     db.add(e)
@@ -217,15 +204,24 @@ def update_entry(entry_id: int, data: PipelineCreate, db: Session = Depends(get_
     _snap = {f: getattr(e, f, None) for f in PIPELINE_TRACKED}
     _cname = e.contact.name if e.contact else None
     _bname = e.brand.name   if e.brand   else None
+    # #41: reject unknown pipeline statuses on update
+    if "status" in update_data:
+        probs_check = get_db_probabilities(db)
+        if probs_check and update_data["status"] not in probs_check:
+            raise HTTPException(status_code=422, detail=f"Unknown pipeline status: '{update_data['status']}'")
+    # #39: validate owner_id on update
+    if "owner_id" in update_data and update_data["owner_id"] is not None:
+        if not db.query(User).filter(User.id == update_data["owner_id"], User.is_active == True).first():
+            raise HTTPException(status_code=422, detail="owner_id does not refer to an active user")
     for k, v in update_data.items():
         setattr(e, k, v)
     probs = get_db_probabilities(db)
     if probs.get(new_status, 1) == 0 and probs.get(old_status, 1) != 0:
         if e.closed_at is None:
-            e.closed_at = datetime.utcnow()
+            e.closed_at = datetime.now(timezone.utc)
     if close_reason is not None:
         e.close_reason = close_reason.strip() or None
-    e.last_activity_at = datetime.utcnow()  # set before commit so it saves in one write
+    e.last_activity_at = datetime.now(timezone.utc)  # set before commit so it saves in one write
     db.commit()
     db.refresh(e)
     # build new_data including close_reason for diff
@@ -251,20 +247,12 @@ def delete_entry(entry_id: int, db: Session = Depends(get_db), current_user: Use
         raise HTTPException(status_code=404, detail="Entry not found")
     _cname = e.contact.name if e.contact else None
     _bname = e.brand.name   if e.brand   else None
-    e.deleted_at = datetime.utcnow()
+    e.deleted_at = datetime.now(timezone.utc)
     log_audit(db, entity_type='pipeline', entity_id=entry_id,
               contact_name=_cname, brand_name=_bname,
               action='deleted', user_id=current_user.id, user_name=current_user.name)
     db.commit()
     return {"ok": True}
-
-
-class PipelineNoteCreate(BaseModel):
-    body: str
-
-
-class PipelineNoteUpdate(BaseModel):
-    body: str
 
 
 @router.get("/{entry_id}/notes")
@@ -289,7 +277,7 @@ def add_pipeline_note(entry_id: int, data: PipelineNoteCreate, db: Session = Dep
         raise HTTPException(status_code=404, detail="Not found")
     note = PipelineNote(pipeline_id=entry_id, body=data.body, author_id=current_user.id)
     db.add(note)
-    e.last_activity_at = datetime.utcnow()
+    e.last_activity_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(note)
     return {"id": note.id, "body": note.body, "author_name": current_user.name,
@@ -326,6 +314,6 @@ def delete_pipeline_note(entry_id: int, note_id: int, db: Session = Depends(get_
         raise HTTPException(status_code=404, detail="Not found")
     if current_user.role != "admin" and note.author_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
-    note.deleted_at = datetime.utcnow()
+    note.deleted_at = datetime.now(timezone.utc)
     db.commit()
     return {"ok": True}

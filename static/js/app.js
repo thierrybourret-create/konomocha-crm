@@ -1215,7 +1215,7 @@ async function renderBoard() {
             if (sm.badge) badgeHtml = '<span style="font-size:10px;font-weight:600;color:#fff;background:' + sm.borderColor + ';border-radius:4px;padding:1px 5px;margin-left:4px;vertical-align:middle">' + sm.badge + '</span>';
           }
           return '<div onclick="openPipelineDetail(' + e.id + ')" style="background:var(--white);border:1px solid var(--line);' + borderStyle + 'border-radius:8px;padding:10px 12px;margin-bottom:6px;cursor:pointer">'
-            + '<div style="font-weight:600;color:var(--navy);font-size:13px;margin-bottom:2px">' + escHtml(e.contact_company||e.contact_name||'---') + badgeHtml + '</div>'
+            + '<div style="font-weight:600;color:var(--navy);font-size:13px;margin-bottom:2px">' + escHtml(e.contact_company||e.contact_name||'2014') + badgeHtml + '</div>'
             + '<div style="font-size:11px;color:var(--warm-grey);margin-bottom:4px">' + escHtml(e.brand_name||'') + (groupBy!=='status'?' &middot; <span class="pill ' + statusClass(e.status) + '" style="font-size:10px">' + escHtml(e.status) + '</span>':'') + '</div>'
             + '<div style="display:flex;justify-content:space-between;align-items:center">'
             + '<span style="font-size:12px;font-weight:600;color:var(--logo-blue-dark)">USD ' + fmtNum(e.potential_value||0) + '</span>'
